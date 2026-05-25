@@ -1,4 +1,4 @@
-# Feature Specification: Dormant — AOT-First, Schema-DSL ORM for .NET 10 (EdgeDB-inspired)
+# Feature Specification: Dormant — AOT-First, Schema-DSL ORM for .NET 10 (DormantQL DSL)
 
 **Feature Branch**: `001-orm-aot-sourcegen`
 
@@ -6,14 +6,14 @@
 
 **Status**: Draft
 
-**Input**: User description: "Construa um novo ORM .NET baseado na API e em um subconjunto das funcionalidades do NHibernate (...) com foco em AOT, source-gen, performance e baixo consumo de memória, tooling de migração/execução similar ao EF Core, e uma DSL própria de entidades inspirada no EdgeDB/Gel convertida em tipos parciais." Refined through discussion into an EdgeDB-inspired, schema-DSL-first ORM (not a database server): PostgreSQL is the primary provider (others derived later), the DSL is the primary surface for schema and queries (LINQ is not the primary query surface), all generated SQL is produced at build time, the object-graph "feel" comes from first-class links and single-round-trip nested fetches, and a core invariant holds throughout: **the result type of any query is fully known at build time; only values and predicates vary at runtime**.
+**Input**: User description: "Construa um novo ORM .NET baseado na API e em um subconjunto das funcionalidades do NHibernate (...) com foco em AOT, source-gen, performance e baixo consumo de memória, tooling de migração/execução similar ao EF Core, e uma DSL própria de entidades inspirada no EdgeDB/Gel convertida em tipos parciais." Refined through discussion into a schema-DSL-first ORM (not a database server) with its own schema/query language, **DormantQL** (`.dqls` schema files, `.dql` query files): PostgreSQL is the primary provider (others derived later), the DSL is the primary surface for schema and queries (LINQ is not the primary query surface), all generated SQL is produced at build time, the object-graph "feel" comes from first-class links and single-round-trip nested fetches, and a core invariant holds throughout: **the result type of any query is fully known at build time; only values and predicates vary at runtime**.
 
 ## Clarifications
 
 ### Session 2026-05-25
 
 - Q: Mapping/authoring surface for v1? → A: The schema DSL is the primary surface. No LINQ provider and no fluent/attribute mapping as the primary path in v1.
-- Q: Depth of the relationship feature set? → A: EdgeDB-style first-class links plus single-round-trip nested fetch. No implicit lazy loading and no inheritance-mapping strategies in v1.
+- Q: Depth of the relationship feature set? → A: First-class links plus single-round-trip nested fetch. No implicit lazy loading and no inheritance-mapping strategies in v1.
 - Q: Database providers in v1? → A: PostgreSQL is the primary (reference) provider; other relational providers are derived later and out of scope for v1.
 - Q: Dynamic queries? → A: Optional/conditional parameters are supported with the result type held statically fixed. Runtime-decided result shapes are out of scope for v1.
 - Q: Full entity vs projection? → A: Both are distinct, build-time-generated types. A projection is its own type, never a partially-populated entity. Accessing a field that was not fetched is a compile error.
@@ -22,7 +22,7 @@
 - Q: How do entities mutate and how does the session detect changes? → A: Generated entities are mutable; the session holds an identity map and a per-entity loaded snapshot, and detects changes by diffing current state against the snapshot at commit (no proxies, no per-property dirty flags). Column-level granularity comes from the snapshot diff.
 - Q: How is an unfetched link represented on a full entity? → A: Each link member is a generated typed wrapper (e.g. `Link<T>` / `LinkSet<T>`) encoding explicit loaded/unloaded state; the loaded value is reachable only after the unloaded case is handled, so unfetched data cannot be read as if present. Projections keep their own mechanism (the field is simply absent from the type).
 - Q: Is explicit on-demand loading of an unloaded link in scope for v1? → A: Yes. An unloaded link can be filled by an explicit session call that issues a query and transitions the wrapper to loaded. This is the only non-fetch-shape retrieval path; loading is never implicit.
-- Q: What is the v1 vs Phase 2 scope of the EdgeQL-like query/DML DSL? → A: v1 (Tier A) = shaped select (entity/projection), forward path navigation, single/multi-link nested fetch in one round-trip, filter, order by, limit/offset, required+optional parameters with coalesce, core predicates (=, comparisons, like/ilike, in, exists, ??), single-result narrowing, and basic insert/update/delete. Phase 2 (Tier B) = computed expressions, polymorphism, backlinks, link properties, set ops, aggregates, for-union, upsert, nested insert, +=/-=, group by, free objects. The `**` deep-splat is excluded permanently; a schema-resolved `*` single-splat is allowed.
+- Q: What is the v1 vs Phase 2 scope of the DormantQL query/DML surface? → A: v1 (Tier A) = shaped select (entity/projection), forward path navigation, single/multi-link nested fetch in one round-trip, filter, order by, limit/offset, required+optional parameters with coalesce, core predicates (=, comparisons, like/ilike, in, exists, ??), single-result narrowing, and basic insert/update/delete. Phase 2 (Tier B) = computed expressions, polymorphism, backlinks, link properties, set ops, aggregates, for-union, upsert, nested insert, +=/-=, group by, free objects. The `**` deep-splat is excluded permanently; a schema-resolved `*` single-splat is allowed.
 - Q: Does the DSL support dictionaries/maps and many-to-many relationships? → A: Many-to-many is a v1 capability via multi-valued links (bidirectional = a multi link per side; edge data = an explicit join entity; backlinks and `@prop` link properties are Phase 2 sugar). Dictionaries have no first-class type in v1 — model as a JSON property (opaque) or a key/value child entity (queryable); a first-class typed `map<K,V>` is deferred to Phase 2. v1 property value types are enumerated in FR-036.
 - Q: Should the DSL support database-native types and functions per provider (non-portable)? → A: Yes, by design. Native types (e.g. PostgreSQL `jsonb`) map to build-time-known .NET representations; native functions/operators are invoked via declared typed signatures **and** a raw typed SQL fragment escape (both keep the result type static). Native constructs are explicitly provider-scoped through a per-provider directive, and targeting an unsupported provider is a build-time located diagnostic (never silent). v1 ships the mechanism + built-in `jsonb` in the core PostgreSQL provider; GIS (PostGIS) rides the same mechanism as an optional companion package. AOT, no-boxing, and build-time-known-type guarantees are preserved (FR-038..FR-044).
 
@@ -364,7 +364,7 @@ companion package.
   and the next corrective step.
 - **FR-029**: Every public capability MUST ship with documentation and at least one runnable example.
 
-#### DSL query & DML language surface (EdgeQL-like)
+#### DSL query & DML language surface (DormantQL)
 
 - **FR-030**: The v1 query surface MUST support: shaped selection returning a full entity or a
   projection, forward path navigation over properties and links, single- and multi-link nested fetch
@@ -465,15 +465,15 @@ companion package.
 - **Provider Directive**: A per-provider marker that scopes native constructs and drives build-time
   portability diagnostics when an unsupported provider is targeted.
 
-## DSL Language Surface (EdgeQL-like)
+## DSL Language Surface (DormantQL)
 
 The DSL has two faces: the **schema** face (entities, properties, links — covered by FR-001..FR-005)
-and the **query/DML** face described here. It is inspired by EdgeQL/Gel in spirit but is its own
+and the **query/DML** face described here. Both faces are expressed in **DormantQL**, its own
 language compiled to PostgreSQL SQL at build time. The examples below are **illustrative of intended
 shape, not final syntax**. The governing invariant holds across every construct: the result type is
 fully known at build time; only values and predicates vary at runtime.
 
-A pervasive EdgeQL idea is adopted deliberately: **type and cardinality are static properties of every
+A core design idea is adopted deliberately: **type and cardinality are static properties of every
 query expression.** Absence is an empty result, single vs multi links are distinguished, and the
 generated .NET surface mirrors that (optional single vs collection). This is precisely what makes the
 build-time-known-result-type guarantee natural rather than bolted on.
@@ -620,9 +620,11 @@ same mechanism as an optional companion package.
 - Target runtime is .NET 10; earlier runtimes are out of scope.
 - The primary user is a .NET application developer integrating the library; there is no end-user UI
   for the ORM itself.
-- The DSL is inspired by the EdgeDB/Gel schema and query language in spirit (concise declarative
-  entities, first-class links, shape-based fetches) but is its own language targeting generated .NET
-  partial types and build-time SQL.
+- **DormantQL**, the schema/query language, is inspired in spirit by EdgeDB's EdgeQL (concise
+  declarative entities, first-class links, shape-based fetches) but is its own distinct language
+  targeting generated .NET partial types and build-time SQL. "EdgeDB", "EdgeQL", and "Gel" are
+  trademarks of their respective owner and are referenced here solely for descriptive comparison;
+  Dormant is not affiliated with or endorsed by them.
 - "Object-database feel" refers to ergonomics (objects, links, graph-shaped fetches), not to
   database-server enforcement semantics.
 - "Tooling similar to EF Core" refers to the developer command-line workflow scope (migrations,

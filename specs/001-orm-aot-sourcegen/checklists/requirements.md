@@ -1,4 +1,4 @@
-# Specification Quality Checklist: Dormant — AOT-First, Schema-DSL ORM for .NET 10 (EdgeDB-inspired)
+# Specification Quality Checklist: Dormant — AOT-First, Schema-DSL ORM for .NET 10 (DormantQL DSL)
 
 **Purpose**: Validate specification completeness and quality before proceeding to planning
 **Created**: 2026-05-24
@@ -35,7 +35,7 @@
 - All three original clarifications resolved through discussion and recorded in the spec's
   Clarifications section (authoring surface → DSL; relationship depth → first-class links + nested
   fetch, no implicit lazy/inheritance v1; providers → PostgreSQL primary).
-- Direction pivoted to EdgeDB-inspired, schema-DSL-first ORM. Core invariant: result type of any
+- Direction pivoted to a schema-DSL-first ORM (DormantQL). Core invariant: result type of any
   query is known at build time; only values/predicates vary at runtime (safe-by-default; projections
   are distinct types, never partial entities).
 - Two-phase plan recorded in Out of Scope: Phase 1 = schema + links + shapes/projections + optional
@@ -46,13 +46,13 @@
 - 2026-05-25 clarify pass (Clarifications + FR-009/FR-014 + entities): mutable entities with session
   snapshot diff; links on full entities carry explicit loaded/unloaded type-state
   (`Link<T>`/`LinkSet<T>`); explicit on-demand link load in v1 (no implicit lazy).
-- 2026-05-25 specify pass: EdgeQL-like query/DML surface detailed from the Gel docs and scoped into
+- 2026-05-25 specify pass: DormantQL query/DML surface detailed and scoped into
   Tier A (v1) vs Tier B (Phase 2) — see new "DSL Language Surface" section, FR-030..FR-035, SC-011,
   and expanded Out of Scope. `**` deep-splat permanently excluded (no build-time-known result type).
-- 2026-05-25 type-system + relationships (verified vs Gel docs): added FR-036 (v1 property value
+- 2026-05-25 type-system + relationships (verified vs the reference docs): added FR-036 (v1 property value
   types; first-class `map<K,V>` deferred to Phase 2) and FR-037 (many-to-many via multi links in v1;
   join entity for edge data; backlinks/`@prop` are Phase 2). Dictionaries in v1 = JSON property or
-  key/value child entity. Gel confirmed to have no native map type.
+  key/value child entity. The reference language has no native map type.
 - 2026-05-25 native types & functions pass: added US8 + FR-038..FR-044 + SC-012..SC-014 + Key Entities
   (Native Type Binding, Native Function/Operator, Provider Directive) + DSL surface subsection.
   Per-provider native types/functions are a deliberate, non-portable departure: typed function catalog

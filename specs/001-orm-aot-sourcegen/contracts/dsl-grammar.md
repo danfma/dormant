@@ -1,8 +1,8 @@
-# Contract: DSL language (schema + query/DML)
+# Contract: DormantQL language (schema + query/DML)
 
 The DSL is a compatibility surface (Constitution II): grammar/semantics MUST NOT change incompatibly
 within a MAJOR version. This is a **v1 scope sketch**, not the final grammar; it fixes *what constructs
-exist*, mapping to the spec's Tier A (v1) / Tier B (Phase 2) split. Authored in DSL files consumed by the
+exist*, mapping to the spec's Tier A (v1) / Tier B (Phase 2) split. Authored in DormantQL files (`.dqls` schema, `.dql` query) consumed by the
 generator as `AdditionalFiles`.
 
 ## Schema (v1)

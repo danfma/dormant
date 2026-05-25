@@ -6,7 +6,7 @@
 
 ## Summary
 
-Dormant is a managed, AOT-first .NET 10 ORM whose primary surface is an EdgeQL-inspired schema/query DSL.
+Dormant is a managed, AOT-first .NET 10 ORM whose primary surface is DormantQL, its own schema/query DSL.
 A Roslyn **incremental source generator** compiles the DSL (from `AdditionalFiles`) into partial entity
 types, distinct projection types, change-tracking snapshots, and typed query methods carrying **build-time
 SQL** — so every query's result type is known at compile time and only values/predicates vary at runtime.

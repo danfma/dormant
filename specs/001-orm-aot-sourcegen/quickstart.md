@@ -12,7 +12,7 @@ dotnet tool install -g Dormant.Tool
 
 ## 2. Describe the schema in the DSL (≈3 min)
 
-`schema/app.dpln`:
+`schema/app.dqls`:
 
 ```
 module app;
@@ -46,7 +46,7 @@ public partial class User { public bool IsRecent() => created_at > DateTime.UtcN
 
 ## 3. Author a query in the DSL (≈2 min)
 
-`queries/users.dquery`:
+`queries/users.dql`:
 
 ```
 query RecentPostTitles(authorId: uuid, limit: optional int64) =

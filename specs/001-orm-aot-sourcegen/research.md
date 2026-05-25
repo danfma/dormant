@@ -107,9 +107,9 @@ rejected (AOT-incompatible, warm-up, boxing). `ISourceGenerator` (v1) — reject
 
 ## 6. Query authoring medium & optional parameters
 
-**Decision**: Queries are authored in **DSL query files** (EdgeQL-like, alongside schema files) and compiled
+**Decision**: Queries are authored in **DormantQL query files** (`.dql`, alongside `.dqls` schema files) and compiled
 by the generator into **typed methods** returning the generated entity/projection type plus the prebuilt
-SQL — mirroring EdgeDB's `.edgeql`→generated-function model. **Optional parameters** (FR-012/FR-031) are
+SQL — a query-file→generated-function model (one typed method + prebuilt SQL per query). **Optional parameters** (FR-012/FR-031) are
 realized by emitting prebuilt SQL **fragments** whose inclusion is toggled at runtime by a tiny clause
 assembler (string concatenation of pre-generated, parameterized fragments). This is fragment selection,
 **not** query compilation, so FR-013 holds; the result type is fixed regardless of the chosen fragments.

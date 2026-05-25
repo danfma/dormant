@@ -1,34 +1,30 @@
 <!--
 SYNC IMPACT REPORT
 ==================
-Version change: 1.0.0 → 2.0.0
-Rationale: MAJOR. Principle II was redefined from a native binary ABI to a managed-interface +
-generated-code + DSL compatibility contract, after the project was confirmed to be a managed .NET 10
-ORM built on source generators and a schema/query DSL (PostgreSQL-primary, EdgeDB-inspired). A new
-principle (III) was added for statically-known, safe-by-default data access. Principle redefinition
-is backward-incompatible, hence MAJOR.
+Version change: 2.0.0 → 2.0.1
+Rationale: PATCH. Wording/metadata only. The lone inspirational reference to a third-party query
+language in this report's rationale is reworded to a trademark-safe form; the project's own
+schema/query language is named "DormantQL". No principle, normative rule, or governance semantics
+changed. (Supersedes the 2.0.0 report; full history is in version control.)
 
-Modified principles:
+Modified principles: None (wording only)
+Added principles: None
+Removed sections: None
+
+Prior change recorded for context — 2.0.0 (MAJOR):
   - II. ABI Stability & Compatibility → II. Interface & Compatibility Stability (redefined for a
     managed library: public API + assembly/package compatibility + generated-code contract + DSL
     language stability)
-Added principles:
-  - III. Statically-Known, Safe-by-Default Data Access (NEW)
-Renumbered:
-  - III. First-Class Tooling → IV
-  - IV. Performance by Default → V
-  - V. Quality & Testing Discipline → VI
-
-Added/updated sections:
-  - Compatibility & Performance Standards (SemVer scope reframed to API/package/generated-code/DSL;
-    PostgreSQL recorded as primary reference provider; build-time SQL generation recorded)
-
-Removed sections: None
+  - Added III. Statically-Known, Safe-by-Default Data Access; renumbered former III→IV, IV→V, V→VI
+  - Compatibility & Performance Standards reframed (SemVer over API/package/generated-code/DSL;
+    PostgreSQL primary reference provider; build-time SQL generation). The project is a managed
+    .NET 10 ORM built on source generators and its own schema/query DSL (DormantQL), PostgreSQL-primary.
 
 Templates requiring updates:
   - .specify/templates/plan-template.md ✅ (Constitution Check gate is generic; no change needed)
   - .specify/templates/spec-template.md ✅ (no constitution-specific coupling)
   - .specify/templates/tasks-template.md ✅ (sample tasks remain generic)
+  - Feature artifacts under specs/001-orm-aot-sourcegen/ ✅ (already use the DormantQL naming)
 
 Deferred TODOs: None
 -->
@@ -179,4 +175,4 @@ the mechanism that makes the constitution real.
 - Compliance is verified at review time: pull requests MUST confirm they uphold the principles, and
   violations MUST be either fixed or recorded in the change's complexity justification.
 
-**Version**: 2.0.0 | **Ratified**: 2026-05-24 | **Last Amended**: 2026-05-25
+**Version**: 2.0.1 | **Ratified**: 2026-05-24 | **Last Amended**: 2026-05-25
