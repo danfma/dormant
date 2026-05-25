@@ -34,7 +34,9 @@ nullability of the type arg (orthogonal to load-state): required `owner: User` �
 collections take no element `?` (`Set<User>` → `RefSet<User>`). Properties + single
 refs are required by default (`?` optional → C# `required`); collections default to the
 Unloaded sentinel (`= RefSet<T>.Unloaded`), NEVER `= []`. Non-nullable members emit
-C# `required`; materialize via a ctor invoked through [UnsafeAccessor]. Entities get
+C# `required`; materialize via a generated [SetsRequiredMembers] ctor on the entity
+partial (ordinary setters; public parameterless ctor kept for required-init) — NOT
+UnsafeAccessor/backing-field (fragile). Reads via public getters. Entities get
 PK identity Equals/GetHashCode by default (opt out `[NoIdentityEquality]`).
 Projections may target user-owned plain records (no Dormant types) — the Clean-Arch
 boundary. (The committed kernel/generator predate the Ref rename + collections +

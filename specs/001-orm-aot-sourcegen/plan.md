@@ -54,7 +54,8 @@ budgets. Docker daemon required. Tests run via direct MTP hosts (`./build.sh tes
 **Constraints**: zero library-originated trimming/AOT warnings (SC-001); no runtime reflection or query
 compilation on hot paths (FR-013/FR-017); build-time SQL; `ValueTask`-first; deterministic generation
 (FR-004). Generator reads `RootNamespace`/`ProjectDir` from `AnalyzerConfigOptions` (FR-046); `required`
-members materialized via a ctor invoked through `[UnsafeAccessor]` (FR-048); relationships default to the
+members materialized via a generated `[SetsRequiredMembers]` ctor on the entity partial (ordinary setters,
+no `[UnsafeAccessor]`/backing-field — FR-048); relationships default to the
 Unloaded sentinel (FR-009/FR-047); PK identity equality generated (FR-051); projections may target
 user-owned records (FR-050).
 
@@ -71,7 +72,7 @@ optional params + basic query/DML + migrations CLI + AOT + JSONB native + GIS co
 | II. Interface & Compatibility Stability | Four contracts (public API + PublicApiAnalyzers, generated code + Verify, DSL grammar, package/SemVer); additive within MAJOR. Ref rename is pre-1.0. | PASS |
 | III. Statically-Known, Safe-by-Default | Build-time-known result types; distinct projections; `Ref`/`RefSet`… load-state with Unloaded≠empty (FR-009/049); no implicit lazy. | PASS |
 | IV. First-Class Tooling | CLI migrations, DSL diagnostics analyzer, compatibility verification, single CI entry point. | PASS |
-| V. Performance by Default | Npgsql slim, no boxing, `[UnsafeAccessor]` (incl. required materialization + equality), build-time SQL, ValueTask-first, AOT smoke + benchmarks. | PASS |
+| V. Performance by Default | Npgsql slim, no boxing, no reflection (generated `[SetsRequiredMembers]` materialization + setters/getters), build-time SQL, ValueTask-first, AOT smoke + benchmarks. | PASS |
 | VI. Quality & Testing (NON-NEGOTIABLE) | TUnit generator + real-provider integration + AOT smoke + budgets + baselines, CI-gated; repro-test-before-fix. | PASS |
 
 **Result: no violations.** Complexity Tracking empty. Package split = justified one-directional separation; abstractions minimal (Principle I).

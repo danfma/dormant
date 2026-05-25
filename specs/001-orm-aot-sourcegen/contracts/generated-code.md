@@ -14,8 +14,9 @@ Per schema entity `E` (in namespace `PascalCaseEachPart(rootNamespace + folders 
   Hand-written `partial` members coexist and survive regeneration (FR-003).
 - `Equals`/`GetHashCode` by primary key (transient → reference equality), unless `[NoIdentityEquality]`
   (FR-051).
-- Internal `static` `[UnsafeAccessor]` field accessors for `E`'s mapped members + a constructor invoked
-  through `[UnsafeAccessor]` to materialize past `required` (FR-048); no reflection (research §5/§10).
+- A `[SetsRequiredMembers] internal E(IFieldReader reader)` materialization constructor on the partial
+  (assigns ordinary property setters past `required`; the public parameterless ctor is retained for
+  consumer `required`-init); reads use public getters — no reflection, no `[UnsafeAccessor]` (FR-048, research §10).
 - A `readonly record struct E_Snapshot` + a diff comparer (changed-column detection, FR-014).
 - A `RowMaterializer<E>` using `GetFieldValue<T>` per column, ordinals fixed at build time (no boxing).
 

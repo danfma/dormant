@@ -83,3 +83,7 @@
   rename `Link<T>`/`LinkSet<T>` → `Ref<T>` + add RefSet/RefList/RefBag/RefMap in Dormant.Abstractions, update
   generator emit (collection kinds, Unloaded initializers, PK equality), adapter/sample/tests. Apply in the
   next /speckit-implement pass before continuing US2.
+- 2026-05-25 materialization revision: FR-048 reworked — drop fragile `[UnsafeAccessor]`-to-backing-field
+  materialization in favor of a generated `[SetsRequiredMembers]` ctor on the entity partial (ordinary
+  setters) + public getters for reads. Spec/research/contracts/plan/CLAUDE updated. DRIFT (code): the
+  committed `EntityBindingEmitter` still uses UnsafeAccessor — T107 applies the switch next /speckit-implement.

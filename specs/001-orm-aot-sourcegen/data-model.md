@@ -75,7 +75,7 @@ The parsed, validated schema. Equatable aggregate root of generation.
   must declare a return type (else build error); arguments must match signature.
 
 ### Emission descriptors
-`EntityEmit`, `SnapshotEmit` (snapshot struct + `[UnsafeAccessor]` field accessors + diff comparer),
+`EntityEmit` (incl. `[SetsRequiredMembers]` materialization ctor), `SnapshotEmit` (snapshot struct + diff comparer; reads via public getters),
 `QueryEmit` (typed method + SQL), `JsonContextEmit` (STJ `JsonSerializerContext`), `NativeEmit`.
 
 ---

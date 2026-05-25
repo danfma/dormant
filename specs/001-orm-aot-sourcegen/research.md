@@ -86,9 +86,9 @@ geometry type with no NTS — kept as a fallback if NTS warnings cannot be elimi
   (`record`/`readonly record struct` + a custom `EquatableArray<T>`).
 - Emit via `RegisterSourceOutput`: partial entity types, per-entity **snapshot + diff comparer**, typed
   query methods + **prebuilt SQL**, native bindings, and STJ json contexts.
-- Generated member access uses **`[UnsafeAccessor]`** (`Field`/`Constructor` kinds) — no reflection, no
-  trimming attributes needed; reserve `[UnsafeAccessorType]` (.NET 10) for inaccessible-type method/ctor
-  calls only (not fields).
+- Generated materialization uses a `[SetsRequiredMembers]` constructor on the entity partial (ordinary
+  property setters) and public getters for reads — no reflection, no `[UnsafeAccessor]`, no
+  compiler-internal backing-field names (see §10).
 - **Determinism**: sort everything by `StringComparer.Ordinal`, format literals with
   `CultureInfo.InvariantCulture`, deterministic hint names, normalized newlines, no time/guid/random/paths
   (satisfies FR-004, SC-009’s determinism sibling).
@@ -175,7 +175,7 @@ convention — required for the guarantees to be credible.
 ## 9. Change tracking & materialization
 
 **Decision**: Generated entities are mutable classes. On load, the session captures a **per-entity snapshot**
-(generated `readonly record struct` of the mapped columns) read via `[UnsafeAccessor]` fields; commit diffs
+(generated `readonly record struct` of the mapped columns) read via public property getters; commit diffs
 current vs snapshot with a generated comparer and writes only changed columns (FR-014). Links are generated
 `Link<T>`/`LinkSet<T>` wrappers encoding loaded/unloaded state (FR-009); on-demand load transitions the
 wrapper via an explicit session call.
@@ -201,18 +201,23 @@ reflection/boxing.
 - **Member syntax (FR-047)**: parser disambiguates `name: T` by checking the type token against the
   scalar `TypeMap` — a known scalar ⇒ property, otherwise ⇒ single link (validated against the entity
   set); `multi T` ⇒ multi link; trailing `?` ⇒ optional. No arrow, no `single` keyword.
-- **`required` members (FR-048)**: emit `public required T Name { get; set; }` for non-nullable members.
-  Materialization must bypass required-init enforcement; chosen path is a generated private constructor
-  annotated `[SetsRequiredMembers]` invoked through `[UnsafeAccessor(UnsafeAccessorKind.Constructor)]`
-  (no reflection, AOT-safe), with `[UnsafeAccessor]` field writes for population.
+- **`required` members + materialization (FR-048)**: emit `public required T Name { get; set; }` for
+  non-nullable members. Materialize via a generated **`[SetsRequiredMembers] internal {Entity}(IFieldReader
+  reader)` constructor on the entity partial** that assigns ordinary property setters; keep the public
+  parameterless constructor so consumers still get `required`-init enforcement. Reads (INSERT params,
+  snapshots) use public getters. No reflection, no `[UnsafeAccessor]`, no compiler-internal backing-field
+  names.
 
 **Rationale**: Namespaces read naturally to .NET developers while the DB schema stays named after the
-module; `required` gives safe-by-default construction without sacrificing no-reflection materialization.
+module; `required` gives safe-by-default construction; the materialization constructor is idiomatic C#
+(`[SetsRequiredMembers]` is exactly for this) and avoids the fragile, undocumented `<Prop>k__BackingField`
+naming that `[UnsafeAccessor]` field access relied on.
 
-**Alternatives**: bare-module namespace (poor .NET DX — rejected); `RuntimeHelpers.GetUninitializedObject`
-for materialization (works but skips field init ordering and is heavier than a `[SetsRequiredMembers]`
-ctor — kept as fallback); `single` keyword for required links (inconsistent with property optionality —
-rejected, see Clarifications).
+**Alternatives**: bare-module namespace (poor .NET DX — rejected); **`[UnsafeAccessor]` to auto-property
+backing fields** (rejected — relies on undocumented compiler field naming, fragile, and unnecessary for
+mutable entities); GetX/SetX accessor pairs (rejected — pollutes the entity API);
+`RuntimeHelpers.GetUninitializedObject` (skips initializers — rejected); `single` keyword for required
+links (inconsistent with property optionality — rejected, see Clarifications).
 
 ---
 
@@ -253,7 +258,7 @@ rejected); equality opt-in only (less useful default — rejected, opt-out chose
 | Npgsql AOT path | Slim builder + `NpgsqlParameter<T>` + `GetFieldValue<T>` + positional params |
 | jsonb AOT mapping | STJ source-generated context; bind as string/bytes; `EnableJsonTypes()` only |
 | PostGIS zero-warning | Companion package, EWKB codec, NTS isolated (warning contained out of core) |
-| Generator design | `IIncrementalGenerator` from `AdditionalTextsProvider`, equatable models, `[UnsafeAccessor]` |
+| Generator design | `IIncrementalGenerator` from `AdditionalTextsProvider`, equatable models, `[SetsRequiredMembers]` materialization ctor |
 | Query medium | DSL query files → typed methods + prebuilt SQL; optional params = fragment toggling |
 | Async shape | ValueTask-first (disciplined) + IAsyncEnumerable; Task only where shared/cached |
 | Testing/CI | Verify + cacheability + Testcontainers + AOT smoke + BenchmarkDotNet + PublicApiAnalyzers |

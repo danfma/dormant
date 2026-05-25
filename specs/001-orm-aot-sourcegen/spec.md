@@ -29,7 +29,8 @@
 - Q: What does a DormantQL module map to in the database? → A: A module maps to a database schema. Generated tables and all SQL/DDL are qualified by the module's schema (the module name is the DB schema name), and migration tooling creates the schema as needed (FR-045).
 - Q: What namespace do generated .NET types use? → A: NOT the bare module name. The namespace is `PascalCaseEachPart(root namespace + relative folder segments of the schema file + module name)`. Example: `schema/app.dqls` in project `Dormant.Sample.Quickstart` → `Dormant.Sample.Quickstart.Schema.App` (FR-046). This reads naturally to a .NET developer.
 - Q: What is the member declaration syntax? → A: `name: TypeExpr[?]` (Kotlin/TypeScript-like); the `-> ` arrow and `single`/`multi` forms are removed. A value type ⇒ property; otherwise ⇒ relationship. Single ref: `author: User` (required) / `author: User?` (optional). Collections (NHibernate kinds): `posts: Set<Post>`, `items: List<Item>`, `tags: Bag<Tag>`, `roles: Map<Role, Membership>`. Properties and single refs are required by default (`?` = optional); collections are optional by default (Unloaded sentinel) (FR-047/FR-049).
-- Q: How are non-nullable generated members expressed in C#? → A: With the C# `required` modifier (not a `= default!` initializer). Nullable members are optional. The materializer populates required members through an accessor path that bypasses object-initializer enforcement (FR-048).
+- Q: How are non-nullable generated members expressed in C#? → A: With the C# `required` modifier (not a `= default!` initializer). Nullable members are optional. The materializer populates required members via a generated `[SetsRequiredMembers]` constructor on the entity partial using ordinary property setters (FR-048).
+- Q: How is an entity materialized from a row without breaking safe-by-default? → A: NOT via `[UnsafeAccessor]` to auto-property backing fields (that relies on undocumented `<Prop>k__BackingField` naming and is fragile). Instead the generator emits a `[SetsRequiredMembers] internal {Entity}(IFieldReader reader)` constructor on the entity partial that assigns ordinary property setters; the public parameterless constructor is retained so consumers still get `required`-init enforcement. Reads (INSERT params, snapshots) use public getters. No reflection and no compiler-internal field names (FR-048).
 - Q: How should code be named/organized regarding the "Ports & Adapters" pattern? → A: Keep only the discipline (dependencies always point one direction inward: abstractions ← engine ← adapters), but avoid non-semantic architectural names. The `Ports` namespace is removed; its interfaces are grouped by capability (Providers, Mapping, Migrations, Native). Folder/namespace names MUST be semantic (describe what the code is), not pattern labels; "Ports & Adapters" wording is dropped from the codebase and docs.
 - Q: How are relationships named and typed (the `Link` types)? → A: Rename `Link` → `Ref` and adopt NHibernate collection vocabulary. Single: `owner: User` → `Ref<User>`. Collections (DSL keyword → C# type): `Set<T>`→`RefSet<T>` (unordered, unique), `List<T>`→`RefList<T>` (ordered), `Bag<T>`→`RefBag<T>` (unordered, duplicates), `Map<K,V>`→`RefMap<K,V>` (keyed). All five ship in v1.
 - Q: How do relationship members default (avoid forcing the user to set them)? → A: Relationship members default to an **Unloaded** sentinel via an initializer (e.g. `= Ref<User>.Unloaded`, `= RefSet<User>.Unloaded`), so the user is not forced to assign them on construction; they are NOT `= []` (that would erase the unloaded-vs-empty distinction). A relationship is only emitted as C# `required` when the schema marks it mandatory (e.g. a bare single ref); optional relationships carry the Unloaded initializer and omit `required`. Non-nullable value properties remain `required` (FR-048).
@@ -472,9 +473,12 @@ companion package.
   `required` modifier (not a `= default!` initializer). Optional members and relationship collections
   MUST instead be emitted with an Unloaded-sentinel initializer (e.g. `= Ref<T>.Unloaded`,
   `= RefSet<T>.Unloaded`) so the consumer is not forced to set them and the unloaded state is the
-  default — never `= []`. Materialization MUST populate required members without tripping
-  required-initialization enforcement (e.g. via a constructor invoked through `[UnsafeAccessor]`),
-  preserving the no-reflection guarantee (FR-017).
+  default — never `= []`. Materialization MUST populate members through a generated
+  `[SetsRequiredMembers]` constructor on the entity partial that assigns ordinary property setters (no
+  reflection, no `[UnsafeAccessor]`/backing-field access); the public parameterless constructor is
+  retained so consumers still get `required`-init enforcement. Value reads (e.g. for INSERT parameters)
+  use the public property getters. This preserves the no-reflection guarantee (FR-017) without relying
+  on undocumented backing-field naming.
 - **FR-049**: The relationship collection kinds MUST carry NHibernate-style semantics: `RefSet<T>`
   unordered with no duplicates; `RefBag<T>` unordered allowing duplicates; `RefList<T>` ordered (a
   persisted order); `RefMap<TKey,TValue>` keyed. Each is a distinct generated type encoding
@@ -707,9 +711,11 @@ same mechanism as an optional companion package.
   database-server enforcement semantics.
 - "Tooling similar to EF Core" refers to the developer command-line workflow scope (migrations,
   database update, status/inspection), not command compatibility.
-- Implementation techniques named in the original prompt (source generation, UnsafeAccessor, generics
-  to avoid boxing) are the means to satisfy the AOT, no-runtime-reflection, no-boxing, and
-  build-time-known-type outcomes; the specification fixes the outcomes, planning fixes the techniques.
+- Implementation techniques (source generation, generated `[SetsRequiredMembers]` materialization
+  constructors, generics to avoid boxing) are the means to satisfy the AOT, no-runtime-reflection,
+  no-boxing, and build-time-known-type outcomes; the specification fixes the outcomes, planning fixes
+  the techniques. `[UnsafeAccessor]`-to-backing-field materialization was rejected as fragile (relies on
+  undocumented compiler field naming) and unnecessary for mutable entities (FR-048).
 - Async database access is supported for persistence and querying, per standard .NET expectations.
 - PostgreSQL is the reference implementation; other providers are derived from the same provider
   boundary in later versions.

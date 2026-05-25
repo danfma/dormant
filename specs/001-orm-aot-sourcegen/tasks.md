@@ -101,6 +101,7 @@ model). They revise the already-built US1 generator/kernel and close `/speckit-a
 - [ ] T104 [US3] Emit projection materialization into a **user-owned plain `record`/DTO** (no Dormant types) — map columns → record constructor by name/order — in `src/Dormant.SourceGeneration/Query/ProjectionEmitter.cs`; tests assert a Dormant-free result type (FR-050)
 - [ ] T105 [US5] Schema-qualified DDL/SQL + `CREATE SCHEMA IF NOT EXISTS <module>` in migration generation (`src/Dormant.Core/Migrations/` + `src/Dormant.Provider.PostgreSql/Migrations/DdlGenerator.cs`); integration test asserts tables created in the module schema (FR-045)
 - [X] T106 [P] [US1] Update generator tests + sample for the Ref model (`SchemaEmitTests` asserts Ref/RefSet/Unloaded/equality; `RefTests` renamed from LinkTests; `app.dqls` uses `Set<Post>`); builds + runs green
+- [ ] T107 [US1] Replace `[UnsafeAccessor]` materialization (fragile backing-field hack) with a generated `[SetsRequiredMembers] internal {Entity}(IFieldReader reader)` ctor on the entity partial (ordinary setters) + retained public parameterless ctor (`EntityEmitter`); binding `Materialize` → `new {Entity}(reader)`, INSERT/snapshot reads via public getters, drop field accessors + `Create()` (`EntityBindingEmitter`); update SchemaEmitTests + re-run the Testcontainers round-trip (FR-048)
 
 **Checkpoint**: Kernel + generator on the Ref model (collections, Unloaded sentinel, PK equality, record projections); sample builds + runs; generator tests green. Resume US2 after this.
 
