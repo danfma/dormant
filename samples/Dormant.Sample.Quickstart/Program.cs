@@ -14,4 +14,3 @@ var user = new User
 
 Console.WriteLine($"User {user.Email} created at {user.CreatedAt:o}; recent? {user.IsRecent()}");
 Console.WriteLine($"bio set? {user.Bio is not null}; posts loaded? {user.Posts.IsLoaded}");
-return 0;

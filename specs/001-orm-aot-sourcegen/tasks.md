@@ -103,10 +103,10 @@ AOT smoke, BenchmarkDotNet). Write tests first within each story and ensure they
 
 ### Implementation for User Story 2
 
-- [ ] T038 [US2] `IDataSource`/`IDbSession` over `NpgsqlSlimDataSourceBuilder` (connection + transaction) in `src/Dormant.Provider.PostgreSql/PostgreSqlDataSource.cs`
-- [ ] T039 [US2] No-boxing parameter writer (`NpgsqlParameter<T>.TypedValue`) + reader (`GetFieldValue<T>`) in `src/Dormant.Provider.PostgreSql/Io/`
-- [ ] T040 [US2] `PostgreSqlDialect` (positional `$n`, identifier quoting, DDL type names) in `src/Dormant.Provider.PostgreSql/PostgreSqlDialect.cs`
-- [ ] T041 [P] [US2] Built-in scalar `ITypeBinding<T>` set in `src/Dormant.Provider.PostgreSql/Bindings/ScalarBindings.cs`
+- [X] T038 [US2] `IDataSource`/`IDbSession` over `NpgsqlSlimDataSourceBuilder` (connection + transaction) in `src/Dormant.Provider.PostgreSql/PostgreSqlDataSource.cs` _(+ PostgreSqlSession + DormantPostgres factory; verified by a real Testcontainers round-trip)_
+- [X] T039 [US2] No-boxing parameter writer (`NpgsqlParameter<T>.TypedValue`) + reader (`GetFieldValue<T>`) in `src/Dormant.Provider.PostgreSql/Io/`
+- [X] T040 [US2] `PostgreSqlDialect` (positional `$n`, identifier quoting, DDL type names) in `src/Dormant.Provider.PostgreSql/PostgreSqlDialect.cs` _(quoting + `$n` + Supports; DDL type-name mapping added with US5 migrations)_
+- [X] T041 [P] [US2] Built-in scalar `ITypeBinding<T>` set in `src/Dormant.Provider.PostgreSql/Bindings/ScalarBindings.cs` _(satisfied by the generic no-boxing IO path — `IFieldReader.GetValue<T>`/`IParameterWriter.Write<T>` route built-in scalars through Npgsql directly; a per-type `ITypeBindingRegistry` is only needed for custom handlers, deferred to US7)_
 - [ ] T042 [US2] Session / Unit of Work + identity map in `src/Dormant.Core/Persistence/Session.cs` (depends T038, T013)
 - [ ] T043 [US2] Emit per-entity snapshot struct + diff comparer in `src/Dormant.SourceGeneration/Schema/SnapshotEmitter.cs`
 - [ ] T044 [US2] Emit `RowMaterializer<E>` (ordinals fixed, `GetFieldValue<T>`, no boxing) in `src/Dormant.SourceGeneration/Schema/MaterializerEmitter.cs`
