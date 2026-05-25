@@ -338,7 +338,7 @@ model). They revise the already-built US1 generator/kernel and close `/speckit-a
 
 - [ ] T094 [P] BenchmarkDotNet suite + per-release perf budgets (throughput, alloc/op, no boxing) in `tests/Dormant.Benchmarks/` (SC-004/SC-007)
 - [ ] T095 [P] Docs + runnable example per public capability (FR-029) in `docs/` + `samples/`
-- [ ] T096 Run `quickstart.md` end-to-end and confirm <15-minute round-trip (SC-008)
+- [X] T096 Run `quickstart.md` end-to-end and confirm <15-minute round-trip (SC-008) _(sample `Program.cs` runs the real path — EnsureCreated → AddAsync → Commit → GetAsync → generated `session.UsersByEmail` query → `IsRecent()` partial — verified against a live PostgreSQL container (guarded by `DORMANT_SAMPLE_DB`). quickstart.md truthed-up to the as-built API (PascalCase members, session extension-method queries, EnsureCreated) with nested-fetch/CLI/`??` marked 🔜 planned)_
 - [ ] T097 [P] Finalize `PublicAPI.Shipped.txt` and commit generated-code Verify baselines (compatibility surfaces, Constitution II)
 - [ ] T098 [P] Actionable error-message pass across schema/query/migration/native diagnostics (FR-028)
 - [ ] T099 Allocation/round-trip assertions threaded across stories (no per-row boxing, single round-trip) (SC-003/SC-004)

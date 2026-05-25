@@ -1,21 +1,23 @@
-# Quickstart: Dormant ORM (schema → CRUD → query in under 15 minutes)
+# Quickstart: Dormant ORM (schema → CRUD → query)
 
-Validates SC-008. Uses **only** the DSL and documented public APIs. Illustrative syntax/names.
+Validates SC-008 — schema to a CRUD-and-query round-trip using **only** the DSL and documented public
+APIs. Sections marked **🔜 planned** describe v1 features not yet in the current slice; everything else
+is implemented and exercised by `samples/Dormant.Sample.Quickstart` + the integration tests.
 
 ## 1. Install (≈1 min)
 
 ```bash
 dotnet add package Dormant.Core
 dotnet add package Dormant.Provider.PostgreSql
-dotnet tool install -g Dormant.Tool
+# 🔜 planned: dotnet tool install -g Dormant.Tool   (migrations CLI)
 ```
 
 ## 2. Describe the schema in the DSL (≈3 min)
 
-`schema/app.dqls`:
+`schema/app.dqls` (add `<AdditionalFiles Include="schema/*.dqls" />` to the project):
 
 ```
-module app;                 # → DB schema "app"
+module app;                 # → DB schema "app" (snake_case names by default)
 
 entity User {
   id: uuid primary;
@@ -29,17 +31,13 @@ entity User {
 entity Post {
   id: uuid primary;
   title: str;
-  author: User;             # required single link
+  author: User;             # required single reference
 }
 ```
 
-Build — the generator emits partial `User`/`Post` types, snapshots, and materializers. Because the file
-is `schema/app.dqls` in project `Dormant.Sample.Quickstart`, the generated namespace is
-`Dormant.Sample.Quickstart.Schema.App` (root namespace + folders + module, PascalCased — FR-046):
-
-```bash
-dotnet build
-```
+`dotnet build` — the generator emits partial `User`/`Post` types (PascalCase members: `Id`, `Email`,
+`CreatedAt`…), entity bindings, snapshots, and schema-qualified DDL. The generated namespace is
+`Dormant.Sample.Quickstart.Schema.App` (root namespace + folders + module, PascalCased — FR-046).
 
 Add custom behavior in a separate partial (survives regeneration, FR-003):
 
@@ -48,65 +46,83 @@ namespace Dormant.Sample.Quickstart.Schema.App;
 public partial class User { public bool IsRecent() => CreatedAt > DateTime.UtcNow.AddDays(-7); }
 ```
 
-## 3. Author a query in the DSL (≈2 min)
+## 3. Author queries in the DSL (≈2 min)
 
-`queries/users.dql`:
+`schema/app.dql` (add `<AdditionalFiles Include="schema/*.dql" />`):
 
 ```
-query RecentPostTitles(authorId: uuid, limit: optional int64) =
-  select Post { title, author: { email } }   # nested fetch, one round-trip
-  filter .author.id = authorId
-  order by .created_at desc
-  limit limit ?? 20;
+query UsersByEmail(email: str) = select User filter .email = email;
+
+# flat projection → a distinct record with exactly { id, email }
+query UserContacts(since: datetime) =
+  select User { id, email } filter .created_at >= since order by .email asc;
+
+# optional parameters: a filter is included only when its argument is supplied (result type fixed)
+query SearchUsers(email: optional str) = select User filter .email = email;
 ```
 
-`dotnet build` generates a typed method returning a projection with exactly `{ title, author: { email } }`.
-Referencing `Post.body` here would **not compile** — it isn't on the projection (FR-008).
+`dotnet build` generates one `ISession` extension method per query (inside a C# 14 extension block on
+`AppQueries`). Referencing a non-projected field on `UserContacts`' result would **not compile** (FR-008).
 
-## 4. Create + apply a migration (≈3 min)
+> 🔜 **planned**: single-round-trip nested fetch (`select Post { title, author: { email } }`),
+> `limit … ?? 20` coalesce, and path-navigation filters (`.author.id`).
 
-```bash
-dotnet dormant migrations add Initial --project .
-dotnet dormant migrations apply --connection "Host=localhost;Database=app;Username=...;Password=..."
-dotnet dormant migrations status --connection "..."   # shows Initial = Applied
+## 4. Apply the schema (≈3 min)
+
+Current: apply the generated schema-qualified DDL (CREATE SCHEMA + CREATE TABLE, idempotent):
+
+```csharp
+await DormantPostgres.EnsureCreatedAsync(connectionString);
 ```
+
+> 🔜 **planned**: versioned migrations via CLI — `dotnet dormant migrations add/apply/rollback/status`.
 
 ## 5. CRUD + query round-trip (≈4 min)
 
 ```csharp
 await using var factory = DormantPostgres.CreateSessionFactory(connectionString);
-await using var session = await factory.OpenSessionAsync();
 
-// Create
-var user = await session.AddAsync(new User { email = "a@b.com", created_at = DateTime.UtcNow });
-await session.CommitAsync();
-
-// Read + update only the changed column
-await using (var s2 = await factory.OpenSessionAsync())
+var id = Guid.NewGuid();
+await using (var session = await factory.OpenSessionAsync())
 {
-    var u = await s2.QuerySingleOrDefaultAsync(Queries.UserById(user.id));
-    u!.email = "new@b.com";
-    await s2.CommitAsync();           // UPDATE writes only "email" (snapshot diff, FR-014)
+    await session.AddAsync(new User { Id = id, Email = "a@b.com", CreatedAt = DateTime.UtcNow, Version = 1 });
+    await session.CommitAsync();
 }
 
-// Query a projection, streaming
-await foreach (var row in session.QueryAsync(Queries.RecentPostTitles(user.id, limit: 10)))
-    Console.WriteLine($"{row.title} by {row.author.email}");
+// Read by key + update only the changed column (snapshot diff, FR-014)
+await using (var session = await factory.OpenSessionAsync())
+{
+    var u = await session.GetAsync<User>(id);
+    u!.Email = "new@b.com";
+    await session.CommitAsync();   // UPDATE writes only "email"; "version" bumped (optimistic concurrency, FR-015)
+}
 
-// Unfetched link is explicit (FR-009)
-if (!user.posts.TryGetLoaded(out var posts))
-    posts = (await session.LoadAsync(user.posts)).TryGetLoaded(out var loaded) ? loaded : [];
+// Query via the generated ISession extension methods, streaming
+await using (var session = await factory.OpenSessionAsync())
+{
+    await foreach (var user in session.UsersByEmail("new@b.com"))
+        Console.WriteLine(user.Email);
+
+    await foreach (var contact in session.UserContacts(DateTime.UtcNow.AddDays(-1)))
+        Console.WriteLine($"{contact.Id}: {contact.Email}");   // distinct projection record
+}
+
+// Unfetched collection is explicit (FR-009) — never silently lazy-loaded
+var loaded = (await factory.OpenSessionAsync()) is var s && (await s.GetAsync<User>(id))!.Posts.IsLoaded;
 ```
 
 ## 6. Publish Native AOT (≈1 min) — zero library warnings (SC-001/SC-006)
 
 ```bash
-dotnet publish -c Release -p:PublishAot=true
-# Build reports no Dormant-originated trimming/AOT warnings; first query needs no warm-up.
+dotnet publish -c Release -r <rid> -p:PublishAot=true
+# No Dormant-originated trimming/AOT warnings; the native binary's first query needs no warm-up.
 ```
 
 ## What you proved
 
-- Schema → generated entities (FR-001/FR-003); query → build-time-known projection (FR-006/FR-008);
-  one-round-trip nested fetch (FR-010); change-tracked commit (FR-014); explicit link load (FR-009);
-  migration round-trip via CLI only (SC-010); AOT publish clean (SC-001).
+- Schema → generated entities (FR-001/FR-003); query → build-time-known entity/projection
+  (FR-006/FR-008); change-tracked commit with optimistic concurrency (FR-014/FR-015); optional
+  parameters with a fixed result type (FR-012/FR-031); snake_case schema-qualified DDL applied
+  (FR-045); AOT publish clean (SC-001/SC-006).
+- 🔜 planned: single-round-trip nested fetch (FR-010), explicit on-demand link load, versioned
+  migration CLI (SC-010).

@@ -166,3 +166,10 @@
   CI); ci.yml aot-smoke job fixed to publish `-r linux-x64`. T084/T086/T087/T088 done. DEFERRED: T085
   full parity-vs-JIT under AOT (needs a DB at AOT-run time; identical by construction — same no-reflection
   generated code).
+- 2026-05-25 CONSOLIDATION (T096 quickstart + DX truth-up): sample `Program.cs` now exercises the real
+  implemented path (EnsureCreated → AddAsync → Commit → GetAsync → generated `session.UsersByEmail`
+  extension-method query → `IsRecent()` partial), guarded by `DORMANT_SAMPLE_DB` (no-DB path prints the
+  surface). Verified end-to-end against a live PostgreSQL container. quickstart.md corrected to the
+  as-built API (PascalCase members; queries are `session.X(...)` extension methods, not `Queries.X` +
+  `session.QueryAsync`; apply via `EnsureCreatedAsync`) with nested-fetch / migration-CLI / `??` coalesce
+  marked 🔜 planned. SC-008 validated for the implemented surface; build 0/0.
