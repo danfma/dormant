@@ -10,4 +10,11 @@ via a Roslyn incremental source generator; ValueTask-first async (await-once
 discipline) + IAsyncEnumerable streaming; feature-first layout behind a Ports &
 Adapters boundary (Dormant.Abstractions = ports/kernel, Dormant.Core = engine,
 adapters = Provider.PostgreSql / Spatial.PostgreSql / Tool).
+
+Testing: TUnit (source-generated, AOT-native; runs on Microsoft.Testing.Platform,
+so test projects are `Exe` and `dotnet test` works). Use TUnit's built-in
+assertions (Shouldly only if they prove insufficient). Provider/connectivity and
+provider-specific behavior are verified against a REAL provider in ephemeral Docker
+via Testcontainers — never mocks; a Docker daemon is required. Generator tests use
+Verify (`Verify.TUnit` + `Verify.SourceGenerators`) snapshots + cacheability checks.
 <!-- SPECKIT END -->

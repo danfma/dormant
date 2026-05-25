@@ -149,10 +149,14 @@ build time rather than left to convention.
 - **Analyzers/build**: `IsAotCompatible=true`; enable CA2012 (ValueTask) as warning, CA1068, CA2016, and
   `Microsoft.VisualStudio.Threading.Analyzers` (VSTHRD002/103/111); `Microsoft.CodeAnalysis.PublicApiAnalyzers`
   with `PublicAPI.Shipped/Unshipped.txt` on `Dormant.Abstractions` (the generated↔runtime contract baseline).
-- **Generator tests**: `Verify.SourceGenerators` snapshots (the committed `.verified.txt` files *are* the
-  generated-code contract baseline) **plus** cacheability tests (`GeneratorDriverOptions(trackIncremental
-  GeneratorSteps: true)`, assert `Cached`/`Unchanged`).
-- **Integration**: xUnit + **Testcontainers** (PostgreSQL) for CRUD/query/migration round-trips.
+- **Test framework**: **TUnit** (source-generated, AOT-native, runs on Microsoft.Testing.Platform) —
+  chosen over xUnit/VSTest for alignment with the AOT-first premise. TUnit's built-in assertions are the
+  default; Shouldly is omitted unless they prove insufficient.
+- **Generator tests**: `Verify.SourceGenerators` + `Verify.TUnit` snapshots (the committed `.verified.txt`
+  files *are* the generated-code contract baseline) **plus** cacheability tests (`GeneratorDriverOptions(
+  trackIncrementalGeneratorSteps: true)`, assert `Cached`/`Unchanged`).
+- **Integration**: **TUnit + Testcontainers** (PostgreSQL) — verified against a real provider instance in
+  ephemeral Docker, never mocks/in-memory; a Docker daemon is required locally and in CI.
 - **AOT smoke**: a `tests/Dormant.Aot.SmokeTests` project published with `PublishAot=true` + `TrimMode=full`
   running the US2/US3/US8 scenarios; CI fails on any library-originated warning (SC-001/SC-006).
 - **Perf budgets**: **BenchmarkDotNet** with `MemoryDiagnoser`; per-release budgets (latency/throughput/alloc)
