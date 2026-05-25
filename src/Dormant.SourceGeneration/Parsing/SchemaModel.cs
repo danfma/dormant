@@ -20,11 +20,11 @@ internal sealed record SchemaModel(
 /// <summary>A declared entity.</summary>
 /// <param name="Name">The entity (type) name.</param>
 /// <param name="Properties">Scalar/value properties, in source order.</param>
-/// <param name="Links">Relationship links, in source order.</param>
+/// <param name="References">Relationship references, in source order.</param>
 internal sealed record EntityModel(
     string Name,
     EquatableArray<PropertyModel> Properties,
-    EquatableArray<LinkModel> Links);
+    EquatableArray<ReferenceModel> References);
 
 /// <summary>A declared value property.</summary>
 /// <param name="Name">The DormantQL property name.</param>
@@ -41,15 +41,39 @@ internal sealed record PropertyModel(
     bool IsPrimary,
     bool IsConcurrency);
 
-/// <summary>A declared relationship link (syntax: <c>name: [multi] Target[?]</c>, FR-047).</summary>
-/// <param name="Name">The DormantQL link name.</param>
+/// <summary>The kind of relationship reference (FR-049): single, or an NHibernate collection.</summary>
+internal enum ReferenceKind
+{
+    /// <summary>Single reference → <c>Ref&lt;T&gt;</c>.</summary>
+    Ref,
+
+    /// <summary>Unordered, unique → <c>RefSet&lt;T&gt;</c>.</summary>
+    Set,
+
+    /// <summary>Ordered → <c>RefList&lt;T&gt;</c>.</summary>
+    List,
+
+    /// <summary>Unordered, duplicates allowed → <c>RefBag&lt;T&gt;</c>.</summary>
+    Bag,
+
+    /// <summary>Keyed → <c>RefMap&lt;TKey,TValue&gt;</c>.</summary>
+    Map,
+}
+
+/// <summary>
+/// A declared relationship reference (syntax: <c>name: Target[?]</c> | <c>name: Set/List/Bag/Map&lt;…&gt;</c>,
+/// FR-047/FR-049).
+/// </summary>
+/// <param name="Name">The DormantQL reference name.</param>
 /// <param name="TargetEntity">The target entity name.</param>
-/// <param name="IsMulti">Whether the link is multi-valued (<c>multi</c>) vs single.</param>
-/// <param name="IsRequired">Whether a single link is required (bare) vs optional (<c>Target?</c>). Ignored for multi.</param>
+/// <param name="Kind">The reference kind (single or a collection).</param>
+/// <param name="KeyType">For <see cref="ReferenceKind.Map"/>, the DSL key type; otherwise <see langword="null"/>.</param>
+/// <param name="IsRequired">For a single ref: required (bare) vs optional (<c>Target?</c>). Collections are optional.</param>
 /// <param name="TargetLocation">Source location of the target entity name (for located diagnostics).</param>
-internal sealed record LinkModel(
+internal sealed record ReferenceModel(
     string Name,
     string TargetEntity,
-    bool IsMulti,
+    ReferenceKind Kind,
+    string? KeyType,
     bool IsRequired,
     LocationInfo TargetLocation);

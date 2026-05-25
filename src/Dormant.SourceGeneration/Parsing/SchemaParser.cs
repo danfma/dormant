@@ -104,13 +104,13 @@ internal sealed class SchemaParser
         }
 
         var properties = new List<PropertyModel>();
-        var links = new List<LinkModel>();
+        var references = new List<ReferenceModel>();
 
         while (Current.Kind != TokenKind.RightBrace && Current.Kind != TokenKind.EndOfFile)
         {
             if (Current.Kind == TokenKind.Identifier)
             {
-                ParseMember(properties, links);
+                ParseMember(properties, references);
             }
             else
             {
@@ -123,11 +123,12 @@ internal sealed class SchemaParser
         return new EntityModel(
             name,
             new EquatableArray<PropertyModel>([.. properties]),
-            new EquatableArray<LinkModel>([.. links]));
+            new EquatableArray<ReferenceModel>([.. references]));
     }
 
-    // member := name ':' ['multi'] Type ['?'] modifier* ';'
-    private void ParseMember(List<PropertyModel> properties, List<LinkModel> links)
+    // member  := name ':' typeExpr modifier* ';'
+    // typeExpr := ('Set'|'List'|'Bag') '<' Target '>' | 'Map' '<' Key ',' Target '>' | Type ['?']
+    private void ParseMember(List<PropertyModel> properties, List<ReferenceModel> references)
     {
         var name = Current.Text;
         _pos++;
@@ -138,11 +139,13 @@ internal sealed class SchemaParser
             return;
         }
 
-        var isMulti = false;
-        if (IsKeyword("multi"))
+        // Collection reference: Set/List/Bag/Map '<' ... '>'
+        if (Current.Kind == TokenKind.Identifier &&
+            TryCollectionKind(Current.Text, out var collectionKind) &&
+            Peek().Kind == TokenKind.LeftAngle)
         {
-            isMulti = true;
-            _pos++;
+            ParseCollectionReference(name, collectionKind, references);
+            return;
         }
 
         if (Current.Kind != TokenKind.Identifier)
@@ -163,6 +166,69 @@ internal sealed class SchemaParser
             _pos++;
         }
 
+        var (isPrimary, isConcurrency) = ParseModifiers();
+        Expect(TokenKind.Semicolon, "';' after the member declaration");
+
+        // Known value type → property; lowercase unknown → likely a mistyped value type (ORM003);
+        // PascalCase → single reference (validated against the entity set → ORM002 if undefined).
+        if (TypeMap.TryMap(typeName, out var clrType))
+        {
+            properties.Add(new PropertyModel(name, typeName, clrType, isNullable, isPrimary, isConcurrency));
+            return;
+        }
+
+        if (typeName.Length > 0 && char.IsLower(typeName[0]))
+        {
+            _diagnostics.Add(new DiagnosticInfo(
+                DiagnosticDescriptors.UnknownPropertyType,
+                LocationOf(typeToken),
+                new EquatableArray<string>([name, typeName])));
+            return;
+        }
+
+        references.Add(new ReferenceModel(
+            name, typeName, ReferenceKind.Ref, KeyType: null, IsRequired: !isNullable, LocationOf(typeToken)));
+    }
+
+    private void ParseCollectionReference(string name, ReferenceKind kind, List<ReferenceModel> references)
+    {
+        _pos++; // collection-kind identifier
+        Expect(TokenKind.LeftAngle, "'<' after the collection kind");
+
+        string? keyType = null;
+        if (kind == ReferenceKind.Map)
+        {
+            if (Current.Kind != TokenKind.Identifier)
+            {
+                Error("expected a map key type");
+                RecoverToMemberEnd();
+                return;
+            }
+
+            keyType = Current.Text;
+            _pos++;
+            Expect(TokenKind.Comma, "',' between the map key and value types");
+        }
+
+        if (Current.Kind != TokenKind.Identifier)
+        {
+            Error("expected a target entity");
+            RecoverToMemberEnd();
+            return;
+        }
+
+        var targetToken = Current;
+        _pos++;
+
+        Expect(TokenKind.RightAngle, "'>' to close the collection type");
+        Expect(TokenKind.Semicolon, "';' after the member declaration");
+
+        references.Add(new ReferenceModel(
+            name, targetToken.Text, kind, keyType, IsRequired: false, LocationOf(targetToken)));
+    }
+
+    private (bool IsPrimary, bool IsConcurrency) ParseModifiers()
+    {
         var isPrimary = false;
         var isConcurrency = false;
         while (Current.Kind == TokenKind.Identifier)
@@ -183,34 +249,22 @@ internal sealed class SchemaParser
             _pos++;
         }
 
-        Expect(TokenKind.Semicolon, "';' after the member declaration");
-
-        // A multi member is always a link. Otherwise: a known value type is a property; a PascalCase
-        // name is a single link (validated against the entity set → ORM002 if undefined); a lowercase
-        // unknown name is most likely a mistyped value type (ORM003), by the convention that value
-        // types are lowercase and entities are PascalCase.
-        if (!isMulti && TypeMap.TryMap(typeName, out var clrType))
-        {
-            properties.Add(new PropertyModel(name, typeName, clrType, isNullable, isPrimary, isConcurrency));
-            return;
-        }
-
-        if (!isMulti && typeName.Length > 0 && char.IsLower(typeName[0]))
-        {
-            _diagnostics.Add(new DiagnosticInfo(
-                DiagnosticDescriptors.UnknownPropertyType,
-                LocationOf(typeToken),
-                new EquatableArray<string>([name, typeName])));
-            return;
-        }
-
-        links.Add(new LinkModel(
-            name,
-            typeName,
-            isMulti,
-            IsRequired: !isMulti && !isNullable,
-            LocationOf(typeToken)));
+        return (isPrimary, isConcurrency);
     }
+
+    private static bool TryCollectionKind(string text, out ReferenceKind kind)
+    {
+        switch (text)
+        {
+            case "Set": kind = ReferenceKind.Set; return true;
+            case "List": kind = ReferenceKind.List; return true;
+            case "Bag": kind = ReferenceKind.Bag; return true;
+            case "Map": kind = ReferenceKind.Map; return true;
+            default: kind = ReferenceKind.Ref; return false;
+        }
+    }
+
+    private Token Peek() => _tokens[System.Math.Min(_pos + 1, _tokens.Count - 1)];
 
     private void RecoverToMemberEnd()
     {

@@ -1,4 +1,4 @@
-using Dormant.Abstractions.Links;
+using Dormant.Abstractions.Entities;
 using Dormant.Abstractions.Querying;
 
 namespace Dormant.Abstractions.Sessions;
@@ -42,20 +42,46 @@ public interface ISession : IAsyncDisposable
         CompiledQuery<TResult> query,
         CancellationToken cancellationToken = default);
 
-    /// <summary>Loads an unloaded single link on demand, returning a loaded link (spec FR-009).</summary>
+    /// <summary>Loads an unloaded single reference on demand, returning a loaded one (spec FR-009).</summary>
     /// <typeparam name="TTarget">The related entity type.</typeparam>
-    /// <param name="link">The (typically unloaded) link.</param>
+    /// <param name="reference">The (typically unloaded) reference.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>A loaded link.</returns>
-    ValueTask<Link<TTarget>> LoadAsync<TTarget>(Link<TTarget> link, CancellationToken cancellationToken = default)
+    /// <returns>A loaded reference.</returns>
+    ValueTask<Ref<TTarget>> LoadAsync<TTarget>(Ref<TTarget> reference, CancellationToken cancellationToken = default)
+        where TTarget : class?;
+
+    /// <summary>Loads an unloaded set on demand, returning a loaded one (spec FR-009).</summary>
+    /// <typeparam name="TTarget">The related entity type.</typeparam>
+    /// <param name="references">The (typically unloaded) set.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>A loaded set.</returns>
+    ValueTask<RefSet<TTarget>> LoadAsync<TTarget>(RefSet<TTarget> references, CancellationToken cancellationToken = default)
         where TTarget : class;
 
-    /// <summary>Loads an unloaded multi link on demand, returning a loaded link set (spec FR-009).</summary>
+    /// <summary>Loads an unloaded list on demand, returning a loaded one (spec FR-009).</summary>
     /// <typeparam name="TTarget">The related entity type.</typeparam>
-    /// <param name="link">The (typically unloaded) link set.</param>
+    /// <param name="list">The (typically unloaded) list.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>A loaded link set.</returns>
-    ValueTask<LinkSet<TTarget>> LoadAsync<TTarget>(LinkSet<TTarget> link, CancellationToken cancellationToken = default)
+    /// <returns>A loaded list.</returns>
+    ValueTask<RefList<TTarget>> LoadAsync<TTarget>(RefList<TTarget> list, CancellationToken cancellationToken = default)
+        where TTarget : class;
+
+    /// <summary>Loads an unloaded bag on demand, returning a loaded one (spec FR-009).</summary>
+    /// <typeparam name="TTarget">The related entity type.</typeparam>
+    /// <param name="bag">The (typically unloaded) bag.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>A loaded bag.</returns>
+    ValueTask<RefBag<TTarget>> LoadAsync<TTarget>(RefBag<TTarget> bag, CancellationToken cancellationToken = default)
+        where TTarget : class;
+
+    /// <summary>Loads an unloaded map on demand, returning a loaded one (spec FR-009).</summary>
+    /// <typeparam name="TKey">The key type.</typeparam>
+    /// <typeparam name="TTarget">The related entity (value) type.</typeparam>
+    /// <param name="map">The (typically unloaded) map.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>A loaded map.</returns>
+    ValueTask<RefMap<TKey, TTarget>> LoadAsync<TKey, TTarget>(RefMap<TKey, TTarget> map, CancellationToken cancellationToken = default)
+        where TKey : notnull
         where TTarget : class;
 
     /// <summary>Commits the unit of work, writing only changed columns (spec FR-014).</summary>

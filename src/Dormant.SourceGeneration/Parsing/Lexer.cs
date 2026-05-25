@@ -10,6 +10,9 @@ internal enum TokenKind
     Semicolon,
     LeftBrace,
     RightBrace,
+    LeftAngle,
+    RightAngle,
+    Comma,
     Arrow,
     Question,
     EndOfFile,
@@ -101,6 +104,18 @@ internal static class Lexer
                 case '?':
                     Advance();
                     tokens.Add(new Token(TokenKind.Question, "?", start, 1, startLine, startColumn));
+                    continue;
+                case '<':
+                    Advance();
+                    tokens.Add(new Token(TokenKind.LeftAngle, "<", start, 1, startLine, startColumn));
+                    continue;
+                case '>':
+                    Advance();
+                    tokens.Add(new Token(TokenKind.RightAngle, ">", start, 1, startLine, startColumn));
+                    continue;
+                case ',':
+                    Advance();
+                    tokens.Add(new Token(TokenKind.Comma, ",", start, 1, startLine, startColumn));
                     continue;
                 case '-' when i + 1 < text.Length && text[i + 1] == '>':
                     Advance(2);

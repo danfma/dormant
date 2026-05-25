@@ -17,7 +17,8 @@ public sealed class SchemaEmitTests
           id: uuid primary;
           email: str;
           bio: str?;
-          posts: multi Post;
+          manager: User?;
+          posts: Set<Post>;
           version: int concurrency;
         }
 
@@ -48,10 +49,15 @@ public sealed class SchemaEmitTests
         await Assert.That(generated).Contains("public required global::System.Guid Id { get; set; }");
         await Assert.That(generated).Contains("public required string Email { get; set; }");
         await Assert.That(generated).Contains("public string? Bio { get; set; }");
-        await Assert.That(generated).Contains("public global::Dormant.Abstractions.Links.LinkSet<Post> Posts { get; set; }");
-        await Assert.That(generated).Contains("public required global::Dormant.Abstractions.Links.Link<User> Author { get; set; }");
-        // Generated into the .NET-friendly namespace (no MSBuild config in tests → folders + module).
-        await Assert.That(generated).Contains("namespace");
+        // Optional single ref → Ref<User?> with Unloaded initializer (FR-047/048/049).
+        await Assert.That(generated).Contains("global::Dormant.Abstractions.Entities.Ref<User?> Manager { get; set; } = global::Dormant.Abstractions.Entities.Ref<User?>.Unloaded;");
+        // Collection → RefSet with Unloaded initializer, never = [] (FR-049).
+        await Assert.That(generated).Contains("global::Dormant.Abstractions.Entities.RefSet<Post> Posts { get; set; } = global::Dormant.Abstractions.Entities.RefSet<Post>.Unloaded;");
+        // Required single ref → required Ref<User> (FR-047/048).
+        await Assert.That(generated).Contains("public required global::Dormant.Abstractions.Entities.Ref<User> Author { get; set; }");
+        // PK identity equality emitted (FR-051).
+        await Assert.That(generated).Contains("public bool Equals(User? other)");
+        await Assert.That(generated).Contains(": global::System.IEquatable<User>");
     }
 
     [Test]

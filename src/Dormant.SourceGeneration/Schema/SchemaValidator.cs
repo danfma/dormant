@@ -21,14 +21,14 @@ internal static class SchemaValidator
         var diagnostics = new List<DiagnosticInfo>();
         foreach (var entity in entities)
         {
-            foreach (var link in entity.Links)
+            foreach (var reference in entity.References)
             {
-                if (!defined.Contains(link.TargetEntity))
+                if (!defined.Contains(reference.TargetEntity))
                 {
                     diagnostics.Add(new DiagnosticInfo(
                         DiagnosticDescriptors.UndefinedLinkTarget,
-                        link.TargetLocation,
-                        new EquatableArray<string>([link.Name, link.TargetEntity])));
+                        reference.TargetLocation,
+                        new EquatableArray<string>([reference.Name, reference.TargetEntity])));
                 }
             }
         }
