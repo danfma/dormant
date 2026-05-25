@@ -19,7 +19,7 @@ public sealed class SchemaDiagnosticTests
     [Test]
     public async Task Link_to_undefined_entity_reports_located_ORM002()
     {
-        var result = Run("module app;\nentity User { single pet -> Animal; }");
+        var result = Run("module app;\nentity User { pet: Animal; }");
 
         var diagnostic = result.Diagnostics.SingleOrDefault(d => d.Id == "ORM002");
         await Assert.That(diagnostic).IsNotNull();

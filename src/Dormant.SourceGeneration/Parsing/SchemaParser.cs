@@ -15,9 +15,11 @@ internal readonly record struct ParseResult(
     IReadOnlyList<DiagnosticInfo> Diagnostics);
 
 /// <summary>
-/// Hand-written recursive-descent parser for the DormantQL v1 schema grammar: a module declaration
-/// and entity declarations containing value properties and single/multi links. Emits located
-/// diagnostics (ORM001 syntax, ORM003 unknown type) and recovers to the next member boundary.
+/// Hand-written recursive-descent parser for the DormantQL v1 schema grammar (FR-047): a module
+/// declaration and entity declarations whose members use a unified <c>name: [multi] Type[?]</c> form.
+/// A member typed as a known value type is a property; otherwise it is a link. Members are required by
+/// default; a trailing <c>?</c> makes them optional. Emits located diagnostics (ORM001 syntax, ORM003
+/// unknown type) and recovers to the next member boundary.
 /// </summary>
 internal sealed class SchemaParser
 {
@@ -106,21 +108,9 @@ internal sealed class SchemaParser
 
         while (Current.Kind != TokenKind.RightBrace && Current.Kind != TokenKind.EndOfFile)
         {
-            if (IsKeyword("single") || IsKeyword("multi"))
+            if (Current.Kind == TokenKind.Identifier)
             {
-                var link = ParseLink();
-                if (link is not null)
-                {
-                    links.Add(link);
-                }
-            }
-            else if (Current.Kind == TokenKind.Identifier)
-            {
-                var property = ParseProperty();
-                if (property is not null)
-                {
-                    properties.Add(property);
-                }
+                ParseMember(properties, links);
             }
             else
             {
@@ -130,64 +120,40 @@ internal sealed class SchemaParser
         }
 
         Expect(TokenKind.RightBrace, "'}' to close the entity body");
-        return new EntityModel(name, new EquatableArray<PropertyModel>([.. properties]), new EquatableArray<LinkModel>([.. links]));
+        return new EntityModel(
+            name,
+            new EquatableArray<PropertyModel>([.. properties]),
+            new EquatableArray<LinkModel>([.. links]));
     }
 
-    private LinkModel? ParseLink()
-    {
-        var isMulti = Current.Text == "multi";
-        _pos++; // 'single' | 'multi'
-
-        if (Current.Kind != TokenKind.Identifier)
-        {
-            Error("expected a link name");
-            RecoverToMemberEnd();
-            return null;
-        }
-
-        var name = Current.Text;
-        _pos++;
-
-        if (!Expect(TokenKind.Arrow, "'->' between the link name and its target entity"))
-        {
-            RecoverToMemberEnd();
-            return null;
-        }
-
-        if (Current.Kind != TokenKind.Identifier)
-        {
-            Error("expected a target entity name after '->'");
-            RecoverToMemberEnd();
-            return null;
-        }
-
-        var target = Current.Text;
-        var targetLocation = LocationOf(Current);
-        _pos++;
-        Expect(TokenKind.Semicolon, "';' after the link declaration");
-        return new LinkModel(name, target, isMulti, targetLocation);
-    }
-
-    private PropertyModel? ParseProperty()
+    // member := name ':' ['multi'] Type ['?'] modifier* ';'
+    private void ParseMember(List<PropertyModel> properties, List<LinkModel> links)
     {
         var name = Current.Text;
         _pos++;
 
-        if (!Expect(TokenKind.Colon, "':' between the property name and its type"))
+        if (!Expect(TokenKind.Colon, "':' between the member name and its type"))
         {
             RecoverToMemberEnd();
-            return null;
+            return;
+        }
+
+        var isMulti = false;
+        if (IsKeyword("multi"))
+        {
+            isMulti = true;
+            _pos++;
         }
 
         if (Current.Kind != TokenKind.Identifier)
         {
-            Error("expected a property type");
+            Error("expected a type or target entity");
             RecoverToMemberEnd();
-            return null;
+            return;
         }
 
         var typeToken = Current;
-        var dslType = typeToken.Text;
+        var typeName = typeToken.Text;
         _pos++;
 
         var isNullable = false;
@@ -217,22 +183,33 @@ internal sealed class SchemaParser
             _pos++;
         }
 
-        Expect(TokenKind.Semicolon, "';' after the property declaration");
+        Expect(TokenKind.Semicolon, "';' after the member declaration");
 
-        var clrType = string.Empty;
-        if (!TypeMap.TryMap(dslType, out var mapped))
+        // A multi member is always a link. Otherwise: a known value type is a property; a PascalCase
+        // name is a single link (validated against the entity set → ORM002 if undefined); a lowercase
+        // unknown name is most likely a mistyped value type (ORM003), by the convention that value
+        // types are lowercase and entities are PascalCase.
+        if (!isMulti && TypeMap.TryMap(typeName, out var clrType))
+        {
+            properties.Add(new PropertyModel(name, typeName, clrType, isNullable, isPrimary, isConcurrency));
+            return;
+        }
+
+        if (!isMulti && typeName.Length > 0 && char.IsLower(typeName[0]))
         {
             _diagnostics.Add(new DiagnosticInfo(
                 DiagnosticDescriptors.UnknownPropertyType,
                 LocationOf(typeToken),
-                new EquatableArray<string>([name, dslType])));
-        }
-        else
-        {
-            clrType = mapped;
+                new EquatableArray<string>([name, typeName])));
+            return;
         }
 
-        return new PropertyModel(name, dslType, clrType, isNullable, isPrimary, isConcurrency);
+        links.Add(new LinkModel(
+            name,
+            typeName,
+            isMulti,
+            IsRequired: !isMulti && !isNullable,
+            LocationOf(typeToken)));
     }
 
     private void RecoverToMemberEnd()

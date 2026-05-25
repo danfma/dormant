@@ -3,11 +3,13 @@ using Dormant.SourceGeneration.Diagnostics;
 namespace Dormant.SourceGeneration.Parsing;
 
 /// <summary>Parsed + validated schema for one DormantQL file. Equatable for pipeline caching.</summary>
-/// <param name="ModuleName">The declared module (used as the generated namespace).</param>
+/// <param name="ModuleName">The declared module (maps to the DB schema; part of the namespace).</param>
+/// <param name="FilePath">The schema file path (used to derive the generated namespace, FR-046).</param>
 /// <param name="Entities">The declared entities, in source order.</param>
 /// <param name="Diagnostics">Syntax/validation diagnostics collected while building the model.</param>
 internal sealed record SchemaModel(
     string ModuleName,
+    string FilePath,
     EquatableArray<EntityModel> Entities,
     EquatableArray<DiagnosticInfo> Diagnostics)
 {
@@ -39,9 +41,15 @@ internal sealed record PropertyModel(
     bool IsPrimary,
     bool IsConcurrency);
 
-/// <summary>A declared relationship link.</summary>
+/// <summary>A declared relationship link (syntax: <c>name: [multi] Target[?]</c>, FR-047).</summary>
 /// <param name="Name">The DormantQL link name.</param>
 /// <param name="TargetEntity">The target entity name.</param>
-/// <param name="IsMulti">Whether the link is multi-valued (<c>multi</c>) vs single (<c>single</c>).</param>
+/// <param name="IsMulti">Whether the link is multi-valued (<c>multi</c>) vs single.</param>
+/// <param name="IsRequired">Whether a single link is required (bare) vs optional (<c>Target?</c>). Ignored for multi.</param>
 /// <param name="TargetLocation">Source location of the target entity name (for located diagnostics).</param>
-internal sealed record LinkModel(string Name, string TargetEntity, bool IsMulti, LocationInfo TargetLocation);
+internal sealed record LinkModel(
+    string Name,
+    string TargetEntity,
+    bool IsMulti,
+    bool IsRequired,
+    LocationInfo TargetLocation);

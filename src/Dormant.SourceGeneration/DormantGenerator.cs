@@ -12,7 +12,8 @@ namespace Dormant.SourceGeneration;
 /// <summary>
 /// Incremental source generator for the DormantQL DSL. Rooted at <c>AdditionalTextsProvider</c> so it
 /// only runs when DormantQL files change (research §5). v1 compiles schema files (<c>.dqls</c>) into
-/// strongly-typed partial entity types; query files (<c>.dql</c>) are compiled in later stories.
+/// strongly-typed partial entity types in a .NET-friendly namespace (FR-046); query files (<c>.dql</c>)
+/// are compiled in later stories.
 /// </summary>
 [Generator(LanguageNames.CSharp)]
 public sealed class DormantGenerator : IIncrementalGenerator
@@ -20,6 +21,15 @@ public sealed class DormantGenerator : IIncrementalGenerator
     /// <inheritdoc/>
     public void Initialize(IncrementalGeneratorInitializationContext context)
     {
+        var config = context.AnalyzerConfigOptionsProvider
+            .Select(static (provider, _) =>
+            {
+                provider.GlobalOptions.TryGetValue("build_property.RootNamespace", out var rootNamespace);
+                provider.GlobalOptions.TryGetValue("build_property.ProjectDir", out var projectDir);
+                return new GeneratorConfig(rootNamespace, projectDir);
+            })
+            .WithTrackingName(TrackingNames.Config);
+
         var schemas = context.AdditionalTextsProvider
             .Where(static text => text.Path.EndsWith(".dqls", StringComparison.Ordinal))
             .Select(static (text, cancellationToken) =>
@@ -28,8 +38,10 @@ public sealed class DormantGenerator : IIncrementalGenerator
             .Select(static (file, _) => BuildSchema(file))
             .WithTrackingName(TrackingNames.ParseSchema);
 
-        context.RegisterSourceOutput(schemas, static (productionContext, schema) =>
+        context.RegisterSourceOutput(schemas.Combine(config), static (productionContext, pair) =>
         {
+            var (schema, generatorConfig) = pair;
+
             foreach (var diagnostic in schema.Diagnostics)
             {
                 productionContext.ReportDiagnostic(diagnostic.ToDiagnostic());
@@ -40,11 +52,17 @@ public sealed class DormantGenerator : IIncrementalGenerator
                 return;
             }
 
+            var @namespace = Naming.ComputeNamespace(
+                generatorConfig.RootNamespace,
+                generatorConfig.ProjectDir,
+                schema.FilePath,
+                schema.ModuleName);
+
             foreach (var entity in schema.Entities)
             {
                 productionContext.AddSource(
-                    Naming.HintName(schema.ModuleName, entity.Name),
-                    EntityEmitter.Emit(schema.ModuleName, entity));
+                    Naming.HintName(@namespace, entity.Name),
+                    EntityEmitter.Emit(@namespace, entity));
             }
         });
     }
@@ -57,6 +75,7 @@ public sealed class DormantGenerator : IIncrementalGenerator
 
         return new SchemaModel(
             parse.ModuleName,
+            file.Path,
             new EquatableArray<EntityModel>([.. parse.Entities]),
             new EquatableArray<DiagnosticInfo>([.. diagnostics]));
     }
@@ -67,6 +86,11 @@ public sealed class DormantGenerator : IIncrementalGenerator
 /// <param name="Text">The file contents.</param>
 internal readonly record struct DslFile(string Path, string Text);
 
+/// <summary>Equatable build configuration projected from analyzer config options (FR-046).</summary>
+/// <param name="RootNamespace">The consuming project's root namespace, if known.</param>
+/// <param name="ProjectDir">The consuming project's directory, if known.</param>
+internal readonly record struct GeneratorConfig(string? RootNamespace, string? ProjectDir);
+
 /// <summary>Stable pipeline step names used by cacheability tests (research §8).</summary>
 internal static class TrackingNames
 {
@@ -75,4 +99,7 @@ internal static class TrackingNames
 
     /// <summary>The step that parses + validates a schema file.</summary>
     public const string ParseSchema = "ParseSchema";
+
+    /// <summary>The step that projects build configuration (root namespace, project dir).</summary>
+    public const string Config = "Config";
 }

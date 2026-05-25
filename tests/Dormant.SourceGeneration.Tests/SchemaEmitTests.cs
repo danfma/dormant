@@ -16,14 +16,15 @@ public sealed class SchemaEmitTests
         entity User {
           id: uuid primary;
           email: str;
-          multi posts -> Post;
+          bio: str?;
+          posts: multi Post;
           version: int concurrency;
         }
 
         entity Post {
           id: uuid primary;
           title: str;
-          single author -> User;
+          author: User;
         }
         """;
 
@@ -44,10 +45,13 @@ public sealed class SchemaEmitTests
         await Assert.That(count).IsEqualTo(2);
         await Assert.That(generated).Contains("public partial class User");
         await Assert.That(generated).Contains("public partial class Post");
-        await Assert.That(generated).Contains("global::System.Guid Id { get; set; }");
-        await Assert.That(generated).Contains("public string Email { get; set; } = default!;");
-        await Assert.That(generated).Contains("global::Dormant.Abstractions.Links.LinkSet<Post> Posts");
-        await Assert.That(generated).Contains("global::Dormant.Abstractions.Links.Link<User> Author");
+        await Assert.That(generated).Contains("public required global::System.Guid Id { get; set; }");
+        await Assert.That(generated).Contains("public required string Email { get; set; }");
+        await Assert.That(generated).Contains("public string? Bio { get; set; }");
+        await Assert.That(generated).Contains("public global::Dormant.Abstractions.Links.LinkSet<Post> Posts { get; set; }");
+        await Assert.That(generated).Contains("public required global::Dormant.Abstractions.Links.Link<User> Author { get; set; }");
+        // Generated into the .NET-friendly namespace (no MSBuild config in tests → folders + module).
+        await Assert.That(generated).Contains("namespace");
     }
 
     [Test]

@@ -67,7 +67,8 @@
   PascalCaseEachPart(rootNamespace + folders + module)), FR-047 (unified `name: [multi] Type[?]` member
   syntax — arrows + `single` removed, required-by-default, `?` optional), FR-048 (C# `required` instead
   of `= default!`). Updated DSL surface, dsl-grammar/generated-code/data-model contracts, quickstart.
-- DRIFT FLAG (spec ↔ code): the committed US1 generator predates FR-045..048 and must be revised —
-  EntityEmitter namespace (FR-046) + `required` (FR-048), SchemaParser member syntax (FR-047), and the
-  sample/tests/quickstart schemas. Tracked for the next /speckit-implement revision pass; US1 tasks
-  remain "done" for the prior grammar but need updating.
+- DRIFT FLAG (spec ↔ code) — RESOLVED 2026-05-25: US1 generator revised to FR-046 (namespace formula via
+  `AnalyzerConfigOptions` RootNamespace/ProjectDir), FR-047 (`name: [multi] Type[?]` member syntax;
+  lowercase-unknown ⇒ ORM003, PascalCase-unknown ⇒ ORM002), FR-048 (C# `required`). Sample/tests/quickstart
+  updated; sample builds + runs in namespace `Dormant.Sample.Quickstart.Schema.App`; SourceGen 8/8 + Core
+  6/6 green. Remaining: FR-045 schema-qualified DDL/SQL lands in US5; T031 accessors/materialization in US2.

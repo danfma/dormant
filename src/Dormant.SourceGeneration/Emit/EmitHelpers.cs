@@ -1,4 +1,7 @@
+using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Linq;
 using System.Text;
 
 namespace Dormant.SourceGeneration.Emit;
@@ -39,7 +42,7 @@ internal static class Naming
         var capitalizeNext = true;
         foreach (var c in name)
         {
-            if (c == '_')
+            if (c is '_' or '-' or ' ')
             {
                 capitalizeNext = true;
                 continue;
@@ -52,9 +55,37 @@ internal static class Naming
         return sb.ToString();
     }
 
+    /// <summary>
+    /// Computes the generated namespace as <c>PascalCaseEachPart(rootNamespace + folders + module)</c>
+    /// (FR-046), where folders are the schema file's directory relative to the project (e.g.
+    /// <c>schema/app.dqls</c> in <c>Dormant.Sample.Quickstart</c> → <c>Dormant.Sample.Quickstart.Schema.App</c>).
+    /// Falls back gracefully when the project's root namespace or directory is unknown.
+    /// </summary>
+    public static string ComputeNamespace(string? rootNamespace, string? projectDir, string filePath, string moduleName)
+    {
+        var parts = new List<string>();
+
+        if (!string.IsNullOrEmpty(rootNamespace))
+        {
+            parts.AddRange(rootNamespace!.Split('.'));
+        }
+
+        var dir = Path.GetDirectoryName(filePath) ?? string.Empty;
+        if (!string.IsNullOrEmpty(projectDir) &&
+            dir.StartsWith(projectDir!.TrimEnd('/', '\\'), StringComparison.Ordinal))
+        {
+            dir = dir.Substring(projectDir!.TrimEnd('/', '\\').Length);
+        }
+
+        parts.AddRange(dir.Split('/', '\\'));
+        parts.Add(moduleName);
+
+        return string.Join(".", parts.Where(p => p.Length > 0).Select(ToPascalCase));
+    }
+
     /// <summary>Builds a stable, unique hint name for a generated entity source file.</summary>
-    public static string HintName(string moduleName, string entityName) =>
-        moduleName + "_" + entityName + ".g.cs";
+    public static string HintName(string @namespace, string entityName) =>
+        @namespace + "." + entityName + ".g.cs";
 }
 
 /// <summary>Minimal indentation-aware writer that always emits <c>\n</c> newlines (determinism).</summary>
