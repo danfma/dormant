@@ -151,3 +151,10 @@
   → nullable C# params defaulted null, ordered after required. Tests: generator 17/17 (OptionalParamType),
   PostgreSQL 10/10 (OptionalParams none/one/both). Build 0/0. DEFERRED: `??` coalesce + optional
   LIMIT/OFFSET (sugar).
+- 2026-05-25 IMPLEMENTED US8 first slice (json/jsonb value round-trip, FR-038 core): a `json` property
+  maps to a build-time-known `string` over a PG `jsonb` column and round-trips no-boxing. Discovered PG
+  won't coerce text→jsonb (42804); fixed with a native WRITE CAST — `json` columns emit `$n::jsonb` in
+  INSERT (`InsertColumn.ParamCast` in the SQL IR) + UPDATE SET (`EntityBindingEmitter.ParamCast`). New
+  `Document` entity + JsonbTests. Tests: generator 17/17, PostgreSQL 11/11. Build 0/0. DEFERRED (rest of
+  US8): native function/operator catalog + containment `@>` (T078/T079), raw typed fragment (T080),
+  portability diagnostic (T081), STJ-typed jsonb<T> (T082), GIS/EWKB companion (T083), jsonb AOT smoke (T074).

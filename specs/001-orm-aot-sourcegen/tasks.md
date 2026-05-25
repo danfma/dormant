@@ -220,7 +220,7 @@ model). They revise the already-built US1 generator/kernel and close `/speckit-a
 
 ### Tests for User Story 8
 
-- [ ] T073 [P] [US8] Integration: `jsonb` round-trip + containment operator, result type build-time-known in `tests/Dormant.Provider.PostgreSql.Tests/JsonbTests.cs`
+- [~] T073 [P] [US8] Integration: `jsonb` round-trip + containment operator, result type build-time-known in `tests/Dormant.Provider.PostgreSql.Tests/JsonbTests.cs` _(ROUND-TRIP DONE: a `json` property → PG `jsonb` column round-trips as a build-time-known `string` (no boxing) — green vs real PostgreSQL. Required a native **write cast**: `json` columns emit `$n::jsonb` in INSERT + UPDATE (`InsertColumn.ParamCast` in the IR; `ParamCast` in `EntityBindingEmitter`) since PG won't coerce text→jsonb. Containment operator `@>` DEFERRED with native functions/operators T078/T079)_
 - [ ] T074 [P] [US8] AOT smoke: jsonb scenario, zero library-originated warnings in `tests/Dormant.Aot.SmokeTests/JsonbAotTests.cs`
 - [ ] T075 [P] [US8] Integration: PostGIS geometry + spatial function end-to-end in `tests/Dormant.Spatial.PostgreSql.Tests/SpatialTests.cs`
 - [ ] T076 [P] [US8] Diagnostic: native construct targeting unsupported provider → located build diagnostic in `tests/Dormant.SourceGeneration.Tests/NativePortabilityTests.cs`

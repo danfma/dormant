@@ -19,8 +19,11 @@ internal sealed record TableRef(string? Schema, string Name);
 /// <summary>A column definition for DDL: resolved name, provider SQL type, nullability, key.</summary>
 internal sealed record ColumnDef(string Name, string SqlType, bool NotNull, bool PrimaryKey);
 
+/// <summary>An INSERT column: resolved name + optional parameter cast (e.g. <c>jsonb</c> → <c>$1::jsonb</c>).</summary>
+internal sealed record InsertColumn(string Name, string? ParamCast);
+
 /// <summary>An INSERT with positional <c>$1…$n</c> values, one per column (declaration order).</summary>
-internal sealed record InsertStatement(TableRef Table, IReadOnlyList<string> Columns) : SqlStatement;
+internal sealed record InsertStatement(TableRef Table, IReadOnlyList<InsertColumn> Columns) : SqlStatement;
 
 /// <summary>A SELECT with an optional WHERE / ORDER BY / LIMIT / OFFSET.</summary>
 internal sealed record SelectStatement(
@@ -64,10 +67,14 @@ internal static class SqlRenderer
 
     private static string RenderInsert(InsertStatement insert)
     {
-        var columns = string.Join(", ", insert.Columns.Select(Quote));
+        var columns = string.Join(", ", insert.Columns.Select(c => Quote(c.Name)));
         var values = string.Join(
             ", ",
-            insert.Columns.Select((_, i) => "$" + (i + 1).ToString(CultureInfo.InvariantCulture)));
+            insert.Columns.Select((c, i) =>
+            {
+                var placeholder = "$" + (i + 1).ToString(CultureInfo.InvariantCulture);
+                return c.ParamCast is null ? placeholder : placeholder + "::" + c.ParamCast;
+            }));
         return $"INSERT INTO {RenderTable(insert.Table)} ({columns}) VALUES ({values})";
     }
 

@@ -16,3 +16,8 @@ entity StockItem {
   id: uuid primary;
   itemName: str;
 }
+
+entity Document {
+  id: uuid primary;
+  data: json;
+}

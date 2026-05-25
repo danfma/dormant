@@ -34,7 +34,9 @@ internal static class EntityBindingEmitter
         // schema-qualified (module → DB schema, FR-045).
         var tableRef = new TableRef(schema, Table(entity, convention));
         var colNames = columns.Select(p => Col(p, convention)).ToList();
-        var insertSql = SqlRenderer.Render(new InsertStatement(tableRef, colNames));
+        var insertSql = SqlRenderer.Render(new InsertStatement(
+            tableRef,
+            columns.Select(p => new InsertColumn(Col(p, convention), ParamCast(p))).ToList()));
         var createTableSql = SqlRenderer.Render(new CreateTableStatement(
             tableRef,
             columns.Select(p => new ColumnDef(
@@ -73,6 +75,11 @@ internal static class EntityBindingEmitter
 
     private static string Col(PropertyModel property, NamingConvention convention) =>
         NamingConventions.Resolve(property.Name, property.NameOverride, convention);
+
+    // Provider parameter cast for a value that PostgreSQL won't implicitly coerce: a json value is bound
+    // as text, so the placeholder needs `::jsonb` (FR-038 native write expression). v1: json only.
+    private static string? ParamCast(PropertyModel property) =>
+        property.DslType == "json" ? "jsonb" : null;
 
     private static void EmitMaterialize(SourceWriter writer, EntityModel entity)
     {
@@ -208,10 +215,11 @@ internal static class EntityBindingEmitter
         for (var i = 0; i < setCols.Count; i++)
         {
             var p = setCols[i];
+            var castSuffix = ParamCast(p) is { } cast ? $".Append(\"::{cast}\")" : string.Empty;
             writer
                 .Open($"if ({flags[i]})")
                 .Line("if (!firstSet) { sql.Append(\", \"); }")
-                .Line($"sql.Append(\"\\\"{Col(p, convention)}\\\" = $\").Append(++p);")
+                .Line($"sql.Append(\"\\\"{Col(p, convention)}\\\" = $\").Append(++p){castSuffix};")
                 .Line("firstSet = false;")
                 .Close();
         }
