@@ -72,6 +72,17 @@ public sealed class SchemaEmitTests
         await Assert.That(generated).Contains("public User Materialize(global::Dormant.Abstractions.Querying.IFieldReader reader)");
         await Assert.That(generated).Contains("return new User(reader);");
         await Assert.That(generated).Contains("INSERT INTO");
+        // Change-tracking (T043/T045/T046): snapshot struct + diff Update (changed cols only) + Delete.
+        await Assert.That(generated).Contains("internal readonly record struct UserSnapshot(");
+        await Assert.That(generated).Contains("public object Snapshot(object entity)");
+        await Assert.That(generated).Contains("public global::Dormant.Abstractions.Querying.PreparedStatement? Update(object entity, object snapshot)");
+        await Assert.That(generated).Contains("public global::Dormant.Abstractions.Querying.PreparedStatement Delete(object entity)");
+        // User carries `version: int concurrency` → token bump in SET + match in WHERE (FR-015).
+        await Assert.That(generated).Contains("public bool TracksConcurrency => true;");
+        await Assert.That(generated).Contains("var newToken = s.Version + 1;");
+        await Assert.That(generated).Contains("DELETE FROM \\\"User\\\" WHERE \\\"id\\\" = $1 AND \\\"version\\\" = $2");
+        // Post has no concurrency token.
+        await Assert.That(generated).Contains("internal readonly record struct PostSnapshot(");
     }
 
     [Test]

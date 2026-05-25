@@ -116,9 +116,9 @@ model). They revise the already-built US1 generator/kernel and close `/speckit-a
 ### Tests for User Story 2
 
 - [X] T034 [P] [US2] Integration (Testcontainers): insert + commit → row exists in `tests/Dormant.Provider.PostgreSql.Tests/CrudTests.cs` _(insert→get-by-key round-trip against real PostgreSQL via generated binding + session; 2/2 green)_
-- [ ] T035 [P] [US2] Integration: modify one field + commit → only that column changed in `tests/Dormant.Provider.PostgreSql.Tests/ChangeTrackingTests.cs`
-- [ ] T036 [P] [US2] Integration: delete + commit → row gone in `tests/Dormant.Provider.PostgreSql.Tests/CrudTests.cs`
-- [ ] T037 [P] [US2] Integration: two sessions same row → `ConcurrencyConflictException` in `tests/Dormant.Provider.PostgreSql.Tests/ConcurrencyTests.cs`
+- [X] T035 [P] [US2] Integration: modify one field + commit → only that column changed in `tests/Dormant.Provider.PostgreSql.Tests/ChangeTrackingTests.cs` _(proven behaviorally: an out-of-band write to the untouched `quantity` column survives a name-only commit — an all-columns UPDATE would revert it; green vs real PostgreSQL)_
+- [X] T036 [P] [US2] Integration: delete + commit → row gone in `tests/Dormant.Provider.PostgreSql.Tests/CrudTests.cs` _(Remove + commit → reload returns null)_
+- [X] T037 [P] [US2] Integration: two sessions same row → `ConcurrencyConflictException` in `tests/Dormant.Provider.PostgreSql.Tests/ConcurrencyTests.cs` _(first commit wins token 0→1; stale second commit affects 0 rows → conflict; first writer's value persists)_
 
 ### Implementation for User Story 2
 
@@ -127,11 +127,11 @@ model). They revise the already-built US1 generator/kernel and close `/speckit-a
 - [X] T040 [US2] `PostgreSqlDialect` (positional `$n`, identifier quoting, DDL type names) in `src/Dormant.Provider.PostgreSql/PostgreSqlDialect.cs` _(quoting + `$n` + Supports; DDL type-name mapping added with US5 migrations)_
 - [X] T041 [P] [US2] Built-in scalar `ITypeBinding<T>` set in `src/Dormant.Provider.PostgreSql/Bindings/ScalarBindings.cs` _(satisfied by the generic no-boxing IO path — `IFieldReader.GetValue<T>`/`IParameterWriter.Write<T>` route built-in scalars through Npgsql directly; a per-type `ITypeBindingRegistry` is only needed for custom handlers, deferred to US7)_
 - [X] T042 [US2] Session / Unit of Work + identity map in `src/Dormant.Core/Persistence/Session.cs` (depends T038, T013) _(+ `SessionFactory`, `DormantPostgres.CreateSessionFactory`, and the `IEntityBinding<T>`/`EntityBindings` registry bridging generated code↔session; AddAsync/GetAsync/CommitAsync wired. Remove/Query/Load deferred to later slices)_
-- [ ] T043 [US2] Emit per-entity snapshot struct + diff comparer in `src/Dormant.SourceGeneration/Schema/SnapshotEmitter.cs`
+- [X] T043 [US2] Emit per-entity snapshot struct + diff comparer in `src/Dormant.SourceGeneration/Schema/SnapshotEmitter.cs` _(folded into `EntityBindingEmitter`: emits an `internal readonly record struct {E}Snapshot(...)` of value columns + `Snapshot(object)` capture; the diff comparer is the per-column typed `EqualityComparer<T>.Default` check inside `Update`. Single box per tracked entity — bookkeeping, not the per-row path)_
 - [X] T044 [US2] Emit per-entity materializer (`Create()` via `[UnsafeAccessor]` ctor past `required`, field accessors, `Materialize(IFieldReader)` reading value columns by ordinal, no boxing/reflection) in `src/Dormant.SourceGeneration/Schema/MaterializerEmitter.cs` _(value columns only; references left Unloaded — link materialization with US3 shapes)_
-- [ ] T045 [US2] Change-tracking commit: INSERT / UPDATE(changed columns only) / DELETE in `src/Dormant.Core/Persistence/ChangeTracker.cs` (depends T043)
-- [ ] T046 [US2] Optimistic concurrency token check + conflict surfacing in `src/Dormant.Core/Persistence/ChangeTracker.cs`
-- [ ] T047 [US2] DSL DML (insert/update/delete) parse + SQL emit in `src/Dormant.SourceGeneration/Query/DmlEmitter.cs`
+- [X] T045 [US2] Change-tracking commit: INSERT / UPDATE(changed columns only) / DELETE in `src/Dormant.Core/Persistence/ChangeTracker.cs` (depends T043) _(folded into `Session.CommitAsync`: flush queued inserts → diff each tracked entity vs snapshot → `IEntityBinding.Update` (changed cols only, null when no-op) → `Delete` for removed; snapshots refreshed post-commit. Dispatch via the new non-generic `IEntityBinding` facade — no reflection. `ChangeTracker.cs` not split out; logic lives in the Session unit-of-work)_
+- [X] T046 [US2] Optimistic concurrency token check + conflict surfacing in `src/Dormant.Core/Persistence/ChangeTracker.cs` _(generated `Update`/`Delete` embed `WHERE token = $old` + bump token in SET; `Session` throws `ConcurrencyConflictException` when `TracksConcurrency` and affected-rows == 0. v1 tokens are integer-incremented)_
+- [ ] T047 [US2] DSL DML (insert/update/delete) parse + SQL emit in `src/Dormant.SourceGeneration/Query/DmlEmitter.cs` _(DEFERRED: DSL-authored DML is a separable parser feature independent of session change-tracking — grouped with US3 query authoring. Session persistence (T034–T046) generates SQL from bindings, not from authored DML, so US2 acceptance does not need it)_
 
 **Checkpoint**: Full-entity persistence round-trip works.
 

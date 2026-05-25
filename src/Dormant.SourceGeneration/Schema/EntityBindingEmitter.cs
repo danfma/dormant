@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using Dormant.SourceGeneration.Emit;
@@ -9,18 +10,24 @@ namespace Dormant.SourceGeneration.Schema;
 /// Emits a per-entity <c>IEntityBinding&lt;TEntity&gt;</c> (registered via a <c>[ModuleInitializer]</c>):
 /// no-reflection materialization that delegates to the entity's generated
 /// <c>[SetsRequiredMembers]</c> constructor (no boxing, no <c>[UnsafeAccessor]</c>, no backing-field access
-/// — FR-017/FR-019/FR-048) plus prebuilt INSERT and SELECT-by-primary-key statements with positional
-/// parameters. Reads/writes go through public getters/setters. v1 slice maps **value columns only**;
-/// reference (FK) columns are handled in a later slice.
+/// — FR-017/FR-019/FR-048) plus prebuilt INSERT / SELECT-by-primary-key, change-tracking UPDATE
+/// (changed columns only, FR-014) / DELETE, optimistic-concurrency token handling (FR-015), and a
+/// per-entity snapshot <c>record struct</c> with field-wise diffing. Reads/writes go through public
+/// getters/setters. v1 slice maps **value columns only**; reference (FK) columns are a later slice.
 /// </summary>
 internal static class EntityBindingEmitter
 {
     private const string Abs = "global::Dormant.Abstractions";
+    private const string Stmt = "global::Dormant.Abstractions.Querying.PreparedStatement";
+    private const string Cmp = "global::System.Collections.Generic.EqualityComparer";
 
     public static string Emit(string @namespace, EntityModel entity)
     {
         var key = entity.Properties.FirstOrDefault(p => p.IsPrimary);
+        var token = entity.Properties.FirstOrDefault(p => p.IsConcurrency);
         var columns = entity.Properties; // value columns, declaration order
+        // Columns assignable via UPDATE SET: everything except the PK and the (auto-managed) token.
+        var setCols = columns.Where(p => !p.IsPrimary && !p.IsConcurrency).ToList();
         var columnsSql = string.Join(", ", columns.Select(p => "\"" + p.Name + "\""));
         var placeholders = string.Join(
             ", ",
@@ -36,13 +43,20 @@ internal static class EntityBindingEmitter
             .Open($"internal sealed class {entity.Name}Binding : {Abs}.Entities.IEntityBinding<{entity.Name}>")
             .Line("[global::System.Runtime.CompilerServices.ModuleInitializer]")
             .Line($"internal static void Register() => {Abs}.Entities.EntityBindings.Register<{entity.Name}>(new {entity.Name}Binding());")
+            .Line()
+            .Line($"public bool TracksConcurrency => {(token is not null ? "true" : "false")};")
             .Line();
 
         EmitMaterialize(writer, entity);
         EmitInsert(writer, entity, insertSql, columns);
         EmitSelectByKey(writer, entity, columnsSql, key);
+        EmitSnapshot(writer, entity, columns);
+        EmitUpdate(writer, entity, key, token, setCols);
+        EmitDelete(writer, entity, key, token);
 
-        return writer.Close().ToString();
+        writer.Close().Line();
+        EmitSnapshotStruct(writer, entity, columns);
+        return writer.ToString();
     }
 
     private static void EmitMaterialize(SourceWriter writer, EntityModel entity)
@@ -91,6 +105,176 @@ internal static class EntityBindingEmitter
         }
 
         writer.Close();
+    }
+
+    // Captures the entity's current value-column state into the generated snapshot struct (boxed once
+    // per tracked entity — bookkeeping, not the per-row read path).
+    private static void EmitSnapshot(SourceWriter writer, EntityModel entity, EquatableArray<PropertyModel> columns)
+    {
+        var args = string.Join(", ", columns.Select(p => "e." + Naming.ToPascalCase(p.Name)));
+        writer
+            .Open("public object Snapshot(object entity)")
+            .Line($"var e = ({entity.Name})entity;")
+            .Line($"return new {entity.Name}Snapshot({args});")
+            .Close()
+            .Line();
+    }
+
+    // Diffs the live entity against its snapshot and emits an UPDATE touching only changed columns
+    // (FR-014). With a concurrency token: the token is bumped in SET and matched in WHERE (FR-015); the
+    // in-memory token is advanced so a subsequent commit in the same session stays coherent.
+    private static void EmitUpdate(
+        SourceWriter writer,
+        EntityModel entity,
+        PropertyModel? key,
+        PropertyModel? token,
+        List<PropertyModel> setCols)
+    {
+        writer.Open($"public {Stmt}? Update(object entity, object snapshot)");
+
+        if (key is null)
+        {
+            writer
+                .Line("throw new global::System.NotSupportedException(\"Entity has no single primary key.\");")
+                .Close()
+                .Line();
+            return;
+        }
+
+        var keyName = Naming.ToPascalCase(key.Name);
+        writer
+            .Line($"var e = ({entity.Name})entity;")
+            .Line($"var s = ({entity.Name}Snapshot)snapshot;");
+
+        // Per-column changed flags (typed equality, no boxing).
+        var flags = new List<string>(setCols.Count);
+        for (var i = 0; i < setCols.Count; i++)
+        {
+            var p = setCols[i];
+            var name = Naming.ToPascalCase(p.Name);
+            var clr = p.IsNullable ? p.ClrType + "?" : p.ClrType;
+            var flag = "c" + i.ToString(CultureInfo.InvariantCulture);
+            flags.Add(flag);
+            writer.Line($"bool {flag} = !{Cmp}<{clr}>.Default.Equals(e.{name}, s.{name});");
+        }
+
+        var anyChanged = flags.Count == 0 ? "false" : string.Join(" || ", flags);
+        writer.Line($"if (!({anyChanged})) {{ return null; }}");
+
+        if (token is not null)
+        {
+            var tokenName = Naming.ToPascalCase(token.Name);
+            writer
+                .Line($"var newToken = s.{tokenName} + 1;")
+                .Line($"e.{tokenName} = newToken;");
+        }
+
+        // Build the SET list (changed columns only), then WHERE pk [+ token].
+        writer
+            .Line($"var sql = new global::System.Text.StringBuilder(\"UPDATE \\\"{entity.Name}\\\" SET \");")
+            .Line("int p = 0;")
+            .Line("bool firstSet = true;");
+
+        for (var i = 0; i < setCols.Count; i++)
+        {
+            var p = setCols[i];
+            writer
+                .Open($"if ({flags[i]})")
+                .Line("if (!firstSet) { sql.Append(\", \"); }")
+                .Line($"sql.Append(\"\\\"{p.Name}\\\" = $\").Append(++p);")
+                .Line("firstSet = false;")
+                .Close();
+        }
+
+        if (token is not null)
+        {
+            writer
+                .Line("if (!firstSet) { sql.Append(\", \"); }")
+                .Line($"sql.Append(\"\\\"{token.Name}\\\" = $\").Append(++p);");
+        }
+
+        writer.Line($"sql.Append(\" WHERE \\\"{key.Name}\\\" = $\").Append(++p);");
+        if (token is not null)
+        {
+            writer.Line($"sql.Append(\" AND \\\"{token.Name}\\\" = $\").Append(++p);");
+        }
+
+        // Bind callback: re-applies the same diff so parameter order matches the SET list above.
+        // Lambda braces are emitted manually (untracked by the indent writer), mirroring Insert.
+        writer
+            .Line($"return new {Stmt}(sql.ToString(), writer =>")
+            .Line("{")
+            .Line("    int i = 0;");
+
+        for (var i = 0; i < setCols.Count; i++)
+        {
+            var name = Naming.ToPascalCase(setCols[i].Name);
+            writer.Line($"    if ({flags[i]}) {{ writer.Write(++i, e.{name}); }}");
+        }
+
+        if (token is not null)
+        {
+            writer.Line("    writer.Write(++i, newToken);");
+        }
+
+        writer.Line($"    writer.Write(++i, e.{keyName});");
+        if (token is not null)
+        {
+            var tokenName = Naming.ToPascalCase(token.Name);
+            writer.Line($"    writer.Write(++i, s.{tokenName});");
+        }
+
+        writer.Line("});").Close().Line();
+    }
+
+    private static void EmitDelete(SourceWriter writer, EntityModel entity, PropertyModel? key, PropertyModel? token)
+    {
+        writer.Open($"public {Stmt} Delete(object entity)");
+
+        if (key is null)
+        {
+            writer
+                .Line("throw new global::System.NotSupportedException(\"Entity has no single primary key.\");")
+                .Close()
+                .Line();
+            return;
+        }
+
+        var keyName = Naming.ToPascalCase(key.Name);
+        writer.Line($"var e = ({entity.Name})entity;");
+
+        if (token is null)
+        {
+            var deleteSql = $"DELETE FROM \"{entity.Name}\" WHERE \"{key.Name}\" = $1";
+            writer.Line($"return new {Stmt}({Quote(deleteSql)}, writer => writer.Write(1, e.{keyName}));");
+        }
+        else
+        {
+            var tokenName = Naming.ToPascalCase(token.Name);
+            var deleteSql = $"DELETE FROM \"{entity.Name}\" WHERE \"{key.Name}\" = $1 AND \"{token.Name}\" = $2";
+            writer
+                .Line($"return new {Stmt}({Quote(deleteSql)}, writer =>")
+                .Line("{")
+                .Line($"    writer.Write(1, e.{keyName});")
+                .Line($"    writer.Write(2, e.{tokenName});")
+                .Line("});");
+        }
+
+        writer.Close().Line();
+    }
+
+    // The per-entity value snapshot used for change-tracking diffs (FR-014). A record struct gives
+    // field-wise capture with no per-field boxing; the struct is boxed once when stored by the session.
+    private static void EmitSnapshotStruct(SourceWriter writer, EntityModel entity, EquatableArray<PropertyModel> columns)
+    {
+        var fields = string.Join(
+            ", ",
+            columns.Select(p =>
+            {
+                var clr = p.IsNullable ? p.ClrType + "?" : p.ClrType;
+                return clr + " " + Naming.ToPascalCase(p.Name);
+            }));
+        writer.Line($"internal readonly record struct {entity.Name}Snapshot({fields});");
     }
 
     // Renders a C# double-quoted string literal for the given text.

@@ -45,4 +45,43 @@ public sealed class CrudTests
             await Assert.That(widget.Quantity).IsEqualTo(7);
         }
     }
+
+    // US2 (T036): Remove + commit deletes the row.
+    [Test]
+    public async Task Remove_then_commit_deletes_the_row()
+    {
+        await using var postgres = new PostgreSqlBuilder().WithImage("postgres:16-alpine").Build();
+        await postgres.StartAsync();
+        var connectionString = postgres.GetConnectionString();
+
+        await using (var dataSource = DormantPostgres.CreateDataSource(connectionString))
+        await using (var db = await dataSource.OpenAsync())
+        {
+            await db.ExecuteAsync(new PreparedStatement(
+                "CREATE TABLE \"Widget\" (\"id\" uuid primary key, \"name\" text not null, \"quantity\" integer not null)"));
+        }
+
+        await using var factory = DormantPostgres.CreateSessionFactory(connectionString);
+        var id = Guid.NewGuid();
+
+        await using (var session = await factory.OpenSessionAsync())
+        {
+            await session.AddAsync(new Widget { Id = id, Name = "doomed", Quantity = 1 });
+            await session.CommitAsync();
+        }
+
+        await using (var session = await factory.OpenSessionAsync())
+        {
+            var widget = await session.GetAsync<Widget>(id);
+            await Assert.That(widget).IsNotNull();
+            session.Remove(widget!);
+            await session.CommitAsync();
+        }
+
+        await using (var session = await factory.OpenSessionAsync())
+        {
+            var widget = await session.GetAsync<Widget>(id);
+            await Assert.That(widget).IsNull();
+        }
+    }
 }

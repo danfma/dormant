@@ -5,3 +5,9 @@ entity Widget {
   name: str;
   quantity: int;
 }
+
+entity Account {
+  id: uuid primary;
+  balance: int;
+  version: int concurrency;
+}
