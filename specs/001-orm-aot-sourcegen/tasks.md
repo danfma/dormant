@@ -27,17 +27,17 @@ AOT smoke, BenchmarkDotNet). Write tests first within each story and ensure they
 
 **Purpose**: Solution, projects, shared config, analyzers, CI.
 
-- [ ] T001 Create `Dormant.sln`, `Directory.Build.props`, `Directory.Packages.props` (central package mgmt, `net10.0`, `LangVersion=14`, `IsAotCompatible=true`, nullable enable, warnings-as-errors on public surface) at repo root
-- [ ] T002 [P] Create `src/Dormant.Abstractions/` project (net10.0, `IsAotCompatible`, empty `PublicAPI.Shipped.txt`/`PublicAPI.Unshipped.txt`)
-- [ ] T003 [P] Create `src/Dormant.Core/` project referencing `Dormant.Abstractions`
-- [ ] T004 [P] Create `src/Dormant.SourceGeneration/` project (netstandard2.0, packaged as analyzer/generator)
-- [ ] T005 [P] Create `src/Dormant.Provider.PostgreSql/` project (refs Abstractions + Core, Npgsql)
-- [ ] T006 [P] Create `src/Dormant.Spatial.PostgreSql/` companion project (refs Provider.PostgreSql, NetTopologySuite isolated here)
-- [ ] T007 [P] Create `src/Dormant.Tool/` project (`dotnet tool`, refs Core + Provider.PostgreSql)
-- [ ] T008 [P] Create test projects `tests/Dormant.SourceGeneration.Tests/`, `tests/Dormant.Core.Tests/`, `tests/Dormant.Provider.PostgreSql.Tests/`, `tests/Dormant.Spatial.PostgreSql.Tests/`, `tests/Dormant.Aot.SmokeTests/`, `tests/Dormant.Benchmarks/`
-- [ ] T009 [P] Configure analyzers in `Directory.Build.props`: CA2012 (warning), CA1068, CA2016, `Microsoft.VisualStudio.Threading.Analyzers` (VSTHRD002/103/111), `Microsoft.CodeAnalysis.PublicApiAnalyzers`
-- [ ] T010 [P] Create `samples/Dormant.Sample.Quickstart/` skeleton (mirrors quickstart.md)
-- [ ] T011 CI pipeline (single entry point: build → test → AOT smoke → benchmark → pack) in `.github/workflows/ci.yml` and a `build` script at repo root
+- [X] T001 Create `Dormant.sln`, `Directory.Build.props`, `Directory.Packages.props` (central package mgmt, `net10.0`, `LangVersion=14`, `IsAotCompatible=true`, nullable enable, warnings-as-errors on public surface) at repo root
+- [X] T002 [P] Create `src/Dormant.Abstractions/` project (net10.0, `IsAotCompatible`, empty `PublicAPI.Shipped.txt`/`PublicAPI.Unshipped.txt`)
+- [X] T003 [P] Create `src/Dormant.Core/` project referencing `Dormant.Abstractions`
+- [X] T004 [P] Create `src/Dormant.SourceGeneration/` project (netstandard2.0, packaged as analyzer/generator)
+- [X] T005 [P] Create `src/Dormant.Provider.PostgreSql/` project (refs Abstractions + Core, Npgsql)
+- [X] T006 [P] Create `src/Dormant.Spatial.PostgreSql/` companion project (refs Provider.PostgreSql, NetTopologySuite isolated here)
+- [X] T007 [P] Create `src/Dormant.Tool/` project (`dotnet tool`, refs Core + Provider.PostgreSql)
+- [X] T008 [P] Create test projects `tests/Dormant.SourceGeneration.Tests/`, `tests/Dormant.Core.Tests/`, `tests/Dormant.Provider.PostgreSql.Tests/`, `tests/Dormant.Spatial.PostgreSql.Tests/`, `tests/Dormant.Aot.SmokeTests/`, `tests/Dormant.Benchmarks/`
+- [X] T009 [P] Configure analyzers in `Directory.Build.props`: CA2012 (warning), CA1068, CA2016, `Microsoft.VisualStudio.Threading.Analyzers` (VSTHRD002/103/111), `Microsoft.CodeAnalysis.PublicApiAnalyzers` _(CA* via AnalysisLevel + VSTHRD wired in src/Directory.Build.props; PublicApiAnalyzers + PublicAPI.*.txt baselines land in T017)_
+- [X] T010 [P] Create `samples/Dormant.Sample.Quickstart/` skeleton (mirrors quickstart.md)
+- [X] T011 CI pipeline (single entry point: build → test → AOT smoke → benchmark → pack) in `.github/workflows/ci.yml` and a `build` script at repo root _(ci.yml build+test+aot-smoke jobs + build.sh created; benchmark/pack jobs added later; CI run unverified until pushed)_
 
 ---
 

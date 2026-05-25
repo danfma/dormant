@@ -1,0 +1,13 @@
+<Project>
+
+  <!-- Inherit repo-root shared settings, then add analyzers for all shipped (src) projects. -->
+  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
+
+  <ItemGroup>
+    <!-- Async/ValueTask discipline (VSTHRD002/103/111) per research §7/§8. CA2012/CA1068/CA2016 come
+         from AnalysisLevel=latest-recommended. PublicApiAnalyzers + PublicAPI.*.txt baselines are
+         wired per shipped library in Foundational task T017. -->
+    <PackageReference Include="Microsoft.VisualStudio.Threading.Analyzers" PrivateAssets="all" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <Description>Dormant ORM — command-line tool (migrations add/apply/rollback/status, schema validate).</Description>
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>dormant</ToolCommandName>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Dormant.Core/Dormant.Core.csproj" />
+    <ProjectReference Include="../Dormant.Provider.PostgreSql/Dormant.Provider.PostgreSql.csproj" />
+  </ItemGroup>
+
+</Project>

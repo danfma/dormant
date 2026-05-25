@@ -1,0 +1,21 @@
+<Solution>
+  <Folder Name="/samples/">
+    <Project Path="samples/Dormant.Sample.Quickstart/Dormant.Sample.Quickstart.csproj" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/Dormant.Abstractions/Dormant.Abstractions.csproj" />
+    <Project Path="src/Dormant.Core/Dormant.Core.csproj" />
+    <Project Path="src/Dormant.Provider.PostgreSql/Dormant.Provider.PostgreSql.csproj" />
+    <Project Path="src/Dormant.SourceGeneration/Dormant.SourceGeneration.csproj" />
+    <Project Path="src/Dormant.Spatial.PostgreSql/Dormant.Spatial.PostgreSql.csproj" />
+    <Project Path="src/Dormant.Tool/Dormant.Tool.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Dormant.Aot.SmokeTests/Dormant.Aot.SmokeTests.csproj" />
+    <Project Path="tests/Dormant.Benchmarks/Dormant.Benchmarks.csproj" />
+    <Project Path="tests/Dormant.Core.Tests/Dormant.Core.Tests.csproj" />
+    <Project Path="tests/Dormant.Provider.PostgreSql.Tests/Dormant.Provider.PostgreSql.Tests.csproj" />
+    <Project Path="tests/Dormant.SourceGeneration.Tests/Dormant.SourceGeneration.Tests.csproj" />
+    <Project Path="tests/Dormant.Spatial.PostgreSql.Tests/Dormant.Spatial.PostgreSql.Tests.csproj" />
+  </Folder>
+</Solution>

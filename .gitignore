@@ -1,0 +1,38 @@
+# .NET
+bin/
+obj/
+*.user
+*.suo
+*.userprefs
+artifacts/
+[Pp]ackages/
+*.nupkg
+*.snupkg
+
+# Build / publish output
+publish/
+[Dd]ebug/
+[Rr]elease/
+*.binlog
+
+# Test / coverage
+[Tt]est[Rr]esults/
+coverage/
+*.coverage
+*.trx
+BenchmarkDotNet.Artifacts/
+
+# IDE / editor
+.vs/
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Local env
+.env
+.env.*
+!.env.example

@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  push:
+    branches: [main, "**"]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET (from global.json)
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build --no-restore --configuration Release
+
+      - name: Test (TUnit / Microsoft.Testing.Platform)
+        run: dotnet test --no-build --configuration Release
+
+  # AOT smoke gate (SC-001/SC-006): publish the smoke harness with full trimming + Native AOT and
+  # fail on any library-originated trimming/AOT warning. Wired fully in US6 (T088).
+  aot-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      - name: Publish AOT smoke harness
+        run: |
+          sudo apt-get update && sudo apt-get install -y clang zlib1g-dev
+          dotnet publish tests/Dormant.Aot.SmokeTests/Dormant.Aot.SmokeTests.csproj \
+            -c Release -p:PublishAot=true -p:TrimMode=full
