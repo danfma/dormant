@@ -22,7 +22,7 @@ entity User {
   email: str;               # required
   created_at: datetime;
   bio: str?;                # optional
-  posts: multi Post;        # multi link
+  posts: Set<Post>;         # collection reference → RefSet<Post>
   version: int concurrency;
 }
 

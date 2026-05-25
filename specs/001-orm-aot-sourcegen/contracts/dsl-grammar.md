@@ -16,8 +16,8 @@ entity User {
   created_at: datetime;
   profile: jsonb;                 # native type (FR-038), provider-scoped
   bio: str?;                      # optional property (nullable)
-  manager: User?;                 # optional single link
-  posts: multi Post;              # multi link (one side of m:n, FR-037)
+  manager: User?;                 # optional single reference → Ref<User?> (default Unloaded)
+  posts: Set<Post>;               # collection reference     → RefSet<Post> (one side of m:n, FR-037)
   version: int concurrency;       # optimistic concurrency token (FR-015)
 }
 
@@ -31,9 +31,10 @@ entity Post {
 - **Module → DB schema** (FR-045): the module name is the database schema; tables/DDL/SQL are qualified
   by it. **Generated namespace** (FR-046): `PascalCaseEachPart(rootNamespace + folders + module)` — e.g.
   `schema/app.dqls` in `Dormant.Sample.Quickstart` → `Dormant.Sample.Quickstart.Schema.App`.
-- **Member syntax** (FR-047): unified `name: [multi] Type[?]`. Value type ⇒ property; otherwise ⇒ link.
-  Required by default; `?` ⇒ optional/nullable; `multi` ⇒ multi-valued link. No `->` arrow, no `single`
-  keyword (bare single link is required, `Type?` is optional).
+- **Member syntax** (FR-047/FR-049): `name: TypeExpr[?]`. Value type ⇒ property; otherwise ⇒ relationship.
+  Single ref `name: Target` (→ `Ref<Target>`); collections `Set<T>`/`List<T>`/`Bag<T>`/`Map<K,V>` (→
+  `RefSet`/`RefList`/`RefBag`/`RefMap`). Properties + single refs required by default (`?` ⇒ optional);
+  collections optional by default (Unloaded sentinel). No `->` arrow, no `single`/`multi` keywords.
 - Value types (FR-036): `str, bool, int16/32/64, float32/64, decimal, bigint, uuid, datetime, duration,
   bytes, json` + collections `array<T>`, `tuple<...>`, named tuple. `map<K,V>` is **Phase 2**.
 - Many-to-many = a `multi` link per side; edge data = an explicit join entity (FR-037).

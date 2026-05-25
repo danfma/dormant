@@ -29,10 +29,10 @@ public interface ISession : IAsyncDisposable
     ValueTask RollbackAsync(CancellationToken cancellationToken = default);
 
     // On-demand link load (FR-009): transitions an Unloaded link to Loaded.
-    ValueTask<LinkSet<TTarget>> LoadAsync<TTarget>(
-        LinkSet<TTarget> link, CancellationToken cancellationToken = default) where TTarget : class;
-    ValueTask<Link<TTarget>> LoadAsync<TTarget>(
-        Link<TTarget> link, CancellationToken cancellationToken = default) where TTarget : class;
+    ValueTask<RefSet<TTarget>> LoadAsync<TTarget>(
+        RefSet<TTarget> link, CancellationToken cancellationToken = default) where TTarget : class;
+    ValueTask<Ref<TTarget>> LoadAsync<TTarget>(
+        Ref<TTarget> link, CancellationToken cancellationToken = default) where TTarget : class;
 }
 
 public interface ISessionFactory : IAsyncDisposable
@@ -41,26 +41,48 @@ public interface ISessionFactory : IAsyncDisposable
 }
 ```
 
-## Link load-state (FR-009)
+## Reference load-state (FR-009)
 
 ```csharp
-public readonly struct Link<T> where T : class
+// Optionality is the nullability of T (orthogonal to load-state): Ref<User> = required (loaded value
+// non-null); Ref<User?> = optional (loaded value may be null = no related row). Hence `class?`.
+public readonly struct Ref<T> where T : class?
 {
     public bool IsLoaded { get; }
     public bool TryGetLoaded(out T? value);     // false when Unloaded
-    public T Value { get; }                       // throws if Unloaded — discouraged; prefer TryGetLoaded
-    public static Link<T> Loaded(T? value);
-    public static Link<T> Unloaded { get; }
+    public T Value { get; }                       // T flows nullability; throws if Unloaded — prefer TryGetLoaded
+    public static Ref<T> Loaded(T value);
+    public static Ref<T> Unloaded { get; }
 }
 
-public readonly struct LinkSet<T> where T : class
+public readonly struct RefSet<T> where T : class      // unordered, unique (FR-049)
 {
     public bool IsLoaded { get; }
     public bool TryGetLoaded(out IReadOnlyList<T> items);
-    public static LinkSet<T> Loaded(IReadOnlyList<T> items);
-    public static LinkSet<T> Unloaded { get; }
+    public static RefSet<T> Loaded(IReadOnlyList<T> items);
+    public static RefSet<T> Unloaded { get; }
 }
+
+// Same loaded/unloaded shape, NHibernate collection semantics (FR-049):
+//   RefList<T>  — ordered           RefBag<T> — unordered, allows duplicates
+//   RefMap<TKey,TValue>             — keyed
+// Generated relationship members default to the Unloaded sentinel (e.g. = RefSet<T>.Unloaded), never = [].
 ```
+
+## Projections into user-owned records (FR-050)
+
+A query may materialize into a **user-defined `record`/DTO with no Dormant types** — the dependency-free
+boundary so domain/application code never references `Dormant.Abstractions`:
+
+```csharp
+public sealed record PostSummary(string Title, string AuthorEmail);   // user-owned, Dormant-free
+// query maps columns → constructor parameters; entities (with Ref<T>) remain the persistence model.
+```
+
+## Entity equality (FR-051)
+
+Generated entities implement identity (primary-key) equality by default; a transient (unset key) falls
+back to reference equality. Opt out with `[NoIdentityEquality]`.
 
 ## Compiled query handle (build-time-produced)
 

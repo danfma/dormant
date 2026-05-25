@@ -30,7 +30,7 @@ The parsed, validated schema. Equatable aggregate root of generation.
 - `DbSchema` — the module name; the database schema the table lives in (FR-045)
 - `TableName` — schema-qualified (`<DbSchema>.<table>`)
 - `Properties: EquatableArray<PropertyModel>`
-- `Links: EquatableArray<LinkModel>`
+- `References: EquatableArray<ReferenceModel>`
 - `Key: KeyModel` (identity columns)
 - `ConcurrencyToken: PropertyModel?` (optimistic concurrency, FR-015)
 
@@ -46,10 +46,11 @@ The parsed, validated schema. Equatable aggregate root of generation.
 - `ProviderType: string?` (e.g. `jsonb`, `geometry` — set for `Native`)
 - `ProviderScope: string?` (provider directive scope, FR-042)
 
-### LinkModel
-- `Name`, `Target: string` (entity name)
-- `Cardinality: { Single, Multi }` (→ `Link<T>` vs `LinkSet<T>`). Syntax: `name: [multi] Type[?]` (FR-047)
-- `IsRequired: bool` (single link: bare = required, `Type?` = optional; generated with C# `required`, FR-048)
+### ReferenceModel (formerly LinkModel)
+- `Name`, `Target: string` (entity name); `KeyType: string?` (for `Map`)
+- `Kind: { Ref, Set, List, Bag, Map }` → `Ref<T>` / `RefSet<T>` / `RefList<T>` / `RefBag<T>` / `RefMap<K,V>` (FR-049).
+  Syntax: `name: Target` (single), `name: Set<Target>` / `List<…>` / `Bag<…>` / `Map<Key, Target>` (FR-047)
+- `IsRequired: bool` (single ref: bare = required → C# `required`; `Target?` = optional; collections optional by default)
 - `JoinEntity: string?` (set when m:n carries edge data via a join entity, FR-037)
 
 ### QueryModel
@@ -84,20 +85,31 @@ The parsed, validated schema. Equatable aggregate root of generation.
 ### Entity (generated, mutable)
 A generated `partial` class. Mapped properties + link members. Mutable; the session holds its snapshot.
 - **State**: `Transient` → `Persistent`(tracked) → `Removed`; `Detached` when its session closes.
-- **Invariants**: never partially populated — a full entity has all mapped columns; unfetched links are
+- **Invariants**: never partially populated — a full entity has all mapped columns; unfetched references are
   `Unloaded` (not null-as-loaded).
 
-### Link<T> / LinkSet<T> (kernel, `Dormant.Abstractions`)
-Typed wrapper over a relationship on a full entity (FR-009).
-- **State**: `Unloaded` | `Loaded(value)`.
+### Ref<T> / RefSet<T> / RefList<T> / RefBag<T> / RefMap<K,V> (kernel, `Dormant.Abstractions`)
+Reference types over a relationship on a full entity (FR-009/FR-049). Each is a `readonly struct`.
+- **State**: `Unloaded` (default sentinel) | `Loaded(value)`. Default is `Unloaded`, never empty.
+- **Single-ref optionality** = nullability of `T` (orthogonal to load-state): `Ref<User>` required (loaded
+  non-null), `Ref<User?>` optional (loaded may be null); `Ref<T> where T : class?`. Collections take no
+  element `?` (`RefSet<User>` has non-null elements).
 - Reading the value requires handling `Unloaded` (e.g. `TryGetLoaded`, pattern match); raw value not
   directly reachable while unloaded.
+- **Collection semantics** (FR-049): `RefSet` unordered/unique; `RefBag` unordered/dups; `RefList`
+  ordered; `RefMap` keyed.
 - **Transition**: `Unloaded → Loaded` only via an explicit session on-demand load, or by being fetched in
   a shape. Never implicit (FR-009).
 
-### Projection / Shape (generated)
-A distinct generated type containing exactly the requested fields + nested links (FR-007). Immutable
-read-model. Accessing a non-requested field is impossible (the member does not exist) (FR-008).
+### Projection / Shape (generated or user-owned record)
+A distinct type containing exactly the requested fields + nested shapes (FR-007). Accessing a
+non-requested field is impossible (the member does not exist) (FR-008). May be a generated type **or a
+user-owned plain `record`/DTO with no Dormant types** (FR-050) — the dependency-free boundary for
+domain/application code. Records get structural equality from the compiler.
+
+### Entity equality (FR-051)
+Generated `Equals`/`GetHashCode`: equal when same entity type with equal primary-key values; transient
+(unset key) → reference equality; `[NoIdentityEquality]` opts out.
 
 ### Session / Unit of Work (kernel + Core)
 - Owns: **identity map** (one instance per key), **snapshots**, the open transaction.
@@ -137,9 +149,9 @@ read-model. Accessing a non-requested field is impossible (the member does not e
 
 ```
 SchemaModel 1─* EntityModel 1─* PropertyModel
-                EntityModel 1─* LinkModel ─► EntityModel (target)
+                EntityModel 1─* ReferenceModel ─► EntityModel (target)
 QueryModel ─► ShapeModel ─► (EntityModel | ProjectionType)
-Session 1─* Entity (identity map)  ;  Entity 1─* Link<T>/LinkSet<T>
+Session 1─* Entity (identity map)  ;  Entity 1─* Ref<T>/RefSet<T>
 Provider 1─* NativeBinding ; Provider 1─* NativeFunction ; ProviderDirective scopes both
 Migration *─1 SchemaModel (snapshot at migration time)
 ```

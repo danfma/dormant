@@ -25,9 +25,18 @@ DormantQL conventions: a module maps to a DB schema (schema-qualified DDL/SQL).
 Generated namespace = PascalCaseEachPart(project RootNamespace + schema-file folders
 + module) — e.g. schema/app.dqls in Dormant.Sample.Quickstart → namespace
 Dormant.Sample.Quickstart.Schema.App (NOT the bare module). Member syntax is
-`name: [multi] Type[?]` (value type ⇒ property, else ⇒ link; required by default,
-`?` optional, `multi` collection; no `->` arrow, no `single`). Non-nullable members
-emit C# `required` (not `= default!`); materialize via a [SetsRequiredMembers] ctor
-invoked through [UnsafeAccessor]. (The committed US1 generator predates these and
-needs a revision pass — see plan.md Phase notes.)
+`name: TypeExpr[?]`: value type ⇒ property; single ref `name: Target`; collections
+`Set<T>`/`List<T>`/`Bag<T>`/`Map<K,V>`. Relationship types (kernel): `Ref<T>`,
+`RefSet<T>`, `RefList<T>`, `RefBag<T>`, `RefMap<K,V>` (renamed from Link/LinkSet) —
+each a readonly struct with an Unloaded sentinel. Single-ref optionality is the
+nullability of the type arg (orthogonal to load-state): required `owner: User` →
+`Ref<User>`; optional `manager: User?` → `Ref<User?>` (so `Ref<T> where T : class?`);
+collections take no element `?` (`Set<User>` → `RefSet<User>`). Properties + single
+refs are required by default (`?` optional → C# `required`); collections default to the
+Unloaded sentinel (`= RefSet<T>.Unloaded`), NEVER `= []`. Non-nullable members emit
+C# `required`; materialize via a ctor invoked through [UnsafeAccessor]. Entities get
+PK identity Equals/GetHashCode by default (opt out `[NoIdentityEquality]`).
+Projections may target user-owned plain records (no Dormant types) — the Clean-Arch
+boundary. (The committed kernel/generator predate the Ref rename + collections +
+equality — revision pending; see plan.md Phase notes.)
 <!-- SPECKIT END -->

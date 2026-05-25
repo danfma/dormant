@@ -10,17 +10,21 @@ Dormant is a managed, AOT-first .NET 10 ORM whose primary surface is DormantQL, 
 A Roslyn **incremental source generator** compiles DormantQL (from `AdditionalFiles`) into partial entity
 types, distinct projection types, change-tracking snapshots, and typed query methods carrying **build-time
 SQL** — so every query's result type is known at compile time and only values/predicates vary at runtime.
-A module maps to a **database schema**; generated types are placed in a **.NET-friendly namespace**
-(`PascalCaseEachPart(rootNamespace + folders + module)`); members use a unified `name: [multi] Type[?]`
-syntax (required by default, `?` optional, `multi` collection) and non-nullable members are emitted with
-the C# `required` modifier. Persistence is an NHibernate-subset session with an identity map and
-snapshot-diff change tracking (write only changed columns). Links carry explicit `Link<T>`/`LinkSet<T>`
-loaded/unloaded state with explicit on-demand loading (no implicit lazy). PostgreSQL is the reference
-provider via the AOT-safe Npgsql slim path; JSONB is built in; GIS ships as a companion package.
-Per-provider native types/functions are a deliberate, non-portable escape hatch. The public async API
-prefers **`ValueTask`** (disciplined); the codebase is **feature-first** with **dependencies pointing
-one direction inward** (abstractions ← engine ← adapters), using semantic folder/namespace names (not
-architectural labels); tests run on **TUnit** against **real providers in ephemeral Docker (Testcontainers)**.
+A module maps to a **database schema**; generated types use a **.NET-friendly namespace**
+(`PascalCaseEachPart(rootNamespace + folders + module)`); members use `name: TypeExpr[?]` (value ⇒
+property; single ref `name: Target`; collections `Set/List/Bag/Map`). Relationships are generated
+reference structs — **`Ref<T>` / `RefSet<T>` / `RefList<T>` / `RefBag<T>` / `RefMap<K,V>`** — each with an
+explicit **Unloaded** sentinel (never `= []`), so unfetched ≠ empty. Non-nullable members emit C#
+`required`; entities get **primary-key identity equality** by default. Persistence is an NHibernate-subset
+session with an identity map and snapshot-diff change tracking. PostgreSQL is the reference provider via
+the AOT-safe Npgsql slim path; JSONB built in; GIS as a companion package. Per-provider native
+types/functions are a deliberate, non-portable escape hatch. The public async API prefers **`ValueTask`**;
+the codebase is **feature-first** with dependencies pointing one direction inward (semantic names, no
+"Ports" jargon); tests run on **TUnit** against **real providers in ephemeral Docker (Testcontainers)**.
+
+**Clean-Architecture seam**: entities carry `Ref` types (a minimal, AOT, dependency-free
+`Dormant.Abstractions` reference) and are the persistence model; **projections materialize into
+user-owned plain records with zero Dormant types** so domain/application code stays Dormant-free (FR-050).
 
 Technical approach is fixed in [research.md](./research.md); design artifacts are
 [data-model.md](./data-model.md), [contracts/](./contracts/), and [quickstart.md](./quickstart.md).
@@ -29,37 +33,33 @@ Technical approach is fixed in [research.md](./research.md); design artifacts ar
 
 **Language/Version**: C# 14 / .NET 10 (`net10.0`); generators/analyzers target `netstandard2.0`.
 
-**Primary Dependencies**: Roslyn (`Microsoft.CodeAnalysis.CSharp`) incremental generators; Npgsql (slim
-data source path); `System.Text.Json` source generators (jsonb); NetTopologySuite (isolated to the GIS
-companion package). Test/tooling: **TUnit** (Microsoft.Testing.Platform), **Verify.TUnit** +
-Verify.SourceGenerators, **Testcontainers** (PostgreSQL), BenchmarkDotNet,
-`Microsoft.CodeAnalysis.PublicApiAnalyzers`, `Microsoft.VisualStudio.Threading.Analyzers`.
+**Primary Dependencies**: Roslyn incremental generators; Npgsql (slim data source); `System.Text.Json`
+source generators (jsonb); NetTopologySuite (GIS companion only). Test/tooling: TUnit
+(Microsoft.Testing.Platform), Verify.TUnit + Verify.SourceGenerators, Testcontainers (PostgreSQL),
+BenchmarkDotNet, Microsoft.CodeAnalysis.PublicApiAnalyzers, Microsoft.VisualStudio.Threading.Analyzers.
 
-**Storage**: PostgreSQL (primary/reference provider; FR-024). Each DormantQL module maps to a DB schema
-(FR-045); DDL/SQL is schema-qualified.
+**Storage**: PostgreSQL (primary/reference; FR-024). Module → DB schema (FR-045); DDL/SQL schema-qualified.
 
-**Testing**: **TUnit** for unit/generator/integration; Verify (`Verify.TUnit` + `Verify.SourceGenerators`)
-snapshots + cacheability for the generator; **Testcontainers** real PostgreSQL in ephemeral Docker (never
-mocks) for connectivity/CRUD/query/migration; AOT publish smoke (`PublishAot`, `TrimMode=full`);
-BenchmarkDotNet budgets. Docker daemon required locally + CI. Tests run via direct MTP hosts (`./build.sh
-test`) since the .NET 10 SDK dropped the legacy VSTest `dotnet test` path.
+**Testing**: TUnit unit/generator/integration; Verify snapshots + cacheability for the generator;
+Testcontainers real PostgreSQL in ephemeral Docker (never mocks); AOT publish smoke; BenchmarkDotNet
+budgets. Docker daemon required. Tests run via direct MTP hosts (`./build.sh test`).
 
-**Target Platform**: cross-platform .NET 10, Native AOT + full trimming supported.
+**Target Platform**: cross-platform .NET 10, Native AOT + full trimming.
 
 **Project Type**: managed multi-package library + source generator + `dotnet tool` CLI.
 
-**Performance Goals**: one round-trip per shaped fetch (SC-003); no per-row boxing (SC-004); no first-use
-warm-up (SC-006); throughput ≥ and alloc/op < mainstream baseline (SC-007). Per-release budgets CI-gated.
+**Performance Goals**: one round-trip per shaped fetch (SC-003); no per-row boxing (SC-004); no warm-up
+(SC-006); throughput ≥ / alloc-per-op < baseline ORM (SC-007).
 
-**Constraints**: zero library-originated trimming/AOT warnings (SC-001); no runtime reflection or runtime
-query compilation on hot paths (FR-013/FR-017); build-time SQL; `ValueTask`-first; deterministic
-generation (FR-004). Generator reads `build_property.RootNamespace` + project dir + each schema file's
-relative path from `AnalyzerConfigOptions` to compute namespaces (FR-046); non-nullable members emit C#
-`required` and are materialized via a `[SetsRequiredMembers]` ctor invoked through `[UnsafeAccessor]`
-(FR-048).
+**Constraints**: zero library-originated trimming/AOT warnings (SC-001); no runtime reflection or query
+compilation on hot paths (FR-013/FR-017); build-time SQL; `ValueTask`-first; deterministic generation
+(FR-004). Generator reads `RootNamespace`/`ProjectDir` from `AnalyzerConfigOptions` (FR-046); `required`
+members materialized via a ctor invoked through `[UnsafeAccessor]` (FR-048); relationships default to the
+Unloaded sentinel (FR-009/FR-047); PK identity equality generated (FR-051); projections may target
+user-owned records (FR-050).
 
-**Scale/Scope**: v1 (Tier A) = schema + links + shapes/projections + optional params + basic query/DML +
-migrations CLI + AOT + JSONB native + GIS companion. Tier B deferred per FR-035.
+**Scale/Scope**: v1 (Tier A) = schema + relationships (Ref + Set/List/Bag/Map) + shapes/projections +
+optional params + basic query/DML + migrations CLI + AOT + JSONB native + GIS companion. Tier B per FR-035.
 
 ## Constitution Check
 
@@ -67,51 +67,35 @@ migrations CLI + AOT + JSONB native + GIS companion. Tier B deferred per FR-035.
 
 | Principle | Gate | Status |
 |-----------|------|--------|
-| I. Developer Experience First | DormantQL primary surface; .NET-friendly generated namespaces (FR-046); `required` for safe construction (FR-048); doc + example per capability (FR-029); located, actionable diagnostics (FR-028); <15-min quickstart (SC-008). | PASS |
-| II. Interface & Compatibility Stability | Four contracts: public API (+PublicApiAnalyzers baseline), generated code (+Verify snapshots), DSL grammar, package/SemVer. Additive within MAJOR. | PASS |
-| III. Statically-Known, Safe-by-Default | Build-time-known result types (FR-006); distinct projections (FR-007/008); `Link<T>` load-state (FR-009); required-by-default members (FR-047/048); no implicit lazy. | PASS |
-| IV. First-Class Tooling | CLI migrations (FR-020), DSL diagnostics analyzer, compatibility verification, single CI entry point (`build.sh` + `ci.yml`). | PASS |
-| V. Performance by Default | Npgsql slim, `NpgsqlParameter<T>`/`GetFieldValue<T>` (no boxing), `[UnsafeAccessor]` (no reflection, incl. `required` materialization), build-time SQL, `ValueTask`-first, AOT smoke + benchmarks. | PASS |
-| VI. Quality & Testing (NON-NEGOTIABLE) | TUnit generator snapshot + cacheability, real-provider Testcontainers integration, AOT smoke, perf budgets, baselines — CI-gated; repro-test-before-fix. | PASS |
+| I. Developer Experience First | DormantQL primary; .NET-friendly namespaces; NHibernate-familiar Set/List/Bag/Map; `required` + PK equality for ergonomic, safe construction; projection-into-records keeps domains Dormant-free; located diagnostics; <15-min quickstart. | PASS |
+| II. Interface & Compatibility Stability | Four contracts (public API + PublicApiAnalyzers, generated code + Verify, DSL grammar, package/SemVer); additive within MAJOR. Ref rename is pre-1.0. | PASS |
+| III. Statically-Known, Safe-by-Default | Build-time-known result types; distinct projections; `Ref`/`RefSet`… load-state with Unloaded≠empty (FR-009/049); no implicit lazy. | PASS |
+| IV. First-Class Tooling | CLI migrations, DSL diagnostics analyzer, compatibility verification, single CI entry point. | PASS |
+| V. Performance by Default | Npgsql slim, no boxing, `[UnsafeAccessor]` (incl. required materialization + equality), build-time SQL, ValueTask-first, AOT smoke + benchmarks. | PASS |
+| VI. Quality & Testing (NON-NEGOTIABLE) | TUnit generator + real-provider integration + AOT smoke + budgets + baselines, CI-gated; repro-test-before-fix. | PASS |
 
-**Result: no violations.** Complexity Tracking empty. The package split is justified separation with a one-directional dependency rule; abstractions kept minimal (Principle I).
+**Result: no violations.** Complexity Tracking empty. Package split = justified one-directional separation; abstractions minimal (Principle I).
 
 ## Project Structure
 
-### Documentation (this feature)
-
 ```text
-specs/001-orm-aot-sourcegen/
-├── plan.md  research.md  data-model.md  quickstart.md
-├── contracts/   # public-api, ports, dsl-grammar, generated-code, cli
-└── tasks.md
-```
-
-### Source Code (repository root) — scaffolded & building; Foundational + US1 implemented
-
-Feature-first folders inside each package; dependencies point one direction inward (abstractions ← engine ← adapters).
-
-```text
-Dormant.sln · Directory.Build.props · Directory.Packages.props · global.json · nuget.config
-build.sh · .github/workflows/ci.yml · .editorconfig
+specs/001-orm-aot-sourcegen/   plan.md research.md data-model.md quickstart.md contracts/{public-api,providers,dsl-grammar,generated-code,cli}.md tasks.md
 
 src/
-├── Dormant.Abstractions/        # stable kernel (Sessions, Links, Querying, Providers, Mapping, Migrations, Native)
+├── Dormant.Abstractions/        # stable kernel: Sessions, Links→(Refs), Querying, Providers, Mapping, Migrations, Native
 ├── Dormant.Core/                # engine (Schema, Modeling, Querying, Persistence, Migrations, Native, Extensibility, Diagnostics)
 ├── Dormant.SourceGeneration/    # Roslyn incremental generator + analyzer (Parsing, Schema, Emit, Diagnostics)
-├── Dormant.Provider.PostgreSql/ # ADAPTER: Npgsql slim, dialect, jsonb
-├── Dormant.Spatial.PostgreSql/  # ADAPTER (companion): PostGIS EWKB codec
-└── Dormant.Tool/                # ADAPTER: dotnet tool `dormant`
-
-tests/  Dormant.{Core,SourceGeneration,Provider.PostgreSql,Spatial.PostgreSql}.Tests · Dormant.Aot.SmokeTests · Dormant.Benchmarks
+├── Dormant.Provider.PostgreSql/ # adapter: Npgsql slim, dialect, jsonb (+ Io/)
+├── Dormant.Spatial.PostgreSql/  # companion adapter: PostGIS EWKB codec
+└── Dormant.Tool/                # dotnet tool `dormant`
+tests/  Dormant.{Core,SourceGeneration,Provider.PostgreSql,Spatial.PostgreSql}.Tests · Aot.SmokeTests · Benchmarks
 samples/ Dormant.Sample.Quickstart
 ```
 
-**Structure Decision**: Multi-package layout with a one-directional dependency rule (abstractions ←
-engine ← adapters), mapping the four compatibility surfaces to independently-versionable artifacts;
-GIS out of core (FR-044). Abstraction interfaces are grouped by capability (Providers, Mapping,
-Migrations, Native) with semantic names — no `Ports` bucket. Scaffolded and building (13 projects, 0
-warnings); Foundational kernel/generator + US1 schema→entities implemented and tested.
+**Structure Decision**: Multi-package, one-directional dependencies (abstractions ← engine ← adapters),
+semantic names (no `Ports`). Abstraction interfaces grouped by capability (Providers/Mapping/Migrations/
+Native). The `Links/` folder holds the relationship reference types (being renamed Link→Ref). Builds clean
+(13 projects, 0 warnings); Foundational + US1 implemented; PostgreSQL adapter verified via Testcontainers.
 
 ## Complexity Tracking
 
@@ -119,15 +103,13 @@ warnings); Foundational kernel/generator + US1 schema→entities implemented and
 
 ## Phase notes
 
-- **Phase 0 (done)**: [research.md](./research.md) — all unknowns resolved, incl. §10 (module→schema,
-  namespace formula via `AnalyzerConfigOptions`, `required`-member materialization via
-  `[SetsRequiredMembers]` + `[UnsafeAccessor]`).
-- **Phase 1 design (done)**: data-model, contracts, quickstart; `CLAUDE.md` references this plan.
-- **Implementation done**: Setup (T001–T011), Foundational (T012–T022 except deferred T017), US1
-  schema→entities (T023–T033 except deferred T031).
-- **⚠️ US1 revision required**: the committed US1 generator predates FR-045..048 and must be updated —
-  namespace formula (FR-046) + `required` (FR-048), `name: [multi] Type[?]` member syntax (FR-047), and
-  the sample/tests/quickstart schemas. Do this before/with US2.
-- **Next (`/speckit-implement`)**: apply the US1 revision, then US2 (persist/session: Npgsql adapter +
-  snapshot-diff + materializer + `[UnsafeAccessor]`/`[SetsRequiredMembers]` (T031)) → US3 → US5 → US4 →
-  US8 → US6 → US7, threading testing/CI gates through.
+- **Phase 0 (done)**: [research.md](./research.md) §1–§11 — incl. §11 relationship model (Ref vocabulary,
+  Unloaded sentinel, projection-into-records, PK equality).
+- **Phase 1 design (done)**: data-model, contracts, quickstart, `CLAUDE.md` aligned to the Ref model.
+- **Implemented so far**: Setup (T001–T011); Foundational kernel/generator (T012–T022, deferring T017);
+  US1 schema→entities (T023–T033, deferring T031); US2 PostgreSQL adapter (T038–T041, Testcontainers-verified).
+- **⚠️ Pending code refactor (next implement)**: rename `Link<T>`/`LinkSet<T>` → `Ref<T>` + add
+  `RefSet/RefList/RefBag/RefMap` in `Dormant.Abstractions`; update generator emit (collection kinds,
+  Unloaded initializers, PK identity equality, projection-into-records); update adapter/sample/tests.
+- **Then**: resume US2 (Session/UoW + snapshot/materializer + change-tracking + concurrency + DML +
+  Testcontainers acceptance) → US3 → US5 → US4 → US8 → US6 → US7.

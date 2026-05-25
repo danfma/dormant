@@ -35,6 +35,7 @@
 - Q: How do relationship members default (avoid forcing the user to set them)? → A: Relationship members default to an **Unloaded** sentinel via an initializer (e.g. `= Ref<User>.Unloaded`, `= RefSet<User>.Unloaded`), so the user is not forced to assign them on construction; they are NOT `= []` (that would erase the unloaded-vs-empty distinction). A relationship is only emitted as C# `required` when the schema marks it mandatory (e.g. a bare single ref); optional relationships carry the Unloaded initializer and omit `required`. Non-nullable value properties remain `required` (FR-048).
 - Q: How is the Clean-Architecture invasiveness (Dormant types on entities) resolved? → A: Two surfaces. Entities are the persistence model and carry `Ref`-types (safe-by-default requires encoding load state in the type; a minimal, dependency-free, AOT `Dormant.Abstractions` leaf reference is accepted). **Projections may materialize into user-owned plain record/DTO types with zero Dormant types**, so domain/application code stays Dormant-free — projections are the clean boundary.
 - Q: Should entities get Equals/GetHashCode by default? → A: Yes — identity (primary-key) equality by default; a transient/unset key falls back to reference equality; an annotation opts out. Projections (records) keep value equality.
+- Q: How is single-reference optionality encoded in the type? → A: Via the nullability of the type argument, orthogonal to load-state. A required single ref (`owner: User`) → `Ref<User>` (loaded value non-null); an optional single ref (`manager: User?`) → `Ref<User?>` (loaded value may be null = no related row). The `Ref<>` wrapper still encodes Loaded/Unloaded. Collections do not take an element `?` (`Set<User>` → `RefSet<User>`, non-null elements); an "optional" collection is simply Unloaded or empty. `Ref<T>` is therefore constrained `where T : class?`.
 
 ## User Scenarios & Testing _(mandatory)_
 
@@ -543,7 +544,7 @@ entity User {
   id: uuid primary;         # required property (C# `required`)
   email: str;               # required property
   bio: str?;                # optional property (nullable)
-  manager: User?;           # optional single reference  → Ref<User> (default Unloaded)
+  manager: User?;           # optional single reference  → Ref<User?> (default Unloaded)
   posts: Set<Post>;         # collection reference        → RefSet<Post> (default Unloaded)
   version: int concurrency; # optimistic-concurrency token
 }

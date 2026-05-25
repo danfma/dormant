@@ -216,6 +216,36 @@ rejected, see Clarifications).
 
 ---
 
+## 11. Relationship model: Ref vocabulary, projection records, entity equality (FR-009/049/050/051)
+
+**Decision**:
+- **Rename `Link`→`Ref`; NHibernate collection kinds.** Single relationship → `Ref<T>`. Collections →
+  `RefSet<T>` (unordered/unique), `RefList<T>` (ordered), `RefBag<T>` (unordered/duplicates),
+  `RefMap<TKey,TValue>` (keyed). DSL: `owner: User`, `users: Set<User>`, `items: List<Item>`,
+  `tags: Bag<Tag>`, `roles: Map<Role, Membership>`. Each is a generated `readonly struct` carrying an
+  explicit `Unloaded` sentinel (default), so unfetched ≠ empty (FR-009). Generated relationship members
+  get an `= …Unloaded` initializer (not `= []`) and are not `required` unless the schema marks them so.
+- **Projection into user-owned records (FR-050).** Entities encode load state via `Ref` types (a small
+  AOT, dependency-free `Dormant.Abstractions` reference). To keep domain/application code Dormant-free,
+  a query may project into a **plain user-defined `record`/type** with no Dormant members — the
+  generator emits a positional materializer that maps columns to the record's constructor parameters by
+  name/order. Entities = persistence model; projections = the dependency-free boundary.
+- **Entity identity equality (FR-051).** The generator emits `Equals`/`GetHashCode` based on the entity
+  type + primary-key values; a transient entity (unset key) uses reference equality. An attribute (e.g.
+  `[NoIdentityEquality]`) opts out. This is generated code (no reflection), supports the identity map and
+  `RefSet` semantics. Projections are records → structural equality from the compiler.
+
+**Rationale**: NHibernate-aligned collection semantics are more expressive and familiar than a single
+"multi"; the `Unloaded` sentinel keeps the safe-by-default guarantee; projection-into-records is the
+clean Clean-Architecture seam (you can't have both plain-POCO navigation and compile-time load safety on
+the *same* type, so split entity vs projection); PK identity equality is the standard ORM/DDD default.
+
+**Alternatives**: plain-POCO entities (lose load-state safety — rejected); a separate domain↔data mapping
+layer (most decoupled, heavy — rejected for v1); `= []` collection default (erases unloaded≠empty —
+rejected); equality opt-in only (less useful default — rejected, opt-out chosen).
+
+---
+
 ## Resolved unknowns summary
 
 | Unknown | Resolution |

@@ -7,14 +7,20 @@ baseline; any change is a reviewable diff (research §8).
 ## What the generator emits
 
 Per schema entity `E` (in namespace `PascalCaseEachPart(rootNamespace + folders + module)`, FR-046):
-- `public partial class E` — mapped properties (auto-props) + link members typed `Link<T>`/`LinkSet<T>`.
-  Non-nullable members use the C# `required` modifier; nullable members use `T?` and omit `required`
-  (FR-047/FR-048). Hand-written `partial` members in separate files coexist and survive regeneration
-  (FR-003).
-- Internal `static` `[UnsafeAccessor]` field accessors for `E`'s mapped members (materialization +
-  snapshot), no reflection (research §5).
-- A `readonly record struct E_Snapshot` + a `E_Diff` comparer (changed-column detection, FR-014).
+- `public partial class E` — mapped properties (auto-props) + relationship members typed `Ref<T>` /
+  `RefSet<T>` / `RefList<T>` / `RefBag<T>` / `RefMap<K,V>` (FR-049). Non-nullable value properties and
+  required single refs use the C# `required` modifier; nullable members use `T?`; relationships default
+  to the Unloaded sentinel via an initializer (`= RefSet<T>.Unloaded`), never `= []` (FR-047/FR-048).
+  Hand-written `partial` members coexist and survive regeneration (FR-003).
+- `Equals`/`GetHashCode` by primary key (transient → reference equality), unless `[NoIdentityEquality]`
+  (FR-051).
+- Internal `static` `[UnsafeAccessor]` field accessors for `E`'s mapped members + a constructor invoked
+  through `[UnsafeAccessor]` to materialize past `required` (FR-048); no reflection (research §5/§10).
+- A `readonly record struct E_Snapshot` + a diff comparer (changed-column detection, FR-014).
 - A `RowMaterializer<E>` using `GetFieldValue<T>` per column, ordinals fixed at build time (no boxing).
+
+Per query projection: a generated record, **or** a positional materializer into a user-owned
+`record`/DTO with no Dormant types (FR-050) — the dependency-free boundary for domain/application code.
 
 Per projection shape `P`:
 - `public sealed partial class P` (or record) with exactly the requested fields + nested projection types
