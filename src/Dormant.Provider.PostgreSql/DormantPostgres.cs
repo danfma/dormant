@@ -1,4 +1,6 @@
 using Dormant.Abstractions.Providers;
+using Dormant.Abstractions.Sessions;
+using Dormant.Core.Persistence;
 using Npgsql;
 
 namespace Dormant.Provider.PostgreSql;
@@ -6,6 +8,12 @@ namespace Dormant.Provider.PostgreSql;
 /// <summary>Entry point for the PostgreSQL provider adapter (spec FR-024).</summary>
 public static class DormantPostgres
 {
+    /// <summary>Creates a session factory over an AOT-safe PostgreSQL data source.</summary>
+    /// <param name="connectionString">The PostgreSQL connection string.</param>
+    /// <returns>A session factory.</returns>
+    public static ISessionFactory CreateSessionFactory(string connectionString) =>
+        new SessionFactory(CreateDataSource(connectionString));
+
     /// <summary>
     /// Creates an AOT-safe PostgreSQL <see cref="IDataSource"/> over the Npgsql slim builder
     /// (<see cref="NpgsqlSlimDataSourceBuilder"/>) — no dynamic JSON, no reflection-based mapping

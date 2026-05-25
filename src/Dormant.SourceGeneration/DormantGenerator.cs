@@ -65,8 +65,8 @@ public sealed class DormantGenerator : IIncrementalGenerator
                     EntityEmitter.Emit(@namespace, entity));
 
                 productionContext.AddSource(
-                    Naming.HintName(@namespace, entity.Name + ".Materialization"),
-                    MaterializerEmitter.Emit(@namespace, entity));
+                    Naming.HintName(@namespace, entity.Name + ".Binding"),
+                    EntityBindingEmitter.Emit(@namespace, entity));
             }
         });
     }

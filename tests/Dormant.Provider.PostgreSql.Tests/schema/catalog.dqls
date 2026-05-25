@@ -1,0 +1,7 @@
+module catalog;
+
+entity Widget {
+  id: uuid primary;
+  name: str;
+  quantity: int;
+}

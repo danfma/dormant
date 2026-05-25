@@ -24,6 +24,14 @@ public interface ISession : IAsyncDisposable
     void Remove<TEntity>(TEntity entity)
         where TEntity : class;
 
+    /// <summary>Loads a full entity by its primary key, tracking it in the identity map (spec FR-014).</summary>
+    /// <typeparam name="TEntity">The entity type.</typeparam>
+    /// <param name="key">The primary-key value.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The entity, or <see langword="null"/> when no row matches.</returns>
+    ValueTask<TEntity?> GetAsync<TEntity>(object key, CancellationToken cancellationToken = default)
+        where TEntity : class;
+
     /// <summary>Executes a build-time-compiled query and streams its statically-known result type.</summary>
     /// <typeparam name="TResult">The result type (full entity or projection).</typeparam>
     /// <param name="query">The compiled query.</param>
