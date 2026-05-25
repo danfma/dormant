@@ -1,8 +1,12 @@
 <!-- SPECKIT START -->
 For additional context about technologies, project structure, conventions, and
 important decisions for the active feature, read the current plan:
-`specs/001-orm-aot-sourcegen/plan.md` (with `research.md`, `data-model.md`,
-`contracts/`, and `quickstart.md` in the same directory).
+`specs/002-immutable-command-dml/plan.md` (with `research.md`, `data-model.md`,
+`contracts/`, and `quickstart.md` in the same directory). This is a fork of
+`specs/001-orm-aot-sourcegen/` (the prior, mutable/change-tracking direction —
+retained as the return point): an **immutable, command-driven** ORM where all
+writes are authored DQL `insert`/`update`/`delete` commands (no change-tracking,
+no add-track-save), reusing 001's generator/IR/query/naming/DDL/AOT/jsonb foundation.
 
 Key conventions: .NET 10 / C# 14; AOT-first (zero library trimming/AOT warnings,
 no runtime reflection or query compilation on hot paths, no boxing); build-time SQL
