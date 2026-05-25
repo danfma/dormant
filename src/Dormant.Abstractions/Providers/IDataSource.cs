@@ -1,4 +1,4 @@
-namespace Dormant.Abstractions.Ports;
+namespace Dormant.Abstractions.Providers;
 
 /// <summary>Driver port: opens provider sessions (connection + transaction scope).</summary>
 public interface IDataSource : IAsyncDisposable

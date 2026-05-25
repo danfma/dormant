@@ -1,4 +1,4 @@
-using Dormant.Abstractions.Ports;
+using Dormant.Abstractions.Providers;
 using Npgsql;
 
 namespace Dormant.Provider.PostgreSql;

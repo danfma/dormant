@@ -7,9 +7,12 @@ important decisions for the active feature, read the current plan:
 Key conventions: .NET 10 / C# 14; AOT-first (zero library trimming/AOT warnings,
 no runtime reflection or query compilation on hot paths, no boxing); build-time SQL
 via a Roslyn incremental source generator; ValueTask-first async (await-once
-discipline) + IAsyncEnumerable streaming; feature-first layout behind a Ports &
-Adapters boundary (Dormant.Abstractions = ports/kernel, Dormant.Core = engine,
-adapters = Provider.PostgreSql / Spatial.PostgreSql / Tool).
+discipline) + IAsyncEnumerable streaming; feature-first layout with dependencies
+pointing one direction inward (Dormant.Abstractions = stable kernel, Dormant.Core =
+engine, adapters = Provider.PostgreSql / Spatial.PostgreSql / Tool). Use semantic
+folder/namespace names, NOT architectural labels: there is no `Ports` namespace —
+abstraction interfaces are grouped by capability (Abstractions.Providers, .Mapping,
+.Migrations, .Native; plus .Sessions, .Links, .Querying).
 
 Testing: TUnit (source-generated, AOT-native; runs on Microsoft.Testing.Platform,
 so test projects are `Exe` and `dotnet test` works). Use TUnit's built-in

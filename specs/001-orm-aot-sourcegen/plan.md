@@ -18,8 +18,9 @@ snapshot-diff change tracking (write only changed columns). Links carry explicit
 loaded/unloaded state with explicit on-demand loading (no implicit lazy). PostgreSQL is the reference
 provider via the AOT-safe Npgsql slim path; JSONB is built in; GIS ships as a companion package.
 Per-provider native types/functions are a deliberate, non-portable escape hatch. The public async API
-prefers **`ValueTask`** (disciplined), the codebase is **feature-first** behind a **Ports & Adapters**
-boundary, and tests run on **TUnit** against **real providers in ephemeral Docker (Testcontainers)**.
+prefers **`ValueTask`** (disciplined); the codebase is **feature-first** with **dependencies pointing
+one direction inward** (abstractions ← engine ← adapters), using semantic folder/namespace names (not
+architectural labels); tests run on **TUnit** against **real providers in ephemeral Docker (Testcontainers)**.
 
 Technical approach is fixed in [research.md](./research.md); design artifacts are
 [data-model.md](./data-model.md), [contracts/](./contracts/), and [quickstart.md](./quickstart.md).
@@ -73,7 +74,7 @@ migrations CLI + AOT + JSONB native + GIS companion. Tier B deferred per FR-035.
 | V. Performance by Default | Npgsql slim, `NpgsqlParameter<T>`/`GetFieldValue<T>` (no boxing), `[UnsafeAccessor]` (no reflection, incl. `required` materialization), build-time SQL, `ValueTask`-first, AOT smoke + benchmarks. | PASS |
 | VI. Quality & Testing (NON-NEGOTIABLE) | TUnit generator snapshot + cacheability, real-provider Testcontainers integration, AOT smoke, perf budgets, baselines — CI-gated; repro-test-before-fix. | PASS |
 
-**Result: no violations.** Complexity Tracking empty. Ports & Adapters split is justified separation; ports kept minimal (Principle I).
+**Result: no violations.** Complexity Tracking empty. The package split is justified separation with a one-directional dependency rule; abstractions kept minimal (Principle I).
 
 ## Project Structure
 
@@ -88,14 +89,14 @@ specs/001-orm-aot-sourcegen/
 
 ### Source Code (repository root) — scaffolded & building; Foundational + US1 implemented
 
-Feature-first folders inside each package; Ports & Adapters across packages (dependency rule inward).
+Feature-first folders inside each package; dependencies point one direction inward (abstractions ← engine ← adapters).
 
 ```text
 Dormant.sln · Directory.Build.props · Directory.Packages.props · global.json · nuget.config
 build.sh · .github/workflows/ci.yml · .editorconfig
 
 src/
-├── Dormant.Abstractions/        # PORTS + stable kernel (Sessions, Links, Querying, Ports)
+├── Dormant.Abstractions/        # stable kernel (Sessions, Links, Querying, Providers, Mapping, Migrations, Native)
 ├── Dormant.Core/                # engine (Schema, Modeling, Querying, Persistence, Migrations, Native, Extensibility, Diagnostics)
 ├── Dormant.SourceGeneration/    # Roslyn incremental generator + analyzer (Parsing, Schema, Emit, Diagnostics)
 ├── Dormant.Provider.PostgreSql/ # ADAPTER: Npgsql slim, dialect, jsonb
@@ -106,8 +107,10 @@ tests/  Dormant.{Core,SourceGeneration,Provider.PostgreSql,Spatial.PostgreSql}.T
 samples/ Dormant.Sample.Quickstart
 ```
 
-**Structure Decision**: Multi-package Ports & Adapters mapping the four compatibility surfaces to
-independently-versionable artifacts; GIS out of core (FR-044). Scaffolded and building (13 projects, 0
+**Structure Decision**: Multi-package layout with a one-directional dependency rule (abstractions ←
+engine ← adapters), mapping the four compatibility surfaces to independently-versionable artifacts;
+GIS out of core (FR-044). Abstraction interfaces are grouped by capability (Providers, Mapping,
+Migrations, Native) with semantic names — no `Ports` bucket. Scaffolded and building (13 projects, 0
 warnings); Foundational kernel/generator + US1 schema→entities implemented and tested.
 
 ## Complexity Tracking

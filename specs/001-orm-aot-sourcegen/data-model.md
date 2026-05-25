@@ -122,7 +122,7 @@ read-model. Accessing a non-requested field is impossible (the member does not e
   fragment; both keep a statically-known return type (FR-039/FR-040). Invocations are type-checked.
 
 ### Provider / Provider Directive
-- **Provider**: adapter (PostgreSQL) implementing the data-access + dialect + migration ports; declares the
+- **Provider**: adapter (PostgreSQL) implementing the data-access, dialect, and migration contracts; declares the
   native types/functions available (FR-024).
 - **Provider Directive**: build-time marker scoping native constructs; drives the unsupported-provider
   diagnostic (FR-042).

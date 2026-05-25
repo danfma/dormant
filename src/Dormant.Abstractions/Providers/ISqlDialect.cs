@@ -1,4 +1,4 @@
-namespace Dormant.Abstractions.Ports;
+namespace Dormant.Abstractions.Providers;
 
 /// <summary>Provider SQL dialect: identifier quoting, placeholders, and capability checks.</summary>
 public interface ISqlDialect

@@ -1,6 +1,6 @@
 using Dormant.Abstractions.Querying;
 
-namespace Dormant.Abstractions.Ports;
+namespace Dormant.Abstractions.Mapping;
 
 /// <summary>Reads/writes a column value of type <typeparamref name="T"/> without boxing (spec FR-019/FR-025).</summary>
 /// <typeparam name="T">The CLR type bound to a column.</typeparam>

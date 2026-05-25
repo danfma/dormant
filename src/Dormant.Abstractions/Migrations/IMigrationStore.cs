@@ -1,4 +1,4 @@
-namespace Dormant.Abstractions.Ports;
+namespace Dormant.Abstractions.Migrations;
 
 /// <summary>Persistence port for migration state: applied set, apply, and revert.</summary>
 public interface IMigrationStore

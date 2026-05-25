@@ -1,6 +1,6 @@
 using Dormant.Abstractions.Querying;
 
-namespace Dormant.Abstractions.Ports;
+namespace Dormant.Abstractions.Providers;
 
 /// <summary>Driver port: a connection bound to a transaction, executing prebuilt statements.</summary>
 public interface IDbSession : IAsyncDisposable

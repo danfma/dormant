@@ -1,4 +1,4 @@
-namespace Dormant.Abstractions.Ports;
+namespace Dormant.Abstractions.Native;
 
 /// <summary>Catalog of provider-native functions/operators available for type-checked invocation.</summary>
 public interface INativeFunctionCatalog

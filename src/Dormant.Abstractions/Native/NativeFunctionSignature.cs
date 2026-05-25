@@ -1,4 +1,4 @@
-namespace Dormant.Abstractions.Ports;
+namespace Dormant.Abstractions.Native;
 
 /// <summary>The declared signature of a provider-native function/operator (spec FR-039).</summary>
 /// <param name="ProviderScope">The provider scope the function is declared under (e.g. <c>postgres</c>).</param>

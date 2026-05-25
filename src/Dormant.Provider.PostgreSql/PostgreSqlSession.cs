@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
-using Dormant.Abstractions.Ports;
+using Dormant.Abstractions.Providers;
 using Dormant.Abstractions.Querying;
 using Dormant.Provider.PostgreSql.Io;
 using Npgsql;

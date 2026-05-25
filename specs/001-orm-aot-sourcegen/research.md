@@ -18,7 +18,7 @@ data access, build-time SQL, four compatibility surfaces (API / package / genera
 Central Package Management (`Directory.Packages.props`) + `Directory.Build.props` for shared settings.
 
 **Rationale**: `IsAotCompatible` turns on the analyzers that enforce SC-001 at build time. Package split
-maps to the Ports & Adapters boundary (below) and lets GIS ship separately (FR-044).
+maps to the one-directional dependency boundary (abstractions ← engine ← adapters) and lets GIS ship separately (FR-044).
 
 **Alternatives**: Single package — rejected; couples the PostgreSQL/Npgsql adapter and GIS into the core,
 violating the provider boundary (FR-024) and the "GIS not in core" decision (FR-044).

@@ -1,4 +1,4 @@
-namespace Dormant.Abstractions.Ports;
+namespace Dormant.Abstractions.Mapping;
 
 /// <summary>Resolves type bindings (scalar, collection, or native) for the active provider.</summary>
 public interface ITypeBindingRegistry

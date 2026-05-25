@@ -12,7 +12,7 @@ description: "Task list for Dormant — AOT-First, Schema-DSL ORM for .NET 10"
 NON-NEGOTIABLE and the plan defines the test projects (Verify snapshots, cacheability, Testcontainers,
 AOT smoke, BenchmarkDotNet). Write tests first within each story and ensure they fail before implementation.
 
-**Organization**: Grouped by user story. Stack: C# 14 / .NET 10; multi-package Ports & Adapters
+**Organization**: Grouped by user story. Stack: C# 14 / .NET 10; multi-package, one-directional dependencies
 (`Dormant.Abstractions` ports/kernel ← `Dormant.Core` engine ← adapters `Provider.PostgreSql` /
 `Spatial.PostgreSql` / `Tool`; `Dormant.SourceGeneration` emits against the kernel).
 
@@ -47,8 +47,8 @@ AOT smoke, BenchmarkDotNet). Write tests first within each story and ensure they
 
 - [X] T012 [P] Define `Link<T>` / `LinkSet<T>` loaded/unloaded state in `src/Dormant.Abstractions/Links/`
 - [X] T013 [P] Define `ISession`, `ISessionFactory`, `ConcurrencyConflictException` in `src/Dormant.Abstractions/Sessions/`
-- [X] T014 [P] Define driver ports `IDataSource`, `IDbSession`, `PreparedStatement`, `RowMaterializer<T>` in `src/Dormant.Abstractions/Ports/`
-- [X] T015 [P] Define `ISqlDialect`, `ITypeBinding<T>`, `ITypeBindingRegistry`, `INativeFunctionCatalog`, `IMigrationStore` in `src/Dormant.Abstractions/Ports/`
+- [X] T014 [P] Define provider/data-access contracts `IDataSource`, `IDbSession` in `Providers/`; `PreparedStatement`, `RowMaterializer<T>` in `Querying/` (`src/Dormant.Abstractions/`)
+- [X] T015 [P] Define `ISqlDialect` (Providers/), `ITypeBinding<T>`/`ITypeBindingRegistry` (Mapping/), `INativeFunctionCatalog` (Native/), `IMigrationStore` (Migrations/) — semantic grouping, no `Ports` bucket (`src/Dormant.Abstractions/`)
 - [X] T016 [P] Define `CompiledQuery<T>`, `FieldReader`, `ParameterWriter` in `src/Dormant.Abstractions/Querying/`
 - [ ] T017 Seed `PublicAPI.Shipped.txt`/`Unshipped.txt` baselines for `Dormant.Abstractions` (kernel surface) _(DEFERRED: enabling a frozen public-API baseline while the kernel still churns through US1–US3 is churn; turn on PublicApiAnalyzers + seed baselines once the surface stabilizes, before first release)_
 - [X] T018 [P] Implement `EquatableArray<T>` + equatable model primitives in `src/Dormant.SourceGeneration/Parsing/`
