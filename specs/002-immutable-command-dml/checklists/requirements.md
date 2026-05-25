@@ -43,7 +43,7 @@
   `Ref*` read types). Consistent with `001`'s established treatment of these as user-facing capabilities /
   compatibility surfaces (Constitution II), not implementation leakage; the "no implementation details" item
   is kept passing on that basis.
-- OPEN (planning/clarify): final back-reference syntax for a parent's generated id inside a collection
-  nested-insert (provisional `..id`); likely a named `with` binding of the parent insert.
+- RESOLVED (clarify 2026-05-25): back-references between writes use an explicit `with` binding (FR-006);
+  v1 excludes implicit auto-linking and special back-reference tokens (provisional `..id` dropped).
 - Next: `/speckit-clarify` (optional — most forks already resolved) or `/speckit-plan` to design the
   command IR, nested-write CTE strategy, immutable-result emission, and the reduced session.

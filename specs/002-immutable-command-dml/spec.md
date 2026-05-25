@@ -33,6 +33,11 @@ generation. `001` remains the return point.
 - Q: How much of EdgeQL is adopted? → A: A pragmatic subset (Tier A): `insert`/`update`/`delete` with nested
   writes, `with` variable/reference declarations, path/set expressions, parameters, and native functions
   (e.g. `datetime::now()`). Advanced EdgeQL (polymorphism, backlinks, complex set algebra, `group`) is later.
+- Q: How does a nested write reference its parent (e.g. a child inserted under a collection needing the
+  parent's id)? → A: Via an **explicit `with` binding** of the parent write, referenced where needed (e.g.
+  `with u := (insert User {…}) insert Post { author := u, … }`). v1 has **no implicit auto-link** (the child
+  is not silently linked by the assigned link) and **no special back-reference token** (the provisional
+  `..id` is dropped). Explicit `with` handles the majority of cases and keeps references unambiguous.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -210,7 +215,9 @@ and reused (allocation measurement), result type unchanged.
 - **FR-005**: A command's result type MUST be statically known at build time; only parameter values vary at
   runtime (no runtime SQL compilation).
 - **FR-006**: The DSL MUST support **`with` declarations** binding a name to a value/reference/sub-expression
-  (including a nested write's result) for reuse within a command or query.
+  (including a nested write's result) for reuse within a command or query. An explicit `with` binding is the
+  **only** mechanism in v1 for a nested/related write to reference another write's result (e.g. a parent's
+  generated id); there is no implicit auto-link and no special back-reference token.
 - **FR-007**: The DSL MUST support **parameters** (required and optional) on commands and queries, with a
   fixed result type across parameter combinations.
 - **FR-008**: The DSL MUST support invoking **native functions** in commands and queries (e.g.
@@ -281,9 +288,9 @@ and reused (allocation measurement), result type unchanged.
   apply; Native AOT; provider-native `jsonb`; the `Ref*` types (now read-side only); the schema DSL (`.dqls`).
 - PostgreSQL is the primary/reference provider; nested-write single-round-trip relies on its data-modifying
   CTE capability (`WITH … RETURNING …`).
-- The back-reference syntax for a parent's generated id inside a collection nested-insert (the user's
-  provisional `..id`) is **not finalized**; the final syntax is a planning/clarify decision (a named `with`
-  binding of the parent insert is the likely mechanism).
+- Back-references between writes (e.g. a child referencing a parent's generated id) use an **explicit `with`
+  binding** of the parent write (FR-006). v1 deliberately excludes implicit auto-linking and special
+  back-reference tokens (the provisional `..id` is dropped); `with` covers the majority of cases.
 - C# 14 / .NET 10; immutable results are realized as records (or equivalent), consistent with `001`.
 - Target user is a .NET application developer; there is no end-user UI for the ORM itself.
 
