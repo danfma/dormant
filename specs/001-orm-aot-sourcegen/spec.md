@@ -20,7 +20,7 @@
 - Q: Phasing of the DSL? → A: Phase 1 covers schema, links, fetch shapes/projections, optional parameters, and basic filtering/ordering/pagination. A richer expression sub-language (computed expressions, polymorphic queries, set operations, aggregates) is Phase 2.
 - Q: Phasing of DSL tooling? → A: Phase 1 ships syntax + located diagnostics. Editor language-server/IntelliSense integration is Phase 2.
 - Q: How do entities mutate and how does the session detect changes? → A: Generated entities are mutable; the session holds an identity map and a per-entity loaded snapshot, and detects changes by diffing current state against the snapshot at commit (no proxies, no per-property dirty flags). Column-level granularity comes from the snapshot diff.
-- Q: How is an unfetched link represented on a full entity? → A: Each link member is a generated typed wrapper (e.g. `Link<T>` / `LinkSet<T>`) encoding explicit loaded/unloaded state; the loaded value is reachable only after the unloaded case is handled, so unfetched data cannot be read as if present. Projections keep their own mechanism (the field is simply absent from the type).
+- Q: How is an unfetched relationship represented on a full entity? → A: Each relationship member is a generated reference type — `Ref<T>` (single) or `RefSet<T>`/`RefList<T>`/`RefBag<T>`/`RefMap<K,V>` (collections) — encoding explicit loaded/unloaded state; the loaded value is reachable only after the unloaded case is handled, so unfetched data cannot be read as if present. Projections keep their own mechanism (the field is simply absent from the type). _(Updated 2026-05-25: renamed Link→Ref; collections gained NHibernate Set/List/Bag/Map kinds — see later clarifications.)_
 - Q: Is explicit on-demand loading of an unloaded link in scope for v1? → A: Yes. An unloaded link can be filled by an explicit session call that issues a query and transitions the wrapper to loaded. This is the only non-fetch-shape retrieval path; loading is never implicit.
 - Q: What is the v1 vs Phase 2 scope of the DormantQL query/DML surface? → A: v1 (Tier A) = shaped select (entity/projection), forward path navigation, single/multi-link nested fetch in one round-trip, filter, order by, limit/offset, required+optional parameters with coalesce, core predicates (=, comparisons, like/ilike, in, exists, ??), single-result narrowing, and basic insert/update/delete. Phase 2 (Tier B) = computed expressions, polymorphism, backlinks, link properties, set ops, aggregates, for-union, upsert, nested insert, +=/-=, group by, free objects. The `**` deep-splat is excluded permanently; a schema-resolved `*` single-splat is allowed.
 - Q: Does the DSL support dictionaries/maps and many-to-many relationships? → A: Many-to-many is a v1 capability via multi-valued links (bidirectional = a multi link per side; edge data = an explicit join entity; backlinks and `@prop` link properties are Phase 2 sugar). Dictionaries have no first-class type in v1 — model as a JSON property (opaque) or a key/value child entity (queryable); a first-class typed `map<K,V>` is deferred to Phase 2. v1 property value types are enumerated in FR-036.
@@ -28,9 +28,13 @@
 - Q: How is provider connectivity and provider-specific behavior verified in tests? → A: Against a real provider instance (never mocks or an in-memory fake), provisioned ephemerally in Docker via Testcontainers. This is the required mechanism for the integration-style acceptance scenarios (US2, US5, US8) and the provider-dependent success criteria (SC-003, SC-010, SC-012, SC-013); CI must provide a Docker daemon for these tests.
 - Q: What does a DormantQL module map to in the database? → A: A module maps to a database schema. Generated tables and all SQL/DDL are qualified by the module's schema (the module name is the DB schema name), and migration tooling creates the schema as needed (FR-045).
 - Q: What namespace do generated .NET types use? → A: NOT the bare module name. The namespace is `PascalCaseEachPart(root namespace + relative folder segments of the schema file + module name)`. Example: `schema/app.dqls` in project `Dormant.Sample.Quickstart` → `Dormant.Sample.Quickstart.Schema.App` (FR-046). This reads naturally to a .NET developer.
-- Q: What is the member/link declaration syntax? → A: A unified `name: [multi] Type[?]` form (Kotlin/TypeScript-like); the `-> ` arrow and the `single`/`multi` prefix forms are removed. A member whose type is a value type is a property, otherwise a link. Members are **required by default**; a trailing `?` makes them optional/nullable; `multi` marks a multi-valued link. So `email: str` (required), `email: str?` (optional), `author: User` (required single link), `author: User?` (optional single link), `posts: multi Post` (multi link) (FR-047).
+- Q: What is the member declaration syntax? → A: `name: TypeExpr[?]` (Kotlin/TypeScript-like); the `-> ` arrow and `single`/`multi` forms are removed. A value type ⇒ property; otherwise ⇒ relationship. Single ref: `author: User` (required) / `author: User?` (optional). Collections (NHibernate kinds): `posts: Set<Post>`, `items: List<Item>`, `tags: Bag<Tag>`, `roles: Map<Role, Membership>`. Properties and single refs are required by default (`?` = optional); collections are optional by default (Unloaded sentinel) (FR-047/FR-049).
 - Q: How are non-nullable generated members expressed in C#? → A: With the C# `required` modifier (not a `= default!` initializer). Nullable members are optional. The materializer populates required members through an accessor path that bypasses object-initializer enforcement (FR-048).
 - Q: How should code be named/organized regarding the "Ports & Adapters" pattern? → A: Keep only the discipline (dependencies always point one direction inward: abstractions ← engine ← adapters), but avoid non-semantic architectural names. The `Ports` namespace is removed; its interfaces are grouped by capability (Providers, Mapping, Migrations, Native). Folder/namespace names MUST be semantic (describe what the code is), not pattern labels; "Ports & Adapters" wording is dropped from the codebase and docs.
+- Q: How are relationships named and typed (the `Link` types)? → A: Rename `Link` → `Ref` and adopt NHibernate collection vocabulary. Single: `owner: User` → `Ref<User>`. Collections (DSL keyword → C# type): `Set<T>`→`RefSet<T>` (unordered, unique), `List<T>`→`RefList<T>` (ordered), `Bag<T>`→`RefBag<T>` (unordered, duplicates), `Map<K,V>`→`RefMap<K,V>` (keyed). All five ship in v1.
+- Q: How do relationship members default (avoid forcing the user to set them)? → A: Relationship members default to an **Unloaded** sentinel via an initializer (e.g. `= Ref<User>.Unloaded`, `= RefSet<User>.Unloaded`), so the user is not forced to assign them on construction; they are NOT `= []` (that would erase the unloaded-vs-empty distinction). A relationship is only emitted as C# `required` when the schema marks it mandatory (e.g. a bare single ref); optional relationships carry the Unloaded initializer and omit `required`. Non-nullable value properties remain `required` (FR-048).
+- Q: How is the Clean-Architecture invasiveness (Dormant types on entities) resolved? → A: Two surfaces. Entities are the persistence model and carry `Ref`-types (safe-by-default requires encoding load state in the type; a minimal, dependency-free, AOT `Dormant.Abstractions` leaf reference is accepted). **Projections may materialize into user-owned plain record/DTO types with zero Dormant types**, so domain/application code stays Dormant-free — projections are the clean boundary.
+- Q: Should entities get Equals/GetHashCode by default? → A: Yes — identity (primary-key) equality by default; a transient/unset key falls back to reference equality; an annotation opts out. Projections (records) keep value equality.
 
 ## User Scenarios & Testing _(mandatory)_
 
@@ -301,12 +305,14 @@ companion package.
   links — never a partially-populated entity.
 - **FR-008**: Accessing a field that was not included in a query's shape MUST be a compile-time error
   (the field is absent from the result type).
-- **FR-009**: The system MUST NOT perform implicit lazy loading. On a full entity, every link MUST be
-  represented by a generated type that encodes explicit loaded/unloaded state (e.g. `Link<T>` /
-  `LinkSet<T>`), such that unloaded related data cannot be read as if present — the loaded value is
-  reachable only after the unloaded case is handled. An unloaded link MAY be retrieved on demand
-  through an explicit session call that issues a query and transitions the wrapper to loaded; this
-  explicit call is the only non-fetch-shape retrieval path and loading MUST never be implicit.
+- **FR-009**: The system MUST NOT perform implicit lazy loading. On a full entity, every relationship
+  MUST be represented by a generated reference type that encodes explicit loaded/unloaded state — a
+  single `Ref<T>` or a relationship collection (`RefSet<T>`, `RefList<T>`, `RefBag<T>`, `RefMap<K,V>`) —
+  such that unloaded related data cannot be read as if present; the loaded value is reachable only
+  after the unloaded case is handled. The unloaded state is a distinct sentinel (`Unloaded`), never an
+  empty collection, so "not loaded" and "loaded but empty" remain distinguishable. An unloaded
+  reference MAY be retrieved on demand through an explicit session call that transitions it to loaded;
+  this explicit call is the only non-fetch-shape retrieval path and loading MUST never be implicit.
 - **FR-010**: A fetch shape that includes nested links MUST be retrieved in a single database
   round-trip.
 
@@ -454,16 +460,32 @@ companion package.
   relative to the project, and `moduleName` is the module. The bare module name MUST NOT be used as the
   namespace. Example: `schema/app.dqls` in project `Dormant.Sample.Quickstart` →
   `Dormant.Sample.Quickstart.Schema.App`.
-- **FR-047**: Members MUST be declared with a unified `name: [multi] Type[?]` syntax. A member whose
-  type is a value type is a **property**; otherwise it is a **link**. Members are **required by
-  default**; a trailing `?` makes a member optional (nullable property, or optional single link); the
-  `multi` keyword marks a multi-valued link. The previous arrow form (`multi name -> Type` /
-  `single name -> Type`) MUST be removed; there is no `single` keyword (a bare single link is required,
-  `Type?` is optional).
-- **FR-048**: Generated non-nullable members MUST use the C# `required` modifier (not a `= default!`
-  initializer); nullable members are optional and omit `required`. Materialization MUST populate
-  required members without tripping required-initialization enforcement (e.g. via an accessor/constructor
-  path that bypasses object-initializer checks), preserving the no-reflection guarantee (FR-017).
+- **FR-047**: Members MUST be declared with the syntax `name: TypeExpr[?]`. A member whose `TypeExpr`
+  is a value type is a **property**; otherwise it is a **relationship**. Relationships are: a single
+  reference (`name: Target`), or a collection — `name: Set<Target>`, `name: List<Target>`,
+  `name: Bag<Target>`, `name: Map<Key, Target>`. Properties and single references are **required by
+  default**; a trailing `?` makes them optional. Relationship **collections** are optional by default
+  (they default to the Unloaded sentinel). The previous `-> ` arrow and `single`/`multi` keyword forms
+  MUST be removed.
+- **FR-048**: Generated non-nullable value properties and required single references MUST use the C#
+  `required` modifier (not a `= default!` initializer). Optional members and relationship collections
+  MUST instead be emitted with an Unloaded-sentinel initializer (e.g. `= Ref<T>.Unloaded`,
+  `= RefSet<T>.Unloaded`) so the consumer is not forced to set them and the unloaded state is the
+  default — never `= []`. Materialization MUST populate required members without tripping
+  required-initialization enforcement (e.g. via a constructor invoked through `[UnsafeAccessor]`),
+  preserving the no-reflection guarantee (FR-017).
+- **FR-049**: The relationship collection kinds MUST carry NHibernate-style semantics: `RefSet<T>`
+  unordered with no duplicates; `RefBag<T>` unordered allowing duplicates; `RefList<T>` ordered (a
+  persisted order); `RefMap<TKey,TValue>` keyed. Each is a distinct generated type encoding
+  loaded/unloaded state (FR-009).
+- **FR-050**: A query projection MUST be able to materialize into a **user-owned plain type** (e.g. a
+  C# record/DTO) that has **no dependency on Dormant types**, so domain/application code can consume
+  results without referencing `Dormant.Abstractions`. (Entities, which encode load state via `Ref`
+  types, remain the persistence model; projections are the dependency-free boundary.)
+- **FR-051**: Generated entities MUST implement identity equality by default — equal when of the same
+  type with equal primary-key values; an entity with an unset/transient key falls back to reference
+  equality. An annotation MUST allow opting out. (Projections are value types/records with structural
+  equality.)
 
 ### Key Entities _(conceptual model of the system)_
 
@@ -471,8 +493,9 @@ companion package.
   single source of truth for generated types, queries, and migrations.
 - **Entity**: A generated, mutable partial type representing a fully-mappable domain object; its
   loaded state is captured as a session-held snapshot for change detection.
-- **Link**: A first-class relationship between entities, navigable in shapes and queries. On a full
-  entity it is exposed as a typed wrapper carrying explicit loaded/unloaded state.
+- **Reference (Ref)**: A first-class relationship between entities, navigable in shapes and queries. On
+  a full entity it is exposed as a generated reference type carrying explicit loaded/unloaded state —
+  `Ref<T>` (single) or a collection kind `RefSet<T>`/`RefList<T>`/`RefBag<T>`/`RefMap<K,V>` (FR-049).
 - **Projection / Shape**: A distinct generated type describing exactly the fields and nested links a
   query returns.
 - **Query**: A DSL-authored, build-time-compiled description of data to retrieve, with a statically
@@ -520,8 +543,8 @@ entity User {
   id: uuid primary;         # required property (C# `required`)
   email: str;               # required property
   bio: str?;                # optional property (nullable)
-  manager: User?;           # optional single link
-  posts: multi Post;        # multi link
+  manager: User?;           # optional single reference  → Ref<User> (default Unloaded)
+  posts: Set<Post>;         # collection reference        → RefSet<Post> (default Unloaded)
   version: int concurrency; # optimistic-concurrency token
 }
 

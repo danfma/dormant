@@ -72,3 +72,14 @@
   lowercase-unknown ⇒ ORM003, PascalCase-unknown ⇒ ORM002), FR-048 (C# `required`). Sample/tests/quickstart
   updated; sample builds + runs in namespace `Dormant.Sample.Quickstart.Schema.App`; SourceGen 8/8 + Core
   6/6 green. Remaining: FR-045 schema-qualified DDL/SQL lands in US5; T031 accessors/materialization in US2.
+- 2026-05-25 relationship model pass: Link→Ref rename + NHibernate collection vocabulary (Ref<T>,
+  RefSet/RefList/RefBag/RefMap), added FR-049 (collection semantics), FR-050 (projection into user-owned
+  plain records — Dormant-free domain boundary), FR-051 (entity identity/PK equality by default, opt-out).
+  Relationships default to an Unloaded sentinel (not `= []`), `required` only when mandatory (FR-047/048
+  revised). spec.md (clarifications, FR-009/047/048/049/050/051, Key Entities, DSL example) updated.
+- DRIFT FLAG (spec ↔ code + docs) — OPEN: propagation pending — (a) docs: contracts/public-api.md
+  (Link→Ref + Ref* types + projection-records), contracts/dsl-grammar.md (Set/List/Bag/Map), generated-code.md
+  (Ref + equality + projection records), data-model.md (Link→Ref model), quickstart.md, CLAUDE.md; (b) code:
+  rename `Link<T>`/`LinkSet<T>` → `Ref<T>` + add RefSet/RefList/RefBag/RefMap in Dormant.Abstractions, update
+  generator emit (collection kinds, Unloaded initializers, PK equality), adapter/sample/tests. Apply in the
+  next /speckit-implement pass before continuing US2.
