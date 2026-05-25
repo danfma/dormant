@@ -63,6 +63,16 @@ internal static class DiagnosticDescriptors
         category: Category,
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true);
+
+    /// <summary>Two members of the same entity resolve to the same database column name.</summary>
+    public static readonly DiagnosticDescriptor NameCollision = new(
+        id: "ORM013",
+        title: "Database name collision",
+        messageFormat: "Entity '{0}' members '{1}' and '{2}' both map to database name '{3}' under the active naming convention",
+        category: Category,
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true,
+        description: "Apply a db(\"…\") override to one of the members, or rename it, so each column has a distinct database name.");
 }
 
 /// <summary>An equatable, pipeline-safe description of a diagnostic (research §5).</summary>

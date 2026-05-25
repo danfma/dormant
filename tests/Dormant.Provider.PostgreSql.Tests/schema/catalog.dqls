@@ -11,3 +11,8 @@ entity Account {
   balance: int;
   version: int concurrency;
 }
+
+entity StockItem {
+  id: uuid primary;
+  itemName: str;
+}

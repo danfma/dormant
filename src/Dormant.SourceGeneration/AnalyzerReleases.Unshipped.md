@@ -11,3 +11,4 @@ ORM003  | DormantQL | Error    | Unknown property type
 ORM010  | DormantQL | Error    | Query targets an undefined entity
 ORM011  | DormantQL | Error    | Query references an unknown column
 ORM012  | DormantQL | Error    | Query references an undeclared parameter
+ORM013  | DormantQL | Error    | Database name collision

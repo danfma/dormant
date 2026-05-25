@@ -24,7 +24,8 @@ internal static class QueryEmitter
     public static (string? Source, IReadOnlyList<DiagnosticInfo> Diagnostics) Emit(
         string @namespace,
         QueryFile file,
-        IReadOnlyDictionary<string, EntityModel> entities)
+        IReadOnlyDictionary<string, EntityModel> entities,
+        NamingConvention convention)
     {
         var diagnostics = new List<DiagnosticInfo>();
         var bodies = new List<string>();
@@ -44,7 +45,7 @@ internal static class QueryEmitter
                 continue;
             }
 
-            bodies.Add(EmitMethod(query, entity, out var projection));
+            bodies.Add(EmitMethod(query, entity, convention, out var projection));
             if (projection is not null)
             {
                 projections.Add(projection);
@@ -63,7 +64,11 @@ internal static class QueryEmitter
             .Line()
             .Line($"namespace {@namespace};")
             .Line()
-            .Open($"public static partial class {className}");
+            .Open($"public static partial class {className}")
+            // C# 14 extension block (FR-058): lets the generated surface grow to extension
+            // properties/static members without a breaking shape change. The receiver `session` is in
+            // scope for every member, so the method bodies reference it directly.
+            .Open($"extension({Abs}.Sessions.ISession session)");
 
         foreach (var body in bodies)
         {
@@ -73,7 +78,7 @@ internal static class QueryEmitter
             }
         }
 
-        writer.Close().Line();
+        writer.Close().Close().Line();
 
         foreach (var projection in projections)
         {
@@ -142,10 +147,10 @@ internal static class QueryEmitter
         return ok;
     }
 
-    private static string EmitMethod(QueryModel query, EntityModel entity, out string? projection)
+    private static string EmitMethod(QueryModel query, EntityModel entity, NamingConvention convention, out string? projection)
     {
         var parameterOrder = new List<string>();
-        var sql = BuildSql(query, entity, parameterOrder);
+        var sql = BuildSql(query, entity, convention, parameterOrder);
 
         string resultType;
         string materializer;
@@ -167,8 +172,10 @@ internal static class QueryEmitter
             query.Parameters.Select(p => $"{p.ClrType} {p.Name}"));
         var parameterList = declared.Length > 0 ? declared + ", " : string.Empty;
 
+        // Inside the extension block the receiver `session` is implicit — no `this` parameter, and the
+        // member is an instance-style extension method (public, non-static).
         var writer = new SourceWriter()
-            .Open($"public static global::System.Collections.Generic.IAsyncEnumerable<{resultType}> {query.Name}(this {Abs}.Sessions.ISession session, {parameterList}global::System.Threading.CancellationToken cancellationToken = default)")
+            .Open($"public global::System.Collections.Generic.IAsyncEnumerable<{resultType}> {query.Name}({parameterList}global::System.Threading.CancellationToken cancellationToken = default)")
             .Line($"var statement = new {Abs}.Querying.PreparedStatement(")
             .Line($"    {Quote(sql)},")
             .Line("    writer =>")
@@ -188,15 +195,16 @@ internal static class QueryEmitter
         return writer.ToString().TrimEnd('\n');
     }
 
-    private static string BuildSql(QueryModel query, EntityModel entity, List<string> parameterOrder)
+    private static string BuildSql(QueryModel query, EntityModel entity, NamingConvention convention, List<string> parameterOrder)
     {
+        // Database names resolved via the active convention / per-unit overrides (FR-052/FR-054/FR-055).
         var columns = query.IsProjection
-            ? query.ProjectionFields.Select(Quoted)
-            : entity.Properties.Select(p => Quoted(p.Name));
+            ? query.ProjectionFields.Select(f => Quoted(ColByName(entity, f, convention)))
+            : entity.Properties.Select(p => Quoted(NamingConventions.Resolve(p.Name, p.NameOverride, convention)));
 
         var sql = new System.Text.StringBuilder();
         sql.Append("SELECT ").Append(string.Join(", ", columns));
-        sql.Append(" FROM ").Append(Quoted(entity.Name));
+        sql.Append(" FROM ").Append(Quoted(NamingConventions.Resolve(entity.Name, entity.NameOverride, convention)));
 
         if (query.Filters.Count > 0)
         {
@@ -210,7 +218,7 @@ internal static class QueryEmitter
                 }
 
                 parameterOrder.Add(filter.ParameterName);
-                sql.Append(Quoted(filter.Column)).Append(' ').Append(OperatorSql(filter.Op))
+                sql.Append(Quoted(ColByName(entity, filter.Column, convention))).Append(' ').Append(OperatorSql(filter.Op))
                     .Append(" $").Append(parameterOrder.Count.ToString(CultureInfo.InvariantCulture));
                 first = false;
             }
@@ -221,7 +229,7 @@ internal static class QueryEmitter
             sql.Append(" ORDER BY ");
             sql.Append(string.Join(
                 ", ",
-                query.OrderBy.Select(t => Quoted(t.Column) + (t.Descending ? " DESC" : " ASC"))));
+                query.OrderBy.Select(t => Quoted(ColByName(entity, t.Column, convention)) + (t.Descending ? " DESC" : " ASC"))));
         }
 
         AppendLimit(sql, "LIMIT", query.Limit, parameterOrder);
@@ -287,6 +295,15 @@ internal static class QueryEmitter
         CompareOp.ILike => "ILIKE",
         _ => "=",
     };
+
+    // Resolves a column's database name from its DSL name, honoring the property's explicit override.
+    private static string ColByName(EntityModel entity, string dslName, NamingConvention convention)
+    {
+        var property = entity.Properties.FirstOrDefault(p => p.Name == dslName);
+        return property is null
+            ? NamingConventions.Resolve(dslName, null, convention)
+            : NamingConventions.Resolve(property.Name, property.NameOverride, convention);
+    }
 
     private static string Quoted(string identifier) => "\"" + identifier + "\"";
 

@@ -24,7 +24,7 @@ public sealed class ChangeTrackingTests
         await using (var db = await dataSource.OpenAsync())
         {
             await db.ExecuteAsync(new PreparedStatement(
-                "CREATE TABLE \"Widget\" (\"id\" uuid primary key, \"name\" text not null, \"quantity\" integer not null)"));
+                "CREATE TABLE \"widget\" (\"id\" uuid primary key, \"name\" text not null, \"quantity\" integer not null)"));
         }
 
         await using var factory = DormantPostgres.CreateSessionFactory(connectionString);
@@ -48,7 +48,7 @@ public sealed class ChangeTrackingTests
             {
                 await otherDb.BeginAsync();
                 await otherDb.ExecuteAsync(new PreparedStatement(
-                    "UPDATE \"Widget\" SET \"quantity\" = $1 WHERE \"id\" = $2",
+                    "UPDATE \"widget\" SET \"quantity\" = $1 WHERE \"id\" = $2",
                     writer =>
                     {
                         writer.Write(1, 99);

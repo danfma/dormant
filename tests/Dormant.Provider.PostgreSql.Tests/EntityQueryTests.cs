@@ -67,7 +67,7 @@ public sealed class EntityQueryTests
         await using (var db = await dataSource.OpenAsync())
         {
             await db.ExecuteAsync(new PreparedStatement(
-                "CREATE TABLE \"Widget\" (\"id\" uuid primary key, \"name\" text not null, \"quantity\" integer not null)"));
+                "CREATE TABLE \"widget\" (\"id\" uuid primary key, \"name\" text not null, \"quantity\" integer not null)"));
         }
 
         var factory = DormantPostgres.CreateSessionFactory(connectionString);

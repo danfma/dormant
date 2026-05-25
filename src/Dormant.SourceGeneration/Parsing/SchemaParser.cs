@@ -98,6 +98,9 @@ internal sealed class SchemaParser
         var name = Current.Text;
         _pos++;
 
+        // Optional explicit table name: `entity RecentPost db("recent_post") { … }` (FR-054).
+        var nameOverride = TryParseDbOverride();
+
         if (!Expect(TokenKind.LeftBrace, "'{' to open the entity body"))
         {
             return null;
@@ -123,7 +126,33 @@ internal sealed class SchemaParser
         return new EntityModel(
             name,
             new EquatableArray<PropertyModel>([.. properties]),
-            new EquatableArray<ReferenceModel>([.. references]));
+            new EquatableArray<ReferenceModel>([.. references]),
+            nameOverride);
+    }
+
+    // Optional `db("name")` override (FR-054); returns the literal name or null when absent.
+    private string? TryParseDbOverride()
+    {
+        if (!(Current.Kind == TokenKind.Identifier && Current.Text == "db" && Peek().Kind == TokenKind.LeftParen))
+        {
+            return null;
+        }
+
+        _pos++; // 'db'
+        _pos++; // '('
+        string? name = null;
+        if (Current.Kind == TokenKind.String)
+        {
+            name = Current.Text;
+            _pos++;
+        }
+        else
+        {
+            Error("expected a quoted database name inside db(\"…\")");
+        }
+
+        Expect(TokenKind.RightParen, "')' to close the db(\"…\") override");
+        return name;
     }
 
     // member  := name ':' typeExpr modifier* ';'
@@ -166,14 +195,15 @@ internal sealed class SchemaParser
             _pos++;
         }
 
-        var (isPrimary, isConcurrency) = ParseModifiers();
+        var (isPrimary, isConcurrency, nameOverride) = ParseModifiers();
         Expect(TokenKind.Semicolon, "';' after the member declaration");
 
         // Known value type → property; lowercase unknown → likely a mistyped value type (ORM003);
         // PascalCase → single reference (validated against the entity set → ORM002 if undefined).
         if (TypeMap.TryMap(typeName, out var clrType))
         {
-            properties.Add(new PropertyModel(name, typeName, clrType, isNullable, isPrimary, isConcurrency));
+            properties.Add(new PropertyModel(
+                name, typeName, clrType, isNullable, isPrimary, isConcurrency, nameOverride));
             return;
         }
 
@@ -227,12 +257,19 @@ internal sealed class SchemaParser
             name, targetToken.Text, kind, keyType, IsRequired: false, LocationOf(targetToken)));
     }
 
-    private (bool IsPrimary, bool IsConcurrency) ParseModifiers()
+    private (bool IsPrimary, bool IsConcurrency, string? NameOverride) ParseModifiers()
     {
         var isPrimary = false;
         var isConcurrency = false;
+        string? nameOverride = null;
         while (Current.Kind == TokenKind.Identifier)
         {
+            if (Current.Text == "db" && Peek().Kind == TokenKind.LeftParen)
+            {
+                nameOverride = TryParseDbOverride();
+                continue;
+            }
+
             if (Current.Text == "primary")
             {
                 isPrimary = true;
@@ -243,13 +280,13 @@ internal sealed class SchemaParser
             }
             else
             {
-                Error($"unexpected modifier '{Current.Text}'; expected 'primary' or 'concurrency'");
+                Error($"unexpected modifier '{Current.Text}'; expected 'primary', 'concurrency', or db(\"…\")");
             }
 
             _pos++;
         }
 
-        return (isPrimary, isConcurrency);
+        return (isPrimary, isConcurrency, nameOverride);
     }
 
     private static bool TryCollectionKind(string text, out ReferenceKind kind)

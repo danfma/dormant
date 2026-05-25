@@ -24,7 +24,7 @@ public sealed class CrudTests
         await using (var db = await dataSource.OpenAsync())
         {
             await db.ExecuteAsync(new PreparedStatement(
-                "CREATE TABLE \"Widget\" (\"id\" uuid primary key, \"name\" text not null, \"quantity\" integer not null)"));
+                "CREATE TABLE \"widget\" (\"id\" uuid primary key, \"name\" text not null, \"quantity\" integer not null)"));
         }
 
         await using var factory = DormantPostgres.CreateSessionFactory(connectionString);
@@ -58,7 +58,7 @@ public sealed class CrudTests
         await using (var db = await dataSource.OpenAsync())
         {
             await db.ExecuteAsync(new PreparedStatement(
-                "CREATE TABLE \"Widget\" (\"id\" uuid primary key, \"name\" text not null, \"quantity\" integer not null)"));
+                "CREATE TABLE \"widget\" (\"id\" uuid primary key, \"name\" text not null, \"quantity\" integer not null)"));
         }
 
         await using var factory = DormantPostgres.CreateSessionFactory(connectionString);

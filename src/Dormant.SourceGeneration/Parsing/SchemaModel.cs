@@ -21,10 +21,12 @@ internal sealed record SchemaModel(
 /// <param name="Name">The entity (type) name.</param>
 /// <param name="Properties">Scalar/value properties, in source order.</param>
 /// <param name="References">Relationship references, in source order.</param>
+/// <param name="NameOverride">Explicit database table name (<c>db("…")</c>); overrides the convention (FR-054).</param>
 internal sealed record EntityModel(
     string Name,
     EquatableArray<PropertyModel> Properties,
-    EquatableArray<ReferenceModel> References);
+    EquatableArray<ReferenceModel> References,
+    string? NameOverride = null);
 
 /// <summary>A declared value property.</summary>
 /// <param name="Name">The DormantQL property name.</param>
@@ -33,13 +35,15 @@ internal sealed record EntityModel(
 /// <param name="IsNullable">Whether the property is nullable (declared with a trailing <c>?</c>).</param>
 /// <param name="IsPrimary">Whether the property is part of the primary key.</param>
 /// <param name="IsConcurrency">Whether the property is the optimistic-concurrency token.</param>
+/// <param name="NameOverride">Explicit database column name (<c>db("…")</c>); overrides the convention (FR-054).</param>
 internal sealed record PropertyModel(
     string Name,
     string DslType,
     string ClrType,
     bool IsNullable,
     bool IsPrimary,
-    bool IsConcurrency);
+    bool IsConcurrency,
+    string? NameOverride = null);
 
 /// <summary>The kind of relationship reference (FR-049): single, or an NHibernate collection.</summary>
 internal enum ReferenceKind

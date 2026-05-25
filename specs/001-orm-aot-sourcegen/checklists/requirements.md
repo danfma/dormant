@@ -106,3 +106,13 @@
 - VALIDATION NOTE: FR-047/048/049/058 name C# language features (`required`, `[SetsRequiredMembers]`,
   `Ref<T>`, extension blocks). Consistent with the spec's treatment of generated-code/API as explicit
   compatibility surfaces (Constitution II); "no implementation details" item kept passing on that basis.
+- 2026-05-25 IMPLEMENTED T108 + US9: (T108) `QueryEmitter` now emits query methods inside a C# 14
+  extension block `extension(ISession session){…}` (FR-058) — call sites unchanged. (US9) database
+  naming: `NamingConvention` (snake_case default + verbatim) resolver in `Emit/NamingConvention.cs`;
+  project config via `build_property.DormantNamingConvention` → `GeneratorConfig`; per-unit `db("…")`
+  override (entity + column) via lexer string literals + `EntityModel/PropertyModel.NameOverride`;
+  `EntityBindingEmitter` + `QueryEmitter` resolve names (override ?? convention) consistently;
+  per-entity column collision → ORM013. Tests: generator 16/16 (5 new naming), PostgreSQL 8/8 (incl.
+  `StockItem`→`stock_item`/`item_name` round-trip); existing integration DDL updated to snake_case
+  table names. Build 0/0. Deferred: schema-qualified DDL + function-name resolution (US5/US8),
+  cross-table collision.

@@ -7,6 +7,7 @@ internal enum TokenKind
 {
     Identifier,
     Number,
+    String,
     Colon,
     Semicolon,
     LeftBrace,
@@ -152,6 +153,26 @@ internal static class Lexer
                     Advance();
                     tokens.Add(new Token(TokenKind.Dot, ".", start, 1, startLine, startColumn));
                     continue;
+            }
+
+            if (c == '"')
+            {
+                Advance(); // opening quote
+                var contentStart = i;
+                while (i < text.Length && text[i] != '"')
+                {
+                    Advance();
+                }
+
+                var contentLen = i - contentStart;
+                if (i < text.Length)
+                {
+                    Advance(); // closing quote
+                }
+
+                tokens.Add(new Token(
+                    TokenKind.String, text.Substring(contentStart, contentLen), start, i - start, startLine, startColumn));
+                continue;
             }
 
             if (char.IsDigit(c) || (c == '.' && i + 1 < text.Length && char.IsDigit(text[i + 1])))

@@ -27,7 +27,8 @@ public sealed class DormantGenerator : IIncrementalGenerator
             {
                 provider.GlobalOptions.TryGetValue("build_property.RootNamespace", out var rootNamespace);
                 provider.GlobalOptions.TryGetValue("build_property.ProjectDir", out var projectDir);
-                return new GeneratorConfig(rootNamespace, projectDir);
+                provider.GlobalOptions.TryGetValue("build_property.DormantNamingConvention", out var naming);
+                return new GeneratorConfig(rootNamespace, projectDir, NamingConventions.Parse(naming));
             })
             .WithTrackingName(TrackingNames.Config);
 
@@ -61,13 +62,18 @@ public sealed class DormantGenerator : IIncrementalGenerator
 
             foreach (var entity in schema.Entities)
             {
+                foreach (var collision in NameResolution.FindColumnCollisions(entity, generatorConfig.Naming))
+                {
+                    productionContext.ReportDiagnostic(collision.ToDiagnostic());
+                }
+
                 productionContext.AddSource(
                     Naming.HintName(@namespace, entity.Name),
                     EntityEmitter.Emit(@namespace, entity));
 
                 productionContext.AddSource(
                     Naming.HintName(@namespace, entity.Name + ".Binding"),
-                    EntityBindingEmitter.Emit(@namespace, entity));
+                    EntityBindingEmitter.Emit(@namespace, entity, generatorConfig.Naming));
             }
         });
 
@@ -112,7 +118,7 @@ public sealed class DormantGenerator : IIncrementalGenerator
                     queryFile.FilePath,
                     queryFile.ModuleName);
 
-                var (source, diagnostics) = QueryEmitter.Emit(@namespace, queryFile, entities);
+                var (source, diagnostics) = QueryEmitter.Emit(@namespace, queryFile, entities, generatorConfig.Naming);
 
                 foreach (var diagnostic in diagnostics)
                 {
@@ -157,10 +163,14 @@ public sealed class DormantGenerator : IIncrementalGenerator
 /// <param name="Text">The file contents.</param>
 internal readonly record struct DslFile(string Path, string Text);
 
-/// <summary>Equatable build configuration projected from analyzer config options (FR-046).</summary>
+/// <summary>Equatable build configuration projected from analyzer config options (FR-046/FR-053).</summary>
 /// <param name="RootNamespace">The consuming project's root namespace, if known.</param>
 /// <param name="ProjectDir">The consuming project's directory, if known.</param>
-internal readonly record struct GeneratorConfig(string? RootNamespace, string? ProjectDir);
+/// <param name="Naming">The project-level database naming convention (default snake_case).</param>
+internal readonly record struct GeneratorConfig(
+    string? RootNamespace,
+    string? ProjectDir,
+    NamingConvention Naming);
 
 /// <summary>Stable pipeline step names used by cacheability tests (research §8).</summary>
 internal static class TrackingNames

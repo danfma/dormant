@@ -25,7 +25,7 @@ public sealed class ConcurrencyTests
         await using (var db = await dataSource.OpenAsync())
         {
             await db.ExecuteAsync(new PreparedStatement(
-                "CREATE TABLE \"Account\" (\"id\" uuid primary key, \"balance\" integer not null, \"version\" integer not null)"));
+                "CREATE TABLE \"account\" (\"id\" uuid primary key, \"balance\" integer not null, \"version\" integer not null)"));
         }
 
         await using var factory = DormantPostgres.CreateSessionFactory(connectionString);
