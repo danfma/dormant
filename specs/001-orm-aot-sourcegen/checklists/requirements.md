@@ -158,3 +158,11 @@
   `Document` entity + JsonbTests. Tests: generator 17/17, PostgreSQL 11/11. Build 0/0. DEFERRED (rest of
   US8): native function/operator catalog + containment `@>` (T078/T079), raw typed fragment (T080),
   portability diagnostic (T081), STJ-typed jsonb<T> (T082), GIS/EWKB companion (T083), jsonb AOT smoke (T074).
+- 2026-05-25 IMPLEMENTED US6 (AOT smoke — the headline promise): smoke harness (schema + queries + CRUD
+  + optional params + jsonb) roots the full ORM surface; `dotnet publish -r osx-arm64 PublishAot=true`
+  → 4.7M native binary with ZERO library-originated trim/AOT warnings (Abstractions/Core/Npgsql-slim/all
+  generated code) → SC-001 ✓. Native binary runs ~0.5s cold, no warm-up → SC-006 ✓. Gate (T088):
+  `TreatWarningsAsErrors` in the smoke csproj fails the publish on any IL2xxx/IL3xxx (intrinsic, local +
+  CI); ci.yml aot-smoke job fixed to publish `-r linux-x64`. T084/T086/T087/T088 done. DEFERRED: T085
+  full parity-vs-JIT under AOT (needs a DB at AOT-run time; identical by construction — same no-reflection
+  generated code).

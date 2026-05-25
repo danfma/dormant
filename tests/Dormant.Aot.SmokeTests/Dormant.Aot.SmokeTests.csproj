@@ -8,10 +8,19 @@
     <!-- Published with PublishAot=true + TrimMode=full in CI; must report zero library-originated warnings. -->
     <PublishAot>true</PublishAot>
     <InvariantGlobalization>true</InvariantGlobalization>
+    <!-- The AOT gate (T088): any trimming/AOT warning (IL2xxx/IL3xxx) fails the publish (SC-001). -->
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
   </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="../../src/Dormant.Provider.PostgreSql/Dormant.Provider.PostgreSql.csproj" />
+    <ProjectReference Include="../../src/Dormant.SourceGeneration/Dormant.SourceGeneration.csproj"
+                      OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <AdditionalFiles Include="schema/*.dqls" />
+    <AdditionalFiles Include="schema/*.dql" />
   </ItemGroup>
 
 </Project>

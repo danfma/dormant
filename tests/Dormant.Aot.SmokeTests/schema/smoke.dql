@@ -1,0 +1,10 @@
+module smoke;
+
+query ItemsByName(name: str) =
+  select Item
+  filter .name = name
+  order by .name asc;
+
+query ItemNames(min: optional int) =
+  select Item { id, name }
+  filter .quantity >= min;

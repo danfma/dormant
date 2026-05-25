@@ -44,7 +44,8 @@ jobs:
         with:
           global-json-file: global.json
       - name: Publish AOT smoke harness
+        # TreatWarningsAsErrors in the csproj makes any trimming/AOT warning fail this publish (the gate).
         run: |
           sudo apt-get update && sudo apt-get install -y clang zlib1g-dev
           dotnet publish tests/Dormant.Aot.SmokeTests/Dormant.Aot.SmokeTests.csproj \
-            -c Release -p:PublishAot=true -p:TrimMode=full
+            -c Release -r linux-x64 -p:PublishAot=true -p:TrimMode=full

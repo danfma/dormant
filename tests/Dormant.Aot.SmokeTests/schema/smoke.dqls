@@ -1,0 +1,9 @@
+module smoke;
+
+entity Item {
+  id: uuid primary;
+  name: str;
+  quantity: int;
+  tags: json;
+  version: int concurrency;
+}
