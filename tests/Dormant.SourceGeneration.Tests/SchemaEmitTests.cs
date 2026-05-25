@@ -43,7 +43,8 @@ public sealed class SchemaEmitTests
     {
         var generated = RunAndConcat(out var count);
 
-        await Assert.That(count).IsEqualTo(2);
+        // Two sources per entity: the partial class + its materializer.
+        await Assert.That(count).IsEqualTo(4);
         await Assert.That(generated).Contains("public partial class User");
         await Assert.That(generated).Contains("public partial class Post");
         await Assert.That(generated).Contains("public required global::System.Guid Id { get; set; }");
@@ -58,6 +59,10 @@ public sealed class SchemaEmitTests
         // PK identity equality emitted (FR-051).
         await Assert.That(generated).Contains("public bool Equals(User? other)");
         await Assert.That(generated).Contains(": global::System.IEquatable<User>");
+        // No-reflection materializer (FR-017/048, T044): UnsafeAccessor ctor (past required) + field accessors.
+        await Assert.That(generated).Contains("internal static class UserMaterialization");
+        await Assert.That(generated).Contains("global::System.Runtime.CompilerServices.UnsafeAccessorKind.Constructor");
+        await Assert.That(generated).Contains("public static User Materialize(global::Dormant.Abstractions.Querying.IFieldReader reader)");
     }
 
     [Test]

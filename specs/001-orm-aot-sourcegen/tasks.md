@@ -80,7 +80,7 @@ AOT smoke, BenchmarkDotNet). Write tests first within each story and ensure they
 - [X] T028 [US1] Schema validation (undefined links, cycles, duplicate names) → `DiagnosticInfo` in `src/Dormant.SourceGeneration/Schema/SchemaValidator.cs` _(undefined-link-target ORM002 done; unknown-type ORM003 in parser; cycle + duplicate-name checks deferred to a later hardening pass)_
 - [X] T029 [P] [US1] Deterministic emit helpers (ordinal sort, `InvariantCulture`, stable hint names, normalized newlines) in `src/Dormant.SourceGeneration/Emit/EmitHelpers.cs`
 - [X] T030 [US1] Emit partial entity types (properties + `Link<T>`/`LinkSet<T>` members) in `src/Dormant.SourceGeneration/Schema/EntityEmitter.cs` (depends T027, T029) _(superseded by Ref vocabulary + collection kinds in T102; FR-049)_
-- [ ] T031 [US1] Emit `[UnsafeAccessor]` field accessors per entity in `src/Dormant.SourceGeneration/Schema/AccessorEmitter.cs` _(DEFERRED to US2: accessors are materialization/snapshot infrastructure with no consumer until US2; emitting them now would be dead code and risk unused-warnings)_
+- [X] T031 [US1] Emit `[UnsafeAccessor]` field accessors per entity _(done in `MaterializerEmitter.cs`: per-entity `[UnsafeAccessor]` field accessors + ctor accessor; compiles in the sample, generator-tested)_
 - [X] T032 [US1] Wire schema pipeline into `RegisterSourceOutput` (emit + report diagnostics) in `src/Dormant.SourceGeneration/DormantGenerator.cs`
 - [X] T033 [US1] Quickstart schema + hand-written partial coexistence sample in `samples/Dormant.Sample.Quickstart/` _(schema/app.dqls + UserExtensions.cs partial; generator wired as analyzer; builds + runs)_
 
@@ -127,7 +127,7 @@ model). They revise the already-built US1 generator/kernel and close `/speckit-a
 - [X] T041 [P] [US2] Built-in scalar `ITypeBinding<T>` set in `src/Dormant.Provider.PostgreSql/Bindings/ScalarBindings.cs` _(satisfied by the generic no-boxing IO path — `IFieldReader.GetValue<T>`/`IParameterWriter.Write<T>` route built-in scalars through Npgsql directly; a per-type `ITypeBindingRegistry` is only needed for custom handlers, deferred to US7)_
 - [ ] T042 [US2] Session / Unit of Work + identity map in `src/Dormant.Core/Persistence/Session.cs` (depends T038, T013)
 - [ ] T043 [US2] Emit per-entity snapshot struct + diff comparer in `src/Dormant.SourceGeneration/Schema/SnapshotEmitter.cs`
-- [ ] T044 [US2] Emit `RowMaterializer<E>` (ordinals fixed, `GetFieldValue<T>`, no boxing) in `src/Dormant.SourceGeneration/Schema/MaterializerEmitter.cs`
+- [X] T044 [US2] Emit per-entity materializer (`Create()` via `[UnsafeAccessor]` ctor past `required`, field accessors, `Materialize(IFieldReader)` reading value columns by ordinal, no boxing/reflection) in `src/Dormant.SourceGeneration/Schema/MaterializerEmitter.cs` _(value columns only; references left Unloaded — link materialization with US3 shapes)_
 - [ ] T045 [US2] Change-tracking commit: INSERT / UPDATE(changed columns only) / DELETE in `src/Dormant.Core/Persistence/ChangeTracker.cs` (depends T043)
 - [ ] T046 [US2] Optimistic concurrency token check + conflict surfacing in `src/Dormant.Core/Persistence/ChangeTracker.cs`
 - [ ] T047 [US2] DSL DML (insert/update/delete) parse + SQL emit in `src/Dormant.SourceGeneration/Query/DmlEmitter.cs`
