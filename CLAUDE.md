@@ -17,4 +17,14 @@ assertions (Shouldly only if they prove insufficient). Provider/connectivity and
 provider-specific behavior are verified against a REAL provider in ephemeral Docker
 via Testcontainers — never mocks; a Docker daemon is required. Generator tests use
 Verify (`Verify.TUnit` + `Verify.SourceGenerators`) snapshots + cacheability checks.
+
+DormantQL conventions: a module maps to a DB schema (schema-qualified DDL/SQL).
+Generated namespace = PascalCaseEachPart(project RootNamespace + schema-file folders
++ module) — e.g. schema/app.dqls in Dormant.Sample.Quickstart → namespace
+Dormant.Sample.Quickstart.Schema.App (NOT the bare module). Member syntax is
+`name: [multi] Type[?]` (value type ⇒ property, else ⇒ link; required by default,
+`?` optional, `multi` collection; no `->` arrow, no `single`). Non-nullable members
+emit C# `required` (not `= default!`); materialize via a [SetsRequiredMembers] ctor
+invoked through [UnsafeAccessor]. (The committed US1 generator predates these and
+needs a revision pass — see plan.md Phase notes.)
 <!-- SPECKIT END -->

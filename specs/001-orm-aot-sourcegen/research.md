@@ -187,6 +187,35 @@ reflection/boxing.
 
 ---
 
+## 10. Module mapping, generated namespace & `required` members (FR-045..048)
+
+**Decision**:
+- **Module → DB schema (FR-045)**: the module name is the PostgreSQL schema; emitted DDL/SQL is
+  schema-qualified and migration tooling issues `CREATE SCHEMA IF NOT EXISTS`.
+- **Generated namespace (FR-046)**: the generator reads the consuming project's root namespace and the
+  schema file's location from `AnalyzerConfigOptionsProvider.GlobalOptions`
+  (`build_property.RootNamespace`, `build_property.ProjectDir`) and per-file options
+  (`build_metadata.AdditionalFiles.RelativeDir` / deriving the path relative to the project), then
+  computes `PascalCaseEachPart(rootNamespace + folderSegments + module)`. These config values are
+  projected to small equatable strings before entering the pipeline (no `Compilation` capture, research §5).
+- **Member syntax (FR-047)**: parser disambiguates `name: T` by checking the type token against the
+  scalar `TypeMap` — a known scalar ⇒ property, otherwise ⇒ single link (validated against the entity
+  set); `multi T` ⇒ multi link; trailing `?` ⇒ optional. No arrow, no `single` keyword.
+- **`required` members (FR-048)**: emit `public required T Name { get; set; }` for non-nullable members.
+  Materialization must bypass required-init enforcement; chosen path is a generated private constructor
+  annotated `[SetsRequiredMembers]` invoked through `[UnsafeAccessor(UnsafeAccessorKind.Constructor)]`
+  (no reflection, AOT-safe), with `[UnsafeAccessor]` field writes for population.
+
+**Rationale**: Namespaces read naturally to .NET developers while the DB schema stays named after the
+module; `required` gives safe-by-default construction without sacrificing no-reflection materialization.
+
+**Alternatives**: bare-module namespace (poor .NET DX — rejected); `RuntimeHelpers.GetUninitializedObject`
+for materialization (works but skips field init ordering and is heavier than a `[SetsRequiredMembers]`
+ctor — kept as fallback); `single` keyword for required links (inconsistent with property optionality —
+rejected, see Clarifications).
+
+---
+
 ## Resolved unknowns summary
 
 | Unknown | Resolution |
