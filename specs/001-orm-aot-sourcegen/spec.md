@@ -25,6 +25,7 @@
 - Q: What is the v1 vs Phase 2 scope of the DormantQL query/DML surface? → A: v1 (Tier A) = shaped select (entity/projection), forward path navigation, single/multi-link nested fetch in one round-trip, filter, order by, limit/offset, required+optional parameters with coalesce, core predicates (=, comparisons, like/ilike, in, exists, ??), single-result narrowing, and basic insert/update/delete. Phase 2 (Tier B) = computed expressions, polymorphism, backlinks, link properties, set ops, aggregates, for-union, upsert, nested insert, +=/-=, group by, free objects. The `**` deep-splat is excluded permanently; a schema-resolved `*` single-splat is allowed.
 - Q: Does the DSL support dictionaries/maps and many-to-many relationships? → A: Many-to-many is a v1 capability via multi-valued links (bidirectional = a multi link per side; edge data = an explicit join entity; backlinks and `@prop` link properties are Phase 2 sugar). Dictionaries have no first-class type in v1 — model as a JSON property (opaque) or a key/value child entity (queryable); a first-class typed `map<K,V>` is deferred to Phase 2. v1 property value types are enumerated in FR-036.
 - Q: Should the DSL support database-native types and functions per provider (non-portable)? → A: Yes, by design. Native types (e.g. PostgreSQL `jsonb`) map to build-time-known .NET representations; native functions/operators are invoked via declared typed signatures **and** a raw typed SQL fragment escape (both keep the result type static). Native constructs are explicitly provider-scoped through a per-provider directive, and targeting an unsupported provider is a build-time located diagnostic (never silent). v1 ships the mechanism + built-in `jsonb` in the core PostgreSQL provider; GIS (PostGIS) rides the same mechanism as an optional companion package. AOT, no-boxing, and build-time-known-type guarantees are preserved (FR-038..FR-044).
+- Q: How is provider connectivity and provider-specific behavior verified in tests? → A: Against a real provider instance (never mocks or an in-memory fake), provisioned ephemerally in Docker via Testcontainers. This is the required mechanism for the integration-style acceptance scenarios (US2, US5, US8) and the provider-dependent success criteria (SC-003, SC-010, SC-012, SC-013); CI must provide a Docker daemon for these tests.
 
 ## User Scenarios & Testing _(mandatory)_
 
@@ -639,3 +640,7 @@ same mechanism as an optional companion package.
   portability: they are PostgreSQL-first in v1 and explicitly non-portable, traded for first-class
   access to features like JSONB and GIS. The build-time-known-result-type and AOT guarantees still
   hold for them.
+- Provider connectivity and provider-specific behavior are verified against a real provider instance
+  provisioned ephemerally via Docker (Testcontainers) — not against mocks or an in-memory fake — so the
+  integration-style acceptance scenarios and provider-dependent success criteria exercise the actual
+  database. A Docker daemon is required to run these tests locally and in CI.
