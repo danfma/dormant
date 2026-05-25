@@ -160,6 +160,14 @@ internal sealed class QueryParser
             _pos++;
             Expect(TokenKind.Colon, "':' between the parameter name and its type");
 
+            // Optional parameter (FR-012/FR-031): `name: optional Type`.
+            var isOptional = false;
+            if (IsKeyword("optional"))
+            {
+                isOptional = true;
+                _pos++;
+            }
+
             if (Current.Kind != TokenKind.Identifier)
             {
                 Error("expected a parameter type");
@@ -174,7 +182,7 @@ internal sealed class QueryParser
                 Error($"unknown parameter type '{dslType}'");
             }
 
-            parameters.Add(new QueryParameter(paramName, dslType, clrType));
+            parameters.Add(new QueryParameter(paramName, dslType, clrType, isOptional));
 
             if (Current.Kind == TokenKind.Comma)
             {

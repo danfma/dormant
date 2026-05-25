@@ -44,7 +44,8 @@ internal sealed record QueryModel(
 /// <param name="Name">The parameter name.</param>
 /// <param name="DslType">The DormantQL type as written.</param>
 /// <param name="ClrType">The mapped CLR type, or empty when unknown.</param>
-internal sealed record QueryParameter(string Name, string DslType, string ClrType);
+/// <param name="IsOptional">Whether declared <c>optional</c> (FR-012/FR-031): a filter on it is a conditional fragment.</param>
+internal sealed record QueryParameter(string Name, string DslType, string ClrType, bool IsOptional = false);
 
 /// <summary>A comparison operator usable in a filter condition (FR-032, MVP subset).</summary>
 internal enum CompareOp

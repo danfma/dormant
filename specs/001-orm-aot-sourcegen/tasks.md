@@ -199,16 +199,16 @@ model). They revise the already-built US1 generator/kernel and close `/speckit-a
 
 ### Tests for User Story 4
 
-- [ ] T068 [P] [US4] Integration: optional params none/one/both → same result type, correct rows in `tests/Dormant.Provider.PostgreSql.Tests/OptionalParamsTests.cs`
-- [ ] T069 [P] [US4] Verify: single result type generated once for all parameter combinations in `tests/Dormant.SourceGeneration.Tests/OptionalParamTypeTests.cs`
+- [X] T068 [P] [US4] Integration: optional params none/one/both → same result type, correct rows in `tests/Dormant.Provider.PostgreSql.Tests/OptionalParamsTests.cs` _(two optional filters; none/min/name/both all correct + ordered; green vs real PostgreSQL)_
+- [X] T069 [P] [US4] Verify: single result type + nullable optional params for all combinations in `tests/Dormant.SourceGeneration.Tests/OptionalParamTypeTests.cs` _(asserts `IAsyncEnumerable<Widget> SearchWidgets(int? minQuantity = default, string? name = default, …)` + fragment selection)_
 
 ### Implementation for User Story 4
 
-- [ ] T070 [US4] Extend query parser: required/optional params + coalesce (`??`) in `src/Dormant.SourceGeneration/Parsing/QueryParser.cs`
-- [ ] T071 [US4] Prebuilt SQL fragments + runtime fragment-toggle assembler (no query compilation) in `src/Dormant.Core/Querying/FragmentAssembler.cs`
-- [ ] T072 [US4] Optional-parameter binding (omit clause when absent) in `src/Dormant.Core/Querying/QueryExecutor.cs`
+- [X] T070 [US4] Extend query parser: `optional` parameters in `QueryParser` + `QueryParameter.IsOptional` (FR-012/FR-031) _(coalesce `??` + optional LIMIT/OFFSET DEFERRED — sugar; the SC-005 core is optional filters)_
+- [X] T071 [US4] Prebuilt SQL fragments + runtime fragment-toggle assembly (no query compilation, FR-013) _(folded into `QueryEmitter.EmitDynamicStatement`: when a filter uses an optional param, the method assembles SQL at runtime — required fragments always, optional only when the param is non-null; result type fixed. No separate `FragmentAssembler.cs`. Mirrors the change-tracking UPDATE)_
+- [X] T072 [US4] Optional-parameter binding (omit clause + bind when absent/present) _(folded into the dynamic emit: the bind callback re-applies the same null-guards so parameter order matches; value-type optionals unwrapped via `.Value`. No separate `QueryExecutor.cs`)_
 
-**Checkpoint**: Conditional queries with stable result types.
+**Checkpoint**: Conditional queries with stable result types — optional filters work; `??` coalesce + optional LIMIT/OFFSET deferred (sugar).
 
 ---
 

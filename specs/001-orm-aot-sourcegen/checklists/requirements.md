@@ -143,3 +143,11 @@
   EnsureCreated (de-brittled). Tests: generator 16/16 (schema-qualified asserts), Core 7/7, PostgreSQL
   9/9 (+ MigrationApplyTests idempotency). Build 0/0. T059/T064/T065/T105 done. DEFERRED: versioned
   migration store + incremental diff (T063), rollback (T061), destructive guard (T067), CLI (T066).
+- 2026-05-25 IMPLEMENTED US4 (optional-param dynamic queries): `optional` parameter keyword in
+  QueryParser + `QueryParameter.IsOptional`; `QueryEmitter.EmitDynamicStatement` assembles SQL at
+  runtime when a filter uses an optional param — required fragments always, optional only when the param
+  is non-null; bind callback re-applies the same guards (value-type optionals via `.Value`); result type
+  fixed for all combinations (FR-005/012/031, FR-013 fragment selection not compilation). Optional params
+  → nullable C# params defaulted null, ordered after required. Tests: generator 17/17 (OptionalParamType),
+  PostgreSQL 10/10 (OptionalParams none/one/both). Build 0/0. DEFERRED: `??` coalesce + optional
+  LIMIT/OFFSET (sugar).

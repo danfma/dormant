@@ -149,9 +149,6 @@ internal static class QueryEmitter
 
     private static string EmitMethod(QueryModel query, EntityModel entity, string schema, NamingConvention convention, out string? projection)
     {
-        var parameterOrder = new List<string>();
-        var sql = BuildSql(query, entity, schema, convention, parameterOrder);
-
         string resultType;
         string materializer;
         if (query.IsProjection)
@@ -167,15 +164,48 @@ internal static class QueryEmitter
             materializer = $"static reader => new {entity.Name}(reader)";
         }
 
+        // Required parameters first, optional last (C# default-value ordering); optional value types
+        // become nullable and default to null (FR-012/FR-031).
         var declared = string.Join(
             ", ",
-            query.Parameters.Select(p => $"{p.ClrType} {p.Name}"));
+            query.Parameters
+                .OrderBy(p => p.IsOptional)
+                .Select(p => p.IsOptional ? $"{p.ClrType}? {p.Name} = default" : $"{p.ClrType} {p.Name}"));
         var parameterList = declared.Length > 0 ? declared + ", " : string.Empty;
 
-        // Inside the extension block the receiver `session` is implicit — no `this` parameter, and the
-        // member is an instance-style extension method (public, non-static).
+        var optionalNames = new HashSet<string>(
+            query.Parameters.Where(p => p.IsOptional).Select(p => p.Name), System.StringComparer.Ordinal);
+        var dynamic = query.Filters.Any(f => optionalNames.Contains(f.ParameterName));
+
+        // Inside the extension block the receiver `session` is implicit — no `this` parameter.
         var writer = new SourceWriter()
-            .Open($"public global::System.Collections.Generic.IAsyncEnumerable<{resultType}> {query.Name}({parameterList}global::System.Threading.CancellationToken cancellationToken = default)")
+            .Open($"public global::System.Collections.Generic.IAsyncEnumerable<{resultType}> {query.Name}({parameterList}global::System.Threading.CancellationToken cancellationToken = default)");
+
+        if (dynamic)
+        {
+            EmitDynamicStatement(writer, query, entity, schema, convention, optionalNames);
+        }
+        else
+        {
+            EmitStaticStatement(writer, query, entity, schema, convention);
+        }
+
+        writer
+            .Line($"var query = new {Abs}.Querying.CompiledQuery<{resultType}>(statement, {materializer});")
+            .Line("return session.QueryAsync(query, cancellationToken);")
+            .Close();
+
+        return writer.ToString().TrimEnd('\n');
+    }
+
+    // No optional filters: the SQL is fully known at build time (IR-rendered) with a fixed bind order.
+    private static void EmitStaticStatement(
+        SourceWriter writer, QueryModel query, EntityModel entity, string schema, NamingConvention convention)
+    {
+        var parameterOrder = new List<string>();
+        var sql = BuildSql(query, entity, schema, convention, parameterOrder);
+
+        writer
             .Line($"var statement = new {Abs}.Querying.PreparedStatement(")
             .Line($"    {Quote(sql)},")
             .Line("    writer =>")
@@ -186,14 +216,124 @@ internal static class QueryEmitter
             writer.Line($"        writer.Write({i + 1}, {parameterOrder[i]});");
         }
 
-        writer
-            .Line("    });")
-            .Line($"var query = new {Abs}.Querying.CompiledQuery<{resultType}>(statement, {materializer});")
-            .Line("return session.QueryAsync(query, cancellationToken);")
-            .Close();
-
-        return writer.ToString().TrimEnd('\n');
+        writer.Line("    });");
     }
+
+    // Optional filters present: SQL is assembled at runtime by including a filter's fragment only when
+    // its parameter is supplied (FR-031 fragment selection — NOT query compilation, FR-013). The result
+    // type is fixed regardless of which fragments are chosen (FR-005). Mirrors the change-tracking UPDATE.
+    private static void EmitDynamicStatement(
+        SourceWriter writer,
+        QueryModel query,
+        EntityModel entity,
+        string schema,
+        NamingConvention convention,
+        HashSet<string> optionalNames)
+    {
+        var cols = (query.IsProjection
+            ? query.ProjectionFields.Select(f => ColByName(entity, f, convention))
+            : entity.Properties.Select(p => NamingConventions.Resolve(p.Name, p.NameOverride, convention)))
+            .Select(Lit);
+        var tableLit = Lit(schema) + "." + Lit(NamingConventions.Resolve(entity.Name, entity.NameOverride, convention));
+
+        writer
+            .Line($"var sql = new global::System.Text.StringBuilder(\"SELECT {string.Join(", ", cols)} FROM {tableLit}\");")
+            .Line("int p = 0;")
+            .Line("var conds = new global::System.Collections.Generic.List<string>();");
+
+        // Required filters always contribute; optional filters only when their parameter is non-null.
+        foreach (var filter in query.Filters)
+        {
+            var fragment = $"\"{Lit(ColByName(entity, filter.Column, convention))} {OperatorSql(filter.Op)} $\" + (++p)";
+            if (optionalNames.Contains(filter.ParameterName))
+            {
+                writer.Line($"if ({filter.ParameterName} != null) {{ conds.Add({fragment}); }}");
+            }
+            else
+            {
+                writer.Line($"conds.Add({fragment});");
+            }
+        }
+
+        writer.Line("if (conds.Count > 0) { sql.Append(\" WHERE \").Append(string.Join(\" AND \", conds)); }");
+
+        if (query.OrderBy.Count > 0)
+        {
+            var orderLit = string.Join(
+                ", ", query.OrderBy.Select(t => Lit(ColByName(entity, t.Column, convention)) + (t.Descending ? " DESC" : " ASC")));
+            writer.Line($"sql.Append(\" ORDER BY {orderLit}\");");
+        }
+
+        EmitDynamicLimit(writer, "LIMIT", query.Limit, optionalNames);
+        EmitDynamicLimit(writer, "OFFSET", query.Offset, optionalNames);
+
+        writer
+            .Line($"var statement = new {Abs}.Querying.PreparedStatement(sql.ToString(), writer =>")
+            .Line("{")
+            .Line("    int i = 0;");
+
+        foreach (var filter in query.Filters)
+        {
+            var value = BindExpression(filter.ParameterName, query);
+            if (optionalNames.Contains(filter.ParameterName))
+            {
+                writer.Line($"    if ({filter.ParameterName} != null) {{ writer.Write(++i, {value}); }}");
+            }
+            else
+            {
+                writer.Line($"    writer.Write(++i, {value});");
+            }
+        }
+
+        EmitDynamicLimitBind(writer, query.Limit, query);
+        EmitDynamicLimitBind(writer, query.Offset, query);
+        writer.Line("});");
+    }
+
+    private static void EmitDynamicLimit(SourceWriter writer, string keyword, LimitValue? limit, HashSet<string> optionalNames)
+    {
+        if (limit is null)
+        {
+            return;
+        }
+
+        // Optional LIMIT/OFFSET parameters are a later slice; here they are literals or required params.
+        if (limit.IsParameter)
+        {
+            writer.Line($"sql.Append(\" {keyword} $\").Append(++p);");
+        }
+        else
+        {
+            writer.Line($"sql.Append(\" {keyword} {limit.Literal.ToString(System.Globalization.CultureInfo.InvariantCulture)}\");");
+        }
+    }
+
+    private static void EmitDynamicLimitBind(SourceWriter writer, LimitValue? limit, QueryModel query)
+    {
+        if (limit is { IsParameter: true })
+        {
+            writer.Line($"    writer.Write(++i, {BindExpression(limit.ParameterName, query)});");
+        }
+    }
+
+    // The bind expression for a parameter: value-type optionals are unwrapped via `.Value` (the guard
+    // guarantees non-null); reference types pass through.
+    private static string BindExpression(string parameterName, QueryModel query)
+    {
+        var parameter = query.Parameters.FirstOrDefault(p => p.Name == parameterName);
+        if (parameter is { IsOptional: true } && IsValueType(parameter.ClrType))
+        {
+            return parameterName + ".Value";
+        }
+
+        return parameterName;
+    }
+
+    private static bool IsValueType(string clrType) =>
+        clrType is not ("string" or "byte[]");
+
+    // C#-source representation of a quoted SQL identifier (the chars \"name\") for runtime StringBuilder seeds.
+    private static string Lit(string identifier) => "\\\"" + identifier + "\\\"";
 
     // Builds the SELECT as a structured IR node (FR-059) and renders it; populates parameterOrder (the
     // bind-callback order) as positional parameters are assigned. Database names resolved via the active

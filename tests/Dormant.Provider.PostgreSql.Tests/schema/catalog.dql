@@ -11,3 +11,10 @@ query WidgetNames(min: int) =
   select Widget { id, name }
   filter .quantity >= min
   order by .name asc;
+
+# Optional parameters (FR-012/FR-031): each filter is included only when its parameter is supplied;
+# the result type is the same for every combination.
+query SearchWidgets(minQuantity: optional int, name: optional str) =
+  select Widget
+  filter .quantity >= minQuantity and .name = name
+  order by .name asc;
