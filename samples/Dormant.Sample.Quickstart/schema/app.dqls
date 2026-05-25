@@ -1,0 +1,15 @@
+module app;
+
+entity User {
+  id: uuid primary;
+  email: str;
+  created_at: datetime;
+  multi posts -> Post;
+  version: int concurrency;
+}
+
+entity Post {
+  id: uuid primary;
+  title: str;
+  single author -> User;
+}

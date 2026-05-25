@@ -26,6 +26,16 @@ internal static class DiagnosticDescriptors
         category: Category,
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true);
+
+    /// <summary>A property declares a value type that is not a known DormantQL v1 type.</summary>
+    public static readonly DiagnosticDescriptor UnknownPropertyType = new(
+        id: "ORM003",
+        title: "Unknown property type",
+        messageFormat: "Property '{0}' has unknown DormantQL type '{1}'",
+        category: Category,
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true,
+        description: "Use a v1 DormantQL value type such as str, bool, int32, int64, float64, decimal, uuid, datetime, bytes, or json.");
 }
 
 /// <summary>An equatable, pipeline-safe description of a diagnostic (research §5).</summary>
