@@ -1,8 +1,8 @@
 using System.Collections.Generic;
-using System.Globalization;
 using System.Linq;
 using Dormant.SourceGeneration.Diagnostics;
 using Dormant.SourceGeneration.Emit;
+using Dormant.SourceGeneration.Ir;
 using Dormant.SourceGeneration.Parsing;
 
 namespace Dormant.SourceGeneration.Query;
@@ -195,69 +195,52 @@ internal static class QueryEmitter
         return writer.ToString().TrimEnd('\n');
     }
 
+    // Builds the SELECT as a structured IR node (FR-059) and renders it; populates parameterOrder (the
+    // bind-callback order) as positional parameters are assigned. Database names resolved via the active
+    // convention / per-unit overrides (FR-052/FR-054/FR-055).
     private static string BuildSql(QueryModel query, EntityModel entity, NamingConvention convention, List<string> parameterOrder)
     {
-        // Database names resolved via the active convention / per-unit overrides (FR-052/FR-054/FR-055).
         var columns = query.IsProjection
-            ? query.ProjectionFields.Select(f => Quoted(ColByName(entity, f, convention)))
-            : entity.Properties.Select(p => Quoted(NamingConventions.Resolve(p.Name, p.NameOverride, convention)));
+            ? query.ProjectionFields.Select(f => ColByName(entity, f, convention)).ToList()
+            : entity.Properties.Select(p => NamingConventions.Resolve(p.Name, p.NameOverride, convention)).ToList();
 
-        var sql = new System.Text.StringBuilder();
-        sql.Append("SELECT ").Append(string.Join(", ", columns));
-        sql.Append(" FROM ").Append(Quoted(NamingConventions.Resolve(entity.Name, entity.NameOverride, convention)));
-
-        if (query.Filters.Count > 0)
+        var where = new List<SqlCondition>(query.Filters.Count);
+        foreach (var filter in query.Filters)
         {
-            sql.Append(" WHERE ");
-            var first = true;
-            foreach (var filter in query.Filters)
-            {
-                if (!first)
-                {
-                    sql.Append(" AND ");
-                }
-
-                parameterOrder.Add(filter.ParameterName);
-                sql.Append(Quoted(ColByName(entity, filter.Column, convention))).Append(' ').Append(OperatorSql(filter.Op))
-                    .Append(" $").Append(parameterOrder.Count.ToString(CultureInfo.InvariantCulture));
-                first = false;
-            }
+            parameterOrder.Add(filter.ParameterName);
+            where.Add(new SqlCondition(
+                ColByName(entity, filter.Column, convention), OperatorSql(filter.Op), parameterOrder.Count));
         }
 
-        if (query.OrderBy.Count > 0)
-        {
-            sql.Append(" ORDER BY ");
-            sql.Append(string.Join(
-                ", ",
-                query.OrderBy.Select(t => Quoted(ColByName(entity, t.Column, convention)) + (t.Descending ? " DESC" : " ASC"))));
-        }
+        var orderBy = query.OrderBy
+            .Select(t => new SqlOrder(ColByName(entity, t.Column, convention), t.Descending))
+            .ToList();
 
-        AppendLimit(sql, "LIMIT", query.Limit, parameterOrder);
-        AppendLimit(sql, "OFFSET", query.Offset, parameterOrder);
-        return sql.ToString();
+        var statement = new SelectStatement(
+            NamingConventions.Resolve(entity.Name, entity.NameOverride, convention),
+            columns,
+            where,
+            orderBy,
+            ToLimit(query.Limit, parameterOrder),
+            ToLimit(query.Offset, parameterOrder));
+
+        return SqlRenderer.Render(statement);
     }
 
-    private static void AppendLimit(
-        System.Text.StringBuilder sql,
-        string keyword,
-        LimitValue? value,
-        List<string> parameterOrder)
+    private static SqlLimit? ToLimit(LimitValue? value, List<string> parameterOrder)
     {
         if (value is null)
         {
-            return;
+            return null;
         }
 
-        sql.Append(' ').Append(keyword).Append(' ');
-        if (value.IsParameter)
+        if (!value.IsParameter)
         {
-            parameterOrder.Add(value.ParameterName);
-            sql.Append('$').Append(parameterOrder.Count.ToString(CultureInfo.InvariantCulture));
+            return new SqlLimit(IsParameter: false, ParameterIndex: 0, value.Literal);
         }
-        else
-        {
-            sql.Append(value.Literal.ToString(CultureInfo.InvariantCulture));
-        }
+
+        parameterOrder.Add(value.ParameterName);
+        return new SqlLimit(IsParameter: true, parameterOrder.Count, Literal: 0);
     }
 
     private static string BuildProjectionRecord(string resultType, QueryModel query, EntityModel entity)
@@ -304,8 +287,6 @@ internal static class QueryEmitter
             ? NamingConventions.Resolve(dslName, null, convention)
             : NamingConventions.Resolve(property.Name, property.NameOverride, convention);
     }
-
-    private static string Quoted(string identifier) => "\"" + identifier + "\"";
 
     private static string Quote(string text) =>
         "\"" + text.Replace("\\", "\\\\").Replace("\"", "\\\"") + "\"";

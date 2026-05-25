@@ -321,9 +321,9 @@ model). They revise the already-built US1 generator/kernel and close `/speckit-a
 
 ### Implementation for User Story 10
 
-- [ ] T119 [US10] Define a structured SQL/output IR (statement + clause + expression nodes; deterministic, value-equatable `EquatableArray`-based) in `src/Dormant.SourceGeneration/Ir/` (FR-059/FR-060)
-- [ ] T120 [US10] Migrate `EntityBindingEmitter` (INSERT/SELECT/UPDATE/DELETE) + `QueryEmitter` (SELECT) to build the IR and render it at the output boundary; preserve byte-identical output (Verify snapshots) (FR-059)
-- [ ] T121 [US10] Internal IR transformation seam: ordered, deterministic transform stages over the IR before rendering (FR-061/FR-062)
+- [X] T119 [US10] Define a structured SQL/output IR (statement + clause nodes) + `SqlRenderer` in `src/Dormant.SourceGeneration/Ir/SqlIr.cs` (FR-059/FR-060) _(InsertStatement/SelectStatement/DeleteStatement + SqlCondition/SqlOrder/SqlLimit; renderer centralizes quoting/formatting. Nodes are emit-time scaffolding downstream of the cached parse models → plain records (determinism, not pipeline equatability, is what matters); noted vs the original `EquatableArray` wording)_
+- [X] T120 [US10] Migrate `EntityBindingEmitter` (INSERT / SELECT-by-key / DELETE) + `QueryEmitter` (SELECT) to build the IR and render at the boundary; byte-identical output (FR-059) _(verified: exact-SQL assertions in SchemaEmitTests/ProjectionEmitTests unchanged → generator 16/16; PostgreSQL 8/8. **UPDATE excluded**: the changed-columns-only UPDATE is assembled at runtime by generated code (StringBuilder over diff flags), not a gen-time-static string — migrating it needs a runtime fragment/IR builder, tracked as a follow-up under T121)_
+- [ ] T121 [US10] Internal IR transformation seam: ordered, deterministic transform stages over the IR before rendering (FR-061/FR-062). Also: extend the IR to model the change-tracking UPDATE as a conditional/fragment statement so its runtime assembly renders from IR too (completes T120 for UPDATE)
 - [ ] T122 [US10] Plugin-produced invalid IR → source-located diagnostic (new ORM0xx); cacheability + determinism tests over the IR + transforms (FR-063/FR-060)
 - [ ] T123 [US10] (Later phase) Stable public plugin API surface (PublicApiAnalyzers) + example plugin (SC-016) — defer until the IR seam stabilizes (FR-061)
 - [ ] T124 [US10] (Later phase) Compiled query/command definition cache — reuse one definition instance per query/command, allocation benchmark (FR-064, SC-017)

@@ -127,3 +127,10 @@
   framed as user value (plugin authors / extensibility / allocation). Implementation nouns (IR, AST,
   plugin) are the feature's subject, consistent with the spec's treatment of generated-code/tooling as
   compatibility surfaces (Constitution II/IV). "No implementation details" item kept passing on that basis.
+- 2026-05-25 IMPLEMENTED T119+T120 (US10 IR start): added `Ir/SqlIr.cs` — structured SQL IR
+  (Insert/Select/Delete statements + SqlCondition/SqlOrder/SqlLimit) + `SqlRenderer` (centralized
+  quoting). Migrated `EntityBindingEmitter` (INSERT/SELECT-by-key/DELETE) + `QueryEmitter` (SELECT) to
+  build IR nodes and render at the boundary — removed hand-escaped string assembly for static
+  statements. Byte-identical: generator 16/16 (exact-SQL asserts unchanged), PostgreSQL 8/8, build 0/0.
+  UPDATE excluded (runtime-dynamic changed-columns-only assembly) → tracked under T121. Deferred:
+  transform seam (T121), plugin API + definition cache (T123/T124, later phase).
