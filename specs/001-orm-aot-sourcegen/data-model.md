@@ -25,7 +25,10 @@ The parsed, validated schema. Equatable aggregate root of generation.
   property/link names flagged; every diagnostic carries a `LocationInfo` (FR-004, SC-009).
 
 ### EntityModel
-- `Name`, `Namespace`, `TableName`
+- `Name`
+- `Namespace` — `PascalCaseEachPart(rootNamespace + folders + module)` (FR-046), not the bare module
+- `DbSchema` — the module name; the database schema the table lives in (FR-045)
+- `TableName` — schema-qualified (`<DbSchema>.<table>`)
 - `Properties: EquatableArray<PropertyModel>`
 - `Links: EquatableArray<LinkModel>`
 - `Key: KeyModel` (identity columns)
@@ -45,8 +48,8 @@ The parsed, validated schema. Equatable aggregate root of generation.
 
 ### LinkModel
 - `Name`, `Target: string` (entity name)
-- `Cardinality: { Single, Multi }` (→ `Link<T>` vs `LinkSet<T>`)
-- `IsRequired: bool`
+- `Cardinality: { Single, Multi }` (→ `Link<T>` vs `LinkSet<T>`). Syntax: `name: [multi] Type[?]` (FR-047)
+- `IsRequired: bool` (single link: bare = required, `Type?` = optional; generated with C# `required`, FR-048)
 - `JoinEntity: string?` (set when m:n carries edge data via a join entity, FR-037)
 
 ### QueryModel

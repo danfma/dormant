@@ -63,3 +63,11 @@
   user-facing capabilities the feature exists to deliver, not implementation leakage, and are
   consistent with the spec's existing provider-specific criteria (SC-001 Native AOT, SC-007 PostgreSQL
   benchmark). "Technology-agnostic SC" item kept passing on that basis.
+- 2026-05-25 language refinement pass: added FR-045 (module → DB schema), FR-046 (generated namespace =
+  PascalCaseEachPart(rootNamespace + folders + module)), FR-047 (unified `name: [multi] Type[?]` member
+  syntax — arrows + `single` removed, required-by-default, `?` optional), FR-048 (C# `required` instead
+  of `= default!`). Updated DSL surface, dsl-grammar/generated-code/data-model contracts, quickstart.
+- DRIFT FLAG (spec ↔ code): the committed US1 generator predates FR-045..048 and must be revised —
+  EntityEmitter namespace (FR-046) + `required` (FR-048), SchemaParser member syntax (FR-047), and the
+  sample/tests/quickstart schemas. Tracked for the next /speckit-implement revision pass; US1 tasks
+  remain "done" for the prior grammar but need updating.

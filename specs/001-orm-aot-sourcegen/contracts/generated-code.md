@@ -6,9 +6,11 @@ baseline; any change is a reviewable diff (research §8).
 
 ## What the generator emits
 
-Per schema entity `E`:
+Per schema entity `E` (in namespace `PascalCaseEachPart(rootNamespace + folders + module)`, FR-046):
 - `public partial class E` — mapped properties (auto-props) + link members typed `Link<T>`/`LinkSet<T>`.
-  Hand-written `partial` members in separate files coexist and survive regeneration (FR-003).
+  Non-nullable members use the C# `required` modifier; nullable members use `T?` and omit `required`
+  (FR-047/FR-048). Hand-written `partial` members in separate files coexist and survive regeneration
+  (FR-003).
 - Internal `static` `[UnsafeAccessor]` field accessors for `E`'s mapped members (materialization +
   snapshot), no reflection (research §5).
 - A `readonly record struct E_Snapshot` + a `E_Diff` comparer (changed-column detection, FR-014).

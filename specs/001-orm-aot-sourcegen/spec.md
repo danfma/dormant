@@ -26,6 +26,10 @@
 - Q: Does the DSL support dictionaries/maps and many-to-many relationships? → A: Many-to-many is a v1 capability via multi-valued links (bidirectional = a multi link per side; edge data = an explicit join entity; backlinks and `@prop` link properties are Phase 2 sugar). Dictionaries have no first-class type in v1 — model as a JSON property (opaque) or a key/value child entity (queryable); a first-class typed `map<K,V>` is deferred to Phase 2. v1 property value types are enumerated in FR-036.
 - Q: Should the DSL support database-native types and functions per provider (non-portable)? → A: Yes, by design. Native types (e.g. PostgreSQL `jsonb`) map to build-time-known .NET representations; native functions/operators are invoked via declared typed signatures **and** a raw typed SQL fragment escape (both keep the result type static). Native constructs are explicitly provider-scoped through a per-provider directive, and targeting an unsupported provider is a build-time located diagnostic (never silent). v1 ships the mechanism + built-in `jsonb` in the core PostgreSQL provider; GIS (PostGIS) rides the same mechanism as an optional companion package. AOT, no-boxing, and build-time-known-type guarantees are preserved (FR-038..FR-044).
 - Q: How is provider connectivity and provider-specific behavior verified in tests? → A: Against a real provider instance (never mocks or an in-memory fake), provisioned ephemerally in Docker via Testcontainers. This is the required mechanism for the integration-style acceptance scenarios (US2, US5, US8) and the provider-dependent success criteria (SC-003, SC-010, SC-012, SC-013); CI must provide a Docker daemon for these tests.
+- Q: What does a DormantQL module map to in the database? → A: A module maps to a database schema. Generated tables and all SQL/DDL are qualified by the module's schema (the module name is the DB schema name), and migration tooling creates the schema as needed (FR-045).
+- Q: What namespace do generated .NET types use? → A: NOT the bare module name. The namespace is `PascalCaseEachPart(root namespace + relative folder segments of the schema file + module name)`. Example: `schema/app.dqls` in project `Dormant.Sample.Quickstart` → `Dormant.Sample.Quickstart.Schema.App` (FR-046). This reads naturally to a .NET developer.
+- Q: What is the member/link declaration syntax? → A: A unified `name: [multi] Type[?]` form (Kotlin/TypeScript-like); the `-> ` arrow and the `single`/`multi` prefix forms are removed. A member whose type is a value type is a property, otherwise a link. Members are **required by default**; a trailing `?` makes them optional/nullable; `multi` marks a multi-valued link. So `email: str` (required), `email: str?` (optional), `author: User` (required single link), `author: User?` (optional single link), `posts: multi Post` (multi link) (FR-047).
+- Q: How are non-nullable generated members expressed in C#? → A: With the C# `required` modifier (not a `= default!` initializer). Nullable members are optional. The materializer populates required members through an accessor path that bypasses object-initializer enforcement (FR-048).
 
 ## User Scenarios & Testing _(mandatory)_
 
@@ -438,6 +442,28 @@ companion package.
   provided as an **optional companion package** with at least one runnable end-to-end example; GIS
   MUST NOT be bundled into the core provider.
 
+#### Module mapping, namespaces & member syntax
+
+- **FR-045**: Each DormantQL **module maps to a database schema**. Generated tables and all emitted
+  SQL/DDL MUST be qualified by that schema (the module name is the database schema name), and migration
+  tooling MUST create the schema when it does not exist.
+- **FR-046**: Generated .NET types MUST be placed in a namespace computed as
+  `PascalCaseEachPart(rootNamespace + relativeFolderSegments + moduleName)`, where `rootNamespace` is the
+  consuming project's root namespace, `relativeFolderSegments` are the folders of the schema file
+  relative to the project, and `moduleName` is the module. The bare module name MUST NOT be used as the
+  namespace. Example: `schema/app.dqls` in project `Dormant.Sample.Quickstart` →
+  `Dormant.Sample.Quickstart.Schema.App`.
+- **FR-047**: Members MUST be declared with a unified `name: [multi] Type[?]` syntax. A member whose
+  type is a value type is a **property**; otherwise it is a **link**. Members are **required by
+  default**; a trailing `?` makes a member optional (nullable property, or optional single link); the
+  `multi` keyword marks a multi-valued link. The previous arrow form (`multi name -> Type` /
+  `single name -> Type`) MUST be removed; there is no `single` keyword (a bare single link is required,
+  `Type?` is optional).
+- **FR-048**: Generated non-nullable members MUST use the C# `required` modifier (not a `= default!`
+  initializer); nullable members are optional and omit `required`. Materialization MUST populate
+  required members without tripping required-initialization enforcement (e.g. via an accessor/constructor
+  path that bypasses object-initializer checks), preserving the no-reflection guarantee (FR-017).
+
 ### Key Entities _(conceptual model of the system)_
 
 - **Schema Definition (DSL)**: The human-authored declaration of entities, properties, and links; the
@@ -478,6 +504,32 @@ A core design idea is adopted deliberately: **type and cardinality are static pr
 query expression.** Absence is an empty result, single vs multi links are distinguished, and the
 generated .NET surface mirrors that (optional single vs collection). This is precisely what makes the
 build-time-known-result-type guarantee natural rather than bolted on.
+
+### Schema declarations (v1)
+
+A module maps to a **database schema**; generated types live in a .NET namespace derived from the
+project's root namespace + the schema file's folders + the module name (FR-045/FR-046). Members use a
+unified `name: [multi] Type[?]` form — **required by default**, `?` for optional, `multi` for collections
+(FR-047). A member typed as a value type is a property; otherwise it is a link.
+
+```
+module app;                 # → DB schema "app"; types → <RootNamespace>.<Folders>.App
+
+entity User {
+  id: uuid primary;         # required property (C# `required`)
+  email: str;               # required property
+  bio: str?;                # optional property (nullable)
+  manager: User?;           # optional single link
+  posts: multi Post;        # multi link
+  version: int concurrency; # optimistic-concurrency token
+}
+
+entity Post {
+  id: uuid primary;
+  title: str;
+  author: User;             # required single link
+}
+```
 
 ### Query constructs — v1 (Tier A)
 
@@ -530,7 +582,7 @@ model a key→value structure as a JSON property (opaque) or a key/value child e
 |------|---------|---------------|
 | Basic m:n | a `multi` link | — |
 | Navigable both directions | a `multi` link on each side | backlink `.<link[is …]` |
-| m:n with edge data (e.g. `since`, `role`) | explicit join entity (two single links + its own props) | link property `@prop` |
+| m:n with edge data (e.g. `since`, `role`) | explicit join entity (two required single links + its own props) | link property `@prop` |
 
 ### Native (per-provider) types & functions
 
@@ -644,3 +696,9 @@ same mechanism as an optional companion package.
   provisioned ephemerally via Docker (Testcontainers) — not against mocks or an in-memory fake — so the
   integration-style acceptance scenarios and provider-dependent success criteria exercise the actual
   database. A Docker daemon is required to run these tests locally and in CI.
+- A DormantQL module is the unit that maps to a database schema; the generated .NET namespace is derived
+  from the consuming project and file location (root namespace + folders + module, PascalCased), not from
+  the bare module name — this reads naturally to a .NET developer while keeping the DB schema named after
+  the module.
+- Members are required by default (C# `required`) with `?` marking optional/nullable, mirroring how a
+  .NET developer reads non-nullable vs nullable; this applies uniformly to properties and single links.

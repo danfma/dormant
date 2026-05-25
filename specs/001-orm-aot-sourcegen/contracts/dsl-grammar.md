@@ -8,27 +8,35 @@ generator as `AdditionalFiles`.
 ## Schema (v1)
 
 ```
-module app;
+module app;                       # → DB schema "app" (FR-045)
 
 entity User {
   id: uuid primary;
-  email: str;
+  email: str;                     # required property
   created_at: datetime;
   profile: jsonb;                 # native type (FR-038), provider-scoped
-  multi posts -> Post;            # multi link (one side of m:n, FR-037)
+  bio: str?;                      # optional property (nullable)
+  manager: User?;                 # optional single link
+  posts: multi Post;              # multi link (one side of m:n, FR-037)
   version: int concurrency;       # optimistic concurrency token (FR-015)
 }
 
 entity Post {
   id: uuid primary;
   title: str;
-  single author -> User;          # single link
+  author: User;                   # required single link
 }
 ```
 
+- **Module → DB schema** (FR-045): the module name is the database schema; tables/DDL/SQL are qualified
+  by it. **Generated namespace** (FR-046): `PascalCaseEachPart(rootNamespace + folders + module)` — e.g.
+  `schema/app.dqls` in `Dormant.Sample.Quickstart` → `Dormant.Sample.Quickstart.Schema.App`.
+- **Member syntax** (FR-047): unified `name: [multi] Type[?]`. Value type ⇒ property; otherwise ⇒ link.
+  Required by default; `?` ⇒ optional/nullable; `multi` ⇒ multi-valued link. No `->` arrow, no `single`
+  keyword (bare single link is required, `Type?` is optional).
 - Value types (FR-036): `str, bool, int16/32/64, float32/64, decimal, bigint, uuid, datetime, duration,
   bytes, json` + collections `array<T>`, `tuple<...>`, named tuple. `map<K,V>` is **Phase 2**.
-- Links: `single`/`multi`; many-to-many = `multi` per side; edge data = an explicit join entity (FR-037).
+- Many-to-many = a `multi` link per side; edge data = an explicit join entity (FR-037).
 - Native: a property typed as a provider-native type (`jsonb`, `geometry`) is scoped by a provider
   directive (FR-042).
 

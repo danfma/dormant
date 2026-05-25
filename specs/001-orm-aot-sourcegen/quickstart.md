@@ -15,24 +15,27 @@ dotnet tool install -g Dormant.Tool
 `schema/app.dqls`:
 
 ```
-module app;
+module app;                 # → DB schema "app"
 
 entity User {
   id: uuid primary;
-  email: str;
+  email: str;               # required
   created_at: datetime;
-  multi posts -> Post;
+  bio: str?;                # optional
+  posts: multi Post;        # multi link
   version: int concurrency;
 }
 
 entity Post {
   id: uuid primary;
   title: str;
-  single author -> User;
+  author: User;             # required single link
 }
 ```
 
-Build — the generator emits partial `User`/`Post` types, snapshots, and materializers:
+Build — the generator emits partial `User`/`Post` types, snapshots, and materializers. Because the file
+is `schema/app.dqls` in project `Dormant.Sample.Quickstart`, the generated namespace is
+`Dormant.Sample.Quickstart.Schema.App` (root namespace + folders + module, PascalCased — FR-046):
 
 ```bash
 dotnet build
@@ -41,7 +44,8 @@ dotnet build
 Add custom behavior in a separate partial (survives regeneration, FR-003):
 
 ```csharp
-public partial class User { public bool IsRecent() => created_at > DateTime.UtcNow.AddDays(-7); }
+namespace Dormant.Sample.Quickstart.Schema.App;
+public partial class User { public bool IsRecent() => CreatedAt > DateTime.UtcNow.AddDays(-7); }
 ```
 
 ## 3. Author a query in the DSL (≈2 min)
