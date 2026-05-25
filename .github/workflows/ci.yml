@@ -26,8 +26,13 @@ jobs:
       - name: Build
         run: dotnet build --no-restore --configuration Release
 
+      # TUnit runs on Microsoft.Testing.Platform; execute each test project directly (the .NET 10 SDK
+      # no longer supports the legacy VSTest `dotnet test` path). Docker is available on ubuntu runners
+      # for the Testcontainers-backed provider tests.
       - name: Test (TUnit / Microsoft.Testing.Platform)
-        run: dotnet test --no-build --configuration Release
+        run: ./build.sh test
+        env:
+          CONFIGURATION: Release
 
   # AOT smoke gate (SC-001/SC-006): publish the smoke harness with full trimming + Native AOT and
   # fail on any library-originated trimming/AOT warning. Wired fully in US6 (T088).

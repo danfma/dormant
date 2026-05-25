@@ -1,0 +1,7 @@
+root = true
+
+[*.cs]
+# Static factory members on generic value types (e.g. Link<T>.Loaded / Link<T>.Unloaded,
+# LinkSet<T>.Loaded / LinkSet<T>.Unloaded) are an intentional, ergonomic part of the public API,
+# mirroring the BCL pattern (ImmutableArray<T>.Empty). CA1000 is therefore disabled by design.
+dotnet_diagnostic.CA1000.severity = none

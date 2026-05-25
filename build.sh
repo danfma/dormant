@@ -7,14 +7,30 @@ cd "$(dirname "$0")"
 target="${1:-all}"
 config="${CONFIGURATION:-Release}"
 
+# TUnit runs on Microsoft.Testing.Platform; on the .NET 10 SDK the legacy `dotnet test` VSTest path is
+# unsupported, so each test project is executed directly as its MTP host.
+TEST_PROJECTS=(
+  tests/Dormant.Core.Tests
+  tests/Dormant.SourceGeneration.Tests
+  tests/Dormant.Provider.PostgreSql.Tests
+  tests/Dormant.Spatial.PostgreSql.Tests
+)
+
+run_tests() {
+  for proj in "${TEST_PROJECTS[@]}"; do
+    echo ">> $proj"
+    dotnet run --no-build -c "$config" --project "$proj"
+  done
+}
+
 case "$target" in
   restore) dotnet restore ;;
   build)   dotnet build --no-restore -c "$config" ;;
-  test)    dotnet test -c "$config" ;;
+  test)    run_tests ;;
   all)
     dotnet restore
     dotnet build --no-restore -c "$config"
-    dotnet test --no-build -c "$config"
+    run_tests
     ;;
   *) echo "unknown target: $target (use restore|build|test|all)" >&2; exit 2 ;;
 esac

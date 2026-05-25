@@ -45,17 +45,17 @@ AOT smoke, BenchmarkDotNet). Write tests first within each story and ensure they
 
 **Purpose**: Kernel contracts (ports), generator pipeline skeleton, diagnostics + test harnesses. **⚠️ No user story may begin until complete.**
 
-- [ ] T012 [P] Define `Link<T>` / `LinkSet<T>` loaded/unloaded state in `src/Dormant.Abstractions/Links/`
-- [ ] T013 [P] Define `ISession`, `ISessionFactory`, `ConcurrencyConflictException` in `src/Dormant.Abstractions/Sessions/`
-- [ ] T014 [P] Define driver ports `IDataSource`, `IDbSession`, `PreparedStatement`, `RowMaterializer<T>` in `src/Dormant.Abstractions/Ports/`
-- [ ] T015 [P] Define `ISqlDialect`, `ITypeBinding<T>`, `ITypeBindingRegistry`, `INativeFunctionCatalog`, `IMigrationStore` in `src/Dormant.Abstractions/Ports/`
-- [ ] T016 [P] Define `CompiledQuery<T>`, `FieldReader`, `ParameterWriter` in `src/Dormant.Abstractions/Querying/`
-- [ ] T017 Seed `PublicAPI.Shipped.txt`/`Unshipped.txt` baselines for `Dormant.Abstractions` (kernel surface)
-- [ ] T018 [P] Implement `EquatableArray<T>` + equatable model primitives in `src/Dormant.SourceGeneration/Parsing/`
-- [ ] T019 `IIncrementalGenerator` skeleton rooted at `AdditionalTextsProvider` (DSL file filter, path+content extraction, `WithTrackingName`) in `src/Dormant.SourceGeneration/Generator.cs`
-- [ ] T020 `DiagnosticDescriptors` (ORM###) + equatable `DiagnosticInfo`/`LocationInfo` + companion `DiagnosticAnalyzer` scaffold in `src/Dormant.SourceGeneration/Diagnostics/`
-- [ ] T021 [P] Core error model + diagnostics types in `src/Dormant.Core/Diagnostics/`
-- [ ] T022 Generator test harness: `VerifySourceGenerators.Initialize()` + cacheability helper (`trackIncrementalGeneratorSteps`) in `tests/Dormant.SourceGeneration.Tests/`
+- [X] T012 [P] Define `Link<T>` / `LinkSet<T>` loaded/unloaded state in `src/Dormant.Abstractions/Links/`
+- [X] T013 [P] Define `ISession`, `ISessionFactory`, `ConcurrencyConflictException` in `src/Dormant.Abstractions/Sessions/`
+- [X] T014 [P] Define driver ports `IDataSource`, `IDbSession`, `PreparedStatement`, `RowMaterializer<T>` in `src/Dormant.Abstractions/Ports/`
+- [X] T015 [P] Define `ISqlDialect`, `ITypeBinding<T>`, `ITypeBindingRegistry`, `INativeFunctionCatalog`, `IMigrationStore` in `src/Dormant.Abstractions/Ports/`
+- [X] T016 [P] Define `CompiledQuery<T>`, `FieldReader`, `ParameterWriter` in `src/Dormant.Abstractions/Querying/`
+- [ ] T017 Seed `PublicAPI.Shipped.txt`/`Unshipped.txt` baselines for `Dormant.Abstractions` (kernel surface) _(DEFERRED: enabling a frozen public-API baseline while the kernel still churns through US1–US3 is churn; turn on PublicApiAnalyzers + seed baselines once the surface stabilizes, before first release)_
+- [X] T018 [P] Implement `EquatableArray<T>` + equatable model primitives in `src/Dormant.SourceGeneration/Parsing/`
+- [X] T019 `IIncrementalGenerator` skeleton rooted at `AdditionalTextsProvider` (DSL file filter, path+content extraction, `WithTrackingName`) in `src/Dormant.SourceGeneration/Generator.cs`
+- [X] T020 `DiagnosticDescriptors` (ORM###) + equatable `DiagnosticInfo`/`LocationInfo` + companion `DiagnosticAnalyzer` scaffold in `src/Dormant.SourceGeneration/Diagnostics/` _(descriptors ORM001/002 + DiagnosticInfo/LocationInfo + AnalyzerReleases tracking done; the DiagnosticAnalyzer class is added in US1 when it reports real located diagnostics — an empty analyzer is pointless)_
+- [X] T021 [P] Core error model + diagnostics types in `src/Dormant.Core/Diagnostics/`
+- [X] T022 Generator test harness: `VerifySourceGenerators.Initialize()` + cacheability helper (`trackIncrementalGeneratorSteps`) in `tests/Dormant.SourceGeneration.Tests/`
 
 **Checkpoint**: Ports + generator pipeline ready — user stories can begin.
 
