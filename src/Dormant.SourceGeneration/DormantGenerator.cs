@@ -4,6 +4,7 @@ using System.Linq;
 using Dormant.SourceGeneration.Diagnostics;
 using Dormant.SourceGeneration.Emit;
 using Dormant.SourceGeneration.Parsing;
+using Dormant.SourceGeneration.Query;
 using Dormant.SourceGeneration.Schema;
 using Microsoft.CodeAnalysis;
 
@@ -69,6 +70,62 @@ public sealed class DormantGenerator : IIncrementalGenerator
                     EntityBindingEmitter.Emit(@namespace, entity));
             }
         });
+
+        // Query files (.dql) compile to ISession extension methods carrying build-time SQL (US3). They
+        // resolve their selected entity against the full set of parsed schemas (combined here).
+        var queries = context.AdditionalTextsProvider
+            .Where(static text => text.Path.EndsWith(".dql", StringComparison.Ordinal))
+            .Select(static (text, cancellationToken) =>
+                new DslFile(text.Path, text.GetText(cancellationToken)?.ToString() ?? string.Empty))
+            .WithTrackingName(TrackingNames.LoadQueryFiles)
+            .Select(static (file, _) => BuildQueries(file))
+            .WithTrackingName(TrackingNames.ParseQueries);
+
+        context.RegisterSourceOutput(
+            queries.Combine(schemas.Collect()).Combine(config),
+            static (productionContext, pair) =>
+            {
+                var ((queryFile, allSchemas), generatorConfig) = pair;
+
+                foreach (var diagnostic in queryFile.Diagnostics)
+                {
+                    productionContext.ReportDiagnostic(diagnostic.ToDiagnostic());
+                }
+
+                if (!queryFile.IsValid)
+                {
+                    return;
+                }
+
+                var entities = new Dictionary<string, EntityModel>(StringComparer.Ordinal);
+                foreach (var schema in allSchemas)
+                {
+                    foreach (var entity in schema.Entities)
+                    {
+                        entities[entity.Name] = entity;
+                    }
+                }
+
+                var @namespace = Naming.ComputeNamespace(
+                    generatorConfig.RootNamespace,
+                    generatorConfig.ProjectDir,
+                    queryFile.FilePath,
+                    queryFile.ModuleName);
+
+                var (source, diagnostics) = QueryEmitter.Emit(@namespace, queryFile, entities);
+
+                foreach (var diagnostic in diagnostics)
+                {
+                    productionContext.ReportDiagnostic(diagnostic.ToDiagnostic());
+                }
+
+                if (source is not null)
+                {
+                    var className = Naming.ToPascalCase(queryFile.ModuleName) + "Queries";
+                    var fileName = System.IO.Path.GetFileNameWithoutExtension(queryFile.FilePath);
+                    productionContext.AddSource($"{@namespace}.{className}.{fileName}.g.cs", source);
+                }
+            });
     }
 
     private static SchemaModel BuildSchema(DslFile file)
@@ -82,6 +139,16 @@ public sealed class DormantGenerator : IIncrementalGenerator
             file.Path,
             new EquatableArray<EntityModel>([.. parse.Entities]),
             new EquatableArray<DiagnosticInfo>([.. diagnostics]));
+    }
+
+    private static QueryFile BuildQueries(DslFile file)
+    {
+        var parse = QueryParser.Parse(file.Path, file.Text);
+        return new QueryFile(
+            parse.ModuleName,
+            file.Path,
+            new EquatableArray<QueryModel>([.. parse.Queries]),
+            new EquatableArray<DiagnosticInfo>([.. parse.Diagnostics]));
     }
 }
 
@@ -103,6 +170,12 @@ internal static class TrackingNames
 
     /// <summary>The step that parses + validates a schema file.</summary>
     public const string ParseSchema = "ParseSchema";
+
+    /// <summary>The step that loads DormantQL query files from additional texts.</summary>
+    public const string LoadQueryFiles = "LoadQueryFiles";
+
+    /// <summary>The step that parses a query file.</summary>
+    public const string ParseQueries = "ParseQueries";
 
     /// <summary>The step that projects build configuration (root namespace, project dir).</summary>
     public const string Config = "Config";

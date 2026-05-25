@@ -36,6 +36,33 @@ internal static class DiagnosticDescriptors
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true,
         description: "Use a v1 DormantQL value type such as str, bool, int32, int64, float64, decimal, uuid, datetime, bytes, or json.");
+
+    /// <summary>A query selects an entity that is not defined in any schema of the same module.</summary>
+    public static readonly DiagnosticDescriptor UnknownQueryEntity = new(
+        id: "ORM010",
+        title: "Query targets an undefined entity",
+        messageFormat: "Query '{0}' selects entity '{1}', which is not defined in the schema",
+        category: Category,
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
+
+    /// <summary>A query references a column that does not exist on the selected entity.</summary>
+    public static readonly DiagnosticDescriptor UnknownQueryColumn = new(
+        id: "ORM011",
+        title: "Query references an unknown column",
+        messageFormat: "Query '{0}' references column '{1}', which is not a value property of entity '{2}'",
+        category: Category,
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
+
+    /// <summary>A query references a parameter that was not declared in its parameter list.</summary>
+    public static readonly DiagnosticDescriptor UnknownQueryParameter = new(
+        id: "ORM012",
+        title: "Query references an undeclared parameter",
+        messageFormat: "Query '{0}' references parameter '{1}', which is not declared",
+        category: Category,
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
 }
 
 /// <summary>An equatable, pipeline-safe description of a diagnostic (research §5).</summary>

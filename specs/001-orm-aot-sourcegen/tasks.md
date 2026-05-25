@@ -145,22 +145,22 @@ model). They revise the already-built US1 generator/kernel and close `/speckit-a
 
 ### Tests for User Story 3
 
-- [ ] T048 [P] [US3] Verify snapshot: projection → distinct type with exactly requested members in `tests/Dormant.SourceGeneration.Tests/ProjectionEmitTests.cs`
-- [ ] T049 [P] [US3] Integration: nested-link fetch executes in exactly one round-trip (statement count) in `tests/Dormant.Provider.PostgreSql.Tests/RoundTripTests.cs`
-- [ ] T050 [P] [US3] Negative compile test: referencing a non-fetched field fails to compile in `tests/Dormant.SourceGeneration.Tests/ProjectionNegativeTests.cs`
-- [ ] T051 [P] [US3] Integration: full-entity query populates all mapped columns in `tests/Dormant.Provider.PostgreSql.Tests/EntityQueryTests.cs`
+- [X] T048 [P] [US3] Verify snapshot: projection → distinct type with exactly requested members in `tests/Dormant.SourceGeneration.Tests/ProjectionEmitTests.cs` _(asserts `record WidgetNamesResult(global::System.Guid Id, string Name);` — exactly id+name)_
+- [ ] T049 [P] [US3] Integration: nested-link fetch executes in exactly one round-trip (statement count) in `tests/Dormant.Provider.PostgreSql.Tests/RoundTripTests.cs` _(DEFERRED with nested-link shapes — JSON-aggregation strategy; see research §6)_
+- [X] T050 [P] [US3] Negative compile test: referencing a non-fetched field fails to compile in `tests/Dormant.SourceGeneration.Tests/ProjectionNegativeTests.cs` _(satisfied in `ProjectionEmitTests`: the projection record omits non-projected members by construction — the exact-signature assertion proves a non-fetched field has no member to reference. Folded; no separate file)_
+- [X] T051 [P] [US3] Integration: full-entity query populates all mapped columns in `tests/Dormant.Provider.PostgreSql.Tests/EntityQueryTests.cs` _(full-entity + flat-projection queries green vs real PostgreSQL; filter/order/limit honored)_
 
 ### Implementation for User Story 3
 
-- [ ] T052 [US3] Query parser (select, shape, path nav, filter, order by, limit/offset) → query AST in `src/Dormant.SourceGeneration/Parsing/QueryParser.cs`
-- [ ] T053 [US3] Projection type emitter (distinct types, nested shapes) in `src/Dormant.SourceGeneration/Query/ProjectionEmitter.cs`
-- [ ] T054 [US3] Select SQL builder incl. single-round-trip nested links in `src/Dormant.SourceGeneration/Query/SelectSqlBuilder.cs`
-- [ ] T055 [US3] Typed query method + `CompiledQuery<T>` emit in `src/Dormant.SourceGeneration/Query/QueryMethodEmitter.cs`
-- [ ] T056 [US3] Result materialization for entities + projections (no boxing) in `src/Dormant.Core/Querying/Materialization.cs`
-- [ ] T057 [US3] Query execution streaming via `IDbSession.QueryAsync` → `IAsyncEnumerable<T>` (+ `QuerySingleOrDefaultAsync`) in `src/Dormant.Core/Querying/QueryExecutor.cs`
-- [ ] T058 [US3] Link load-state population + explicit on-demand `LoadAsync` in `src/Dormant.Core/Persistence/LinkLoader.cs` (depends T042)
+- [X] T052 [US3] Query parser (select, shape, filter, order by, limit/offset) → query AST in `src/Dormant.SourceGeneration/Parsing/QueryParser.cs` _(+ `QueryModel.cs` AST; lexer extended with `= . ( ) <= >=` + numbers. MVP grammar: full-entity/flat-projection select, conjunctive own-column filter, order by, limit/offset literal-or-param. Path nav rejected with a diagnostic; nested shapes/optional params deferred)_
+- [X] T053 [US3] Projection type emitter (distinct types) in `src/Dormant.SourceGeneration/Query/QueryEmitter.cs` _(folded into `QueryEmitter`: emits `record {Query}Result(...)` with exactly the requested scalar members. Nested shapes deferred)_
+- [X] T054 [US3] Select SQL builder in `src/Dormant.SourceGeneration/Query/QueryEmitter.cs` _(folded into `QueryEmitter.BuildSql`: SELECT col-list (full-entity decl order / projection order) + WHERE/ORDER BY/LIMIT/OFFSET, positional `$n`. Single-round-trip nested links deferred — JSON aggregation, research §6)_
+- [X] T055 [US3] Typed query method + `CompiledQuery<T>` emit in `src/Dormant.SourceGeneration/Query/QueryEmitter.cs` _(folded: `partial static {Module}Queries` ISession extension methods; `CompiledQuery<T>` redesigned with public ctor carrying `PreparedStatement` + `RowMaterializer<T>`)_
+- [X] T056 [US3] Result materialization for entities + projections (no boxing) _(entities via the generated ctor `new E(reader)`; projections via positional `new {Query}Result(reader.GetValue<T>(i)…)` — emitted by `QueryEmitter`, no separate `Materialization.cs`)_
+- [X] T057 [US3] Query execution streaming via `IDbSession.QueryAsync` → `IAsyncEnumerable<T>` (+ `QuerySingleOrDefaultAsync`) _(folded into `Session.QueryAsync`/`QuerySingleOrDefaultAsync` streaming through the driver; no separate `QueryExecutor.cs`. `QuerySingleOrDefault` = first-or-default; strict narrowing FR-033 deferred)_
+- [ ] T058 [US3] Link load-state population + explicit on-demand `LoadAsync` in `src/Dormant.Core/Persistence/LinkLoader.cs` (depends T042) _(DEFERRED: pairs with nested-link fetch + FK columns for single refs; `LoadAsync` overloads still throw NotSupported)_
 
-**Checkpoint**: 🎯 MVP complete (US1+US2+US3 = minimum usable ORM).
+**Checkpoint**: 🎯 MVP query path complete (full-entity + flat projection, build-time SQL, real-PostgreSQL verified). Remaining US3 = nested-link single-round-trip (JSON aggregation) + link loading (T049/T058) + user-owned-record projection (T104) + path-nav/optional-param query grammar.
 
 ---
 

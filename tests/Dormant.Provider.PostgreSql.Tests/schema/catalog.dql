@@ -1,0 +1,13 @@
+module catalog;
+
+# Full-entity query: returns Widget with all mapped columns (FR-006).
+query WidgetsByMinQuantity(min: int) =
+  select Widget
+  filter .quantity >= min
+  order by .quantity desc;
+
+# Flat projection: a distinct type exposing exactly id + name (FR-007/FR-008).
+query WidgetNames(min: int) =
+  select Widget { id, name }
+  filter .quantity >= min
+  order by .name asc;

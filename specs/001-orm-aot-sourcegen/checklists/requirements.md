@@ -87,3 +87,10 @@
   materialization in favor of a generated `[SetsRequiredMembers]` ctor on the entity partial (ordinary
   setters) + public getters for reads. Spec/research/contracts/plan/CLAUDE updated. DRIFT (code): the
   committed `EntityBindingEmitter` still uses UnsafeAccessor — T107 applies the switch next /speckit-implement.
+- 2026-05-25 US3 MVP query slice: DormantQL `.dql` queries → `ISession` extension methods carrying
+  build-time SQL on `CompiledQuery<T>`. Full-entity + flat scalar projection; conjunctive own-column
+  filter + order by + limit/offset. `CompiledQuery<T>` gained a public ctor (Statement + Materialize);
+  Session query execution wired; ORM010/011/012 added. Generator 11/11, Core 7/7, PostgreSQL 7/7;
+  sample emits AppQueries. DEFERRED (next passes): nested-link single-round-trip via JSON aggregation
+  (one JsonSerializerContext/assembly, snake_case — research §6), link loading (T058), user-owned-record
+  projection (T104/FR-050), path-nav + optional-param query grammar (US4).

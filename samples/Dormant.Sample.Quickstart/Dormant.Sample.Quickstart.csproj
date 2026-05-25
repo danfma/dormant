@@ -16,6 +16,7 @@
 
   <ItemGroup>
     <AdditionalFiles Include="schema/*.dqls" />
+    <AdditionalFiles Include="schema/*.dql" />
   </ItemGroup>
 
 </Project>

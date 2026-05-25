@@ -123,13 +123,26 @@ internal sealed class Session(IDbSession db) : ISession
         public object Snapshot { get; set; } = snapshot;
     }
 
-    // --- Deferred to US3 -------------------------------------------------------------------------
-
+    // DSL query execution (US3): the generated CompiledQuery carries the prebuilt SQL + a no-boxing
+    // materializer; execution streams straight through the driver. Full entities and flat projections
+    // are supported in this slice; nested-link single-round-trip fetch lands in a later slice.
     public IAsyncEnumerable<TResult> QueryAsync<TResult>(CompiledQuery<TResult> query, CancellationToken cancellationToken = default)
-        => throw new NotSupportedException("DSL query execution is implemented in US3.");
+        => db.QueryAsync(query.Statement, query.Materialize, cancellationToken);
 
-    public ValueTask<TResult?> QuerySingleOrDefaultAsync<TResult>(CompiledQuery<TResult> query, CancellationToken cancellationToken = default)
-        => throw new NotSupportedException("DSL query execution is implemented in US3.");
+    public async ValueTask<TResult?> QuerySingleOrDefaultAsync<TResult>(CompiledQuery<TResult> query, CancellationToken cancellationToken = default)
+    {
+        await foreach (var row in db.QueryAsync(query.Statement, query.Materialize, cancellationToken)
+                           .ConfigureAwait(false))
+        {
+            // v1: first-or-default; strict zero/multiple-row narrowing (assertSingle/assertExists) is a
+            // later slice (FR-033).
+            return row;
+        }
+
+        return default;
+    }
+
+    // --- Deferred to a later US2/US3 slice -------------------------------------------------------
 
     public ValueTask<Ref<TTarget>> LoadAsync<TTarget>(Ref<TTarget> reference, CancellationToken cancellationToken = default)
         where TTarget : class?

@@ -6,12 +6,19 @@ namespace Dormant.SourceGeneration.Parsing;
 internal enum TokenKind
 {
     Identifier,
+    Number,
     Colon,
     Semicolon,
     LeftBrace,
     RightBrace,
     LeftAngle,
     RightAngle,
+    LessEqual,
+    GreaterEqual,
+    Equals,
+    LeftParen,
+    RightParen,
+    Dot,
     Comma,
     Arrow,
     Question,
@@ -105,13 +112,33 @@ internal static class Lexer
                     Advance();
                     tokens.Add(new Token(TokenKind.Question, "?", start, 1, startLine, startColumn));
                     continue;
+                case '<' when i + 1 < text.Length && text[i + 1] == '=':
+                    Advance(2);
+                    tokens.Add(new Token(TokenKind.LessEqual, "<=", start, 2, startLine, startColumn));
+                    continue;
                 case '<':
                     Advance();
                     tokens.Add(new Token(TokenKind.LeftAngle, "<", start, 1, startLine, startColumn));
                     continue;
+                case '>' when i + 1 < text.Length && text[i + 1] == '=':
+                    Advance(2);
+                    tokens.Add(new Token(TokenKind.GreaterEqual, ">=", start, 2, startLine, startColumn));
+                    continue;
                 case '>':
                     Advance();
                     tokens.Add(new Token(TokenKind.RightAngle, ">", start, 1, startLine, startColumn));
+                    continue;
+                case '=':
+                    Advance();
+                    tokens.Add(new Token(TokenKind.Equals, "=", start, 1, startLine, startColumn));
+                    continue;
+                case '(':
+                    Advance();
+                    tokens.Add(new Token(TokenKind.LeftParen, "(", start, 1, startLine, startColumn));
+                    continue;
+                case ')':
+                    Advance();
+                    tokens.Add(new Token(TokenKind.RightParen, ")", start, 1, startLine, startColumn));
                     continue;
                 case ',':
                     Advance();
@@ -121,6 +148,29 @@ internal static class Lexer
                     Advance(2);
                     tokens.Add(new Token(TokenKind.Arrow, "->", start, 2, startLine, startColumn));
                     continue;
+                case '.' when !(i + 1 < text.Length && char.IsDigit(text[i + 1])):
+                    Advance();
+                    tokens.Add(new Token(TokenKind.Dot, ".", start, 1, startLine, startColumn));
+                    continue;
+            }
+
+            if (char.IsDigit(c) || (c == '.' && i + 1 < text.Length && char.IsDigit(text[i + 1])))
+            {
+                var seenDot = false;
+                while (i < text.Length && (char.IsDigit(text[i]) || (text[i] == '.' && !seenDot)))
+                {
+                    if (text[i] == '.')
+                    {
+                        seenDot = true;
+                    }
+
+                    Advance();
+                }
+
+                var numLen = i - start;
+                tokens.Add(new Token(
+                    TokenKind.Number, text.Substring(start, numLen), start, numLen, startLine, startColumn));
+                continue;
             }
 
             if (IsIdentifierStart(c))

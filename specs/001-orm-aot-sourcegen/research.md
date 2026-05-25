@@ -120,6 +120,23 @@ and satisfies "no runtime query compilation" while still allowing conditional SQ
 **Alternatives**: Embed queries as attribute strings on C# methods — viable but less readable than dedicated
 query files; kept as a possible secondary authoring form, not primary. LINQ provider — out of scope.
 
+**v1 MVP slice (implemented)**: full-entity `select Entity` and flat scalar projection `select Entity { f… }`,
+with conjunctive own-column `filter`, `order by`, and `limit`/`offset` (literal or parameter). Each query
+compiles to an `ISession` extension method in a `partial static {Module}Queries` class, carrying build-time
+SQL on a `CompiledQuery<TResult>` (now `{ PreparedStatement Statement; RowMaterializer<TResult> Materialize }`).
+Full entities materialize via the entity's generated ctor; projections emit a distinct `record {Query}Result`
+with exactly the requested members (so a non-projected field cannot compile — FR-008). Execution streams
+through `ISession.QueryAsync`/`QuerySingleOrDefaultAsync`. Diagnostics: ORM010 (unknown entity), ORM011
+(unknown column), ORM012 (undeclared parameter). **Deferred**: path-navigation filters, nested-link shapes,
+optional-parameter fragments (US4), DSL DML, and projection into user-owned records (FR-050/T104).
+
+**Nested-link single round-trip (FR-010) — decision (pending implementation, user-confirmed)**: build the
+nested shape with PostgreSQL **JSON aggregation** (`json_build_object`/`json_agg`) in a single statement and
+materialize via **System.Text.Json source generation** (AOT-safe, no cartesian blow-up). One
+`JsonSerializerContext` **per assembly** (not per shape) lists every shape as a `[JsonSerializable]` type;
+its `PropertyNamingPolicy` is **snake_case** to match DB column naming. Rejected: LEFT JOIN + client-side
+grouping (cartesian row duplication); correlated subquery per link (N+1-like SQL, complicates streaming).
+
 ---
 
 ## 7. Async API shape (user directive: prefer ValueTask)

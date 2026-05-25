@@ -1,0 +1,12 @@
+module app;
+
+# Full-entity query → IAsyncEnumerable<User> with build-time SQL.
+query UsersByEmail(email: str) =
+  select User
+  filter .email = email;
+
+# Flat projection → a distinct AppQueries-scoped record exposing exactly id + email.
+query UserContacts(since: datetime) =
+  select User { id, email }
+  filter .created_at >= since
+  order by .email asc;
