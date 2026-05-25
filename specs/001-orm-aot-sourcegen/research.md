@@ -305,6 +305,35 @@ applies the switch.
 
 ---
 
+## 14. Structured IR + plugin extension points; definition cache (FR-059..FR-064)
+
+**Decision**: Evolve generation from string assembly to a **structured, typed intermediate
+representation (IR)**. Two IR layers: the existing parse-side models (schema/query/DML ASTs) and a new
+**output/SQL IR** (statement → clause → expression nodes). Emitters build the output IR and render
+strings only at the boundary, replacing the current `StringBuilder`/concat assembly in
+`EntityBindingEmitter` / `QueryEmitter`. The IR is **deterministic and value-equatable**
+(`EquatableArray`-based) so incremental caching + Verify byte-identical output hold (FR-060). A
+build-time **transformation seam** runs ordered, deterministic transform stages over the IR before
+rendering; this is the foundation for **plugins** (FR-061) — a plugin observes/rewrites the IR (inject
+a column, rewrite a statement) without forking the core. Plugin transforms are build-time only
+(FR-062); invalid IR is a located diagnostic (FR-063). A **stable public plugin API** and a
+**compiled-definition cache** (reuse one query/command definition instance, FR-064) are deferred to a
+later phase per the user ("could be delayed").
+
+**Rationale**: object-level manipulation is composable, inspectable, and testable; it removes fragile
+quote-escaping in string building; and a transform seam is the natural extensibility point (complements
+US7's handler/convention extension). Keeping the IR equatable preserves the incremental-generator
+guarantees already relied upon. Rendering at a single boundary centralizes dialect/quoting concerns
+(also helps US5 schema-qualified DDL + the naming resolver).
+
+**Alternatives**: keep string assembly (fragile, not extensible — rejected as the long-term shape);
+expose a runtime expression tree (AOT/perf cost — rejected); a full open-ended visitor plugin model in
+v1 (premature before the IR stabilizes — deferred). **Code drift**: current emitters are string-based;
+T119–T122 introduce the IR and migrate emission, with T123/T124 (public plugin API, definition cache)
+in a later phase.
+
+---
+
 ## Resolved unknowns summary
 
 | Unknown | Resolution |

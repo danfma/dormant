@@ -116,3 +116,14 @@
   `StockItem`→`stock_item`/`item_name` round-trip); existing integration DDL updated to snake_case
   table names. Build 0/0. Deferred: schema-qualified DDL + function-name resolution (US5/US8),
   cross-table collision.
+- 2026-05-25 IR + plugins pass: added US10 (P3, architectural) + FR-059..FR-064 — generation over a
+  structured, deterministic, value-equatable IR (language constructs + statements-to-emit), strings only
+  at the output boundary; build-time plugin transform seam (deterministic order, located diagnostic on
+  invalid IR); compiled query/command definition cache (FR-064) deferred per user. + SC-016/017, Key
+  Entities (IR/AST, Generation Plugin, Compiled Definition Cache), edge cases, Clarifications, Out-of-Scope
+  phasing (public plugin API + cache = later phase). research §14. tasks: Phase 13 (T119-T124, future).
+  DRIFT (code): current emitters build SQL via string assembly — IR refactor is future work (T119-T122).
+- VALIDATION NOTE: US10/FR-059..064 describe generator-internal architecture + an extensibility surface;
+  framed as user value (plugin authors / extensibility / allocation). Implementation nouns (IR, AST,
+  plugin) are the feature's subject, consistent with the spec's treatment of generated-code/tooling as
+  compatibility surfaces (Constitution II/IV). "No implementation details" item kept passing on that basis.

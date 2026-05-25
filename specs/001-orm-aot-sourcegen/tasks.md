@@ -311,6 +311,27 @@ model). They revise the already-built US1 generator/kernel and close `/speckit-a
 
 ---
 
+## Phase 13: User Story 10 - Structured IR + plugin extension points (Priority: P3, architectural)
+
+**Goal**: Generation operates over a structured, deterministic, value-equatable IR (language constructs + statements-to-emit), with build-time plugin hooks transforming the IR before output; strings only at the output boundary. Compiled-definition cache deferred. (FR-059..FR-064, SC-016/017)
+
+**Independent Test**: A plugin transforms the IR (inject a column / rewrite a statement) and the output reflects it with no core edits, determinism + zero AOT warnings preserved. (Cache: a repeated query reuses one definition instance.)
+
+> Note: largely architectural / future-leaning. The current emitters build SQL via string assembly (`EntityBindingEmitter`, `QueryEmitter`); these tasks introduce the IR layer and migrate emission onto it. Sequence after the MVP stories stabilize.
+
+### Implementation for User Story 10
+
+- [ ] T119 [US10] Define a structured SQL/output IR (statement + clause + expression nodes; deterministic, value-equatable `EquatableArray`-based) in `src/Dormant.SourceGeneration/Ir/` (FR-059/FR-060)
+- [ ] T120 [US10] Migrate `EntityBindingEmitter` (INSERT/SELECT/UPDATE/DELETE) + `QueryEmitter` (SELECT) to build the IR and render it at the output boundary; preserve byte-identical output (Verify snapshots) (FR-059)
+- [ ] T121 [US10] Internal IR transformation seam: ordered, deterministic transform stages over the IR before rendering (FR-061/FR-062)
+- [ ] T122 [US10] Plugin-produced invalid IR → source-located diagnostic (new ORM0xx); cacheability + determinism tests over the IR + transforms (FR-063/FR-060)
+- [ ] T123 [US10] (Later phase) Stable public plugin API surface (PublicApiAnalyzers) + example plugin (SC-016) — defer until the IR seam stabilizes (FR-061)
+- [ ] T124 [US10] (Later phase) Compiled query/command definition cache — reuse one definition instance per query/command, allocation benchmark (FR-064, SC-017)
+
+**Checkpoint**: Generation is IR-based and composable; internal transform seam in place; public plugin API + definition cache follow in a later phase.
+
+---
+
 ## Phase 11: Polish & Cross-Cutting Concerns
 
 - [ ] T094 [P] BenchmarkDotNet suite + per-release perf budgets (throughput, alloc/op, no boxing) in `tests/Dormant.Benchmarks/` (SC-004/SC-007)

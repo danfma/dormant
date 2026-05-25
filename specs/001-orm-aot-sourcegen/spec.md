@@ -38,7 +38,8 @@
 - Q: Should entities get Equals/GetHashCode by default? → A: Yes — identity (primary-key) equality by default; a transient/unset key falls back to reference equality; an annotation opts out. Projections (records) keep value equality.
 - Q: How is single-reference optionality encoded in the type? → A: Via the nullability of the type argument, orthogonal to load-state. A required single ref (`owner: User`) → `Ref<User>` (loaded value non-null); an optional single ref (`manager: User?`) → `Ref<User?>` (loaded value may be null = no related row). The `Ref<>` wrapper still encodes Loaded/Unloaded. Collections do not take an element `?` (`Set<User>` → `RefSet<User>`, non-null elements); an "optional" collection is simply Unloaded or empty. `Ref<T>` is therefore constrained `where T : class?`.
 - Q: How are database identifiers cased, and can it be overridden? → A: A configurable **naming convention** maps schema identifiers to DB identifiers, defaulting to **snake_case** for tables, columns, native functions, and the module's schema name. It is configurable at the **project** level (v1: `snake_case` default + `verbatim`), and any single **table/column/function** can be overridden with an explicit DB name that wins over the convention. Resolution is build-time (no runtime reflection/transform); convention collisions are a source-located diagnostic; applied consistently across DDL/DML/queries/params/migrations (FR-052..FR-057).
-- Q: How are generated extension surfaces on the session emitted? → A: Using **C# 14 extension blocks** (`extension(ISession session) { … }`), not classic `this`-parameter static methods, so the generated query surface can later add extension properties and static members without a breaking shape change (FR-058). _(Code drift: the US3 MVP currently emits classic extension methods; refactor queued — see tasks T108.)_
+- Q: How are generated extension surfaces on the session emitted? → A: Using **C# 14 extension blocks** (`extension(ISession session) { … }`), not classic `this`-parameter static methods, so the generated query surface can later add extension properties and static members without a breaking shape change (FR-058). _(Implemented 2026-05-25, task T108.)_
+- Q: Should generation work over a structured AST/IR instead of string manipulation, with plugin extension points? → A: Yes. The toolchain represents parsed DormantQL **and** the statements to emit as a structured, deterministic, value-equatable IR, manipulated at the object level (strings only at the output boundary), with build-time **plugin** hooks that transform the IR in deterministic order without forking the core; invalid IR from a plugin is a located diagnostic (FR-059..FR-063). This is the foundation for extensibility (complements US7). A **stable public plugin API** and a **compiled-definition cache** (FR-064, reuse query/command definitions to avoid re-allocation) are deferred to a later phase per the user ("could be delayed"). _(Code drift: the current emitters build SQL via string assembly; the IR refactor is future work — US10 tasks.)_
 
 ## User Scenarios & Testing _(mandatory)_
 
@@ -300,6 +301,46 @@ non-overridden names change consistently.
 
 ---
 
+### User Story 10 - Manipulate the language through a structured representation with extension points (Priority: P3)
+
+A maintainer or plugin author works with DormantQL constructs — the parsed schema, queries, DML, and
+the database statements to be produced — as a **structured object model** rather than by assembling
+and parsing strings. They can register **plugins** that observe and transform that model at defined
+build-time stages, adding behaviors, conventions, query rewrites, or extra emitted members **without
+forking the core**. The model stays deterministic and the AOT/no-runtime-reflection guarantees hold.
+Separately (and deferrable), compiled query/command definitions are **reused** rather than re-built,
+avoiding repeated allocation.
+
+**Why this priority**: P3 because the product is fully functional with the current generation pipeline;
+this is an architectural and extensibility investment. Working at the object level (vs string
+manipulation) makes generation composable and inspectable, and a transformation/plugin seam is the
+foundation for first-class extensibility (it complements US7's handler/convention extension points).
+The definition cache is a later-phase performance refinement.
+
+**Independent Test**: Register a plugin that transforms the representation (e.g. injects an audit
+column mapping, or rewrites a query's produced statement) and confirm the generated output reflects the
+transformation with no edits to the core generator, identical-input determinism preserved, and zero
+library-originated AOT warnings. Separately, exercise the same query/command repeatedly and confirm its
+compiled definition is allocated once and reused.
+
+**Acceptance Scenarios**:
+
+1. **Given** parsed DormantQL, **When** the toolchain generates output, **Then** it operates over a
+   structured representation of both the language constructs and the statements to emit, rendering
+   strings only at the final output boundary.
+2. **Given** identical input, **When** generation runs twice, **Then** the representation and the
+   emitted output are identical (determinism preserved for incremental caching).
+3. **Given** a registered plugin, **When** it transforms the representation at a defined stage, **Then**
+   the change is reflected in the generated output without any modification to the core generator.
+4. **Given** a plugin that produces an invalid representation (e.g. references an undefined
+   entity/column or breaks an invariant), **When** the build runs, **Then** a source-located diagnostic
+   attributes the failure and no masking output is produced.
+5. **Given** an application that runs the same query/command many times, **When** it executes, **Then**
+   the compiled definition is created once and reused (no per-execution re-allocation of the
+   definition). _(Later phase.)_
+
+---
+
 ### Edge Cases
 
 - A schema link targets an undefined entity, or required links form a cycle → build-time located
@@ -324,6 +365,10 @@ non-overridden names change consistently.
   source-located collision diagnostic (no ambiguous SQL).
 - An explicit name override conflicts with a convention-derived name on another member → same
   collision diagnostic (overrides do not silently shadow).
+- A plugin transforms the representation into an invalid state (undefined reference, broken invariant)
+  → source-located diagnostic; no masking output.
+- Two plugins conflict or order-depend → plugin ordering is deterministic; an invariant break is a
+  diagnostic, never a silent last-writer-wins.
 
 ## Requirements _(mandatory)_
 
@@ -561,6 +606,23 @@ non-overridden names change consistently.
   properties/static members) MUST be emitted using **C# 14 extension blocks** (`extension(receiver)
   { … }`) rather than classic `this`-parameter static methods, so the generated surface can grow to
   include extension properties and static members without a breaking change to its shape.
+- **FR-059**: The toolchain MUST represent parsed DormantQL (schema, queries, DML) **and** the database
+  statements to be produced as a **structured, typed intermediate representation (IR)**, and perform
+  generation by manipulating that IR — assembling/parsing raw strings only at the final output
+  boundary. (No ad-hoc string concatenation as the primary generation mechanism.)
+- **FR-060**: The IR MUST be **deterministic and value-equatable** so incremental generation caching
+  (FR-004) is preserved: identical input ⇒ identical IR ⇒ byte-identical output.
+- **FR-061**: The toolchain MUST expose **extension points (plugins)** that can inspect and transform
+  the IR at well-defined build-time stages **before output**, without requiring modification of the
+  core generator. Plugin execution order MUST be deterministic.
+- **FR-062**: Plugin transformations MUST be **build-time only** — no runtime reflection or runtime
+  code generation — preserving the Native AOT and no-warm-up guarantees (FR-016/FR-017/FR-018).
+- **FR-063**: When a plugin transforms the IR into an invalid state (e.g. references an undefined
+  entity/column, or breaks a structural invariant), the build MUST report a **source-located
+  diagnostic** attributing the failure; no masking output is produced.
+- **FR-064**: Compiled query and command (DML) definitions MUST be **cached and reused** so repeated
+  use does not re-allocate the definition (one definition instance per query/command, reused across
+  executions), without changing the result type. _(Deferrable to a later phase.)_
 
 ### Key Entities _(conceptual model of the system)_
 
@@ -586,6 +648,13 @@ non-overridden names change consistently.
   schema names, resolved at build time (FR-052/FR-053/FR-056).
 - **Name Override**: An explicit, per-unit (table/column/function) database name that takes precedence
   over the active naming convention for that single identifier (FR-054).
+- **Intermediate Representation (IR / AST)**: The structured, typed, deterministic object model of
+  parsed DormantQL (schema/queries/DML) and of the statements to emit; the toolchain manipulates it at
+  the object level, rendering strings only at the output boundary (FR-059/FR-060).
+- **Generation Plugin**: A build-time extension that inspects and transforms the IR at a defined stage
+  before output, in deterministic order, without modifying the core generator (FR-061/FR-062/FR-063).
+- **Compiled Definition Cache**: A reuse mechanism for compiled query/command definitions so repeated
+  use avoids re-allocating the definition (FR-064; later phase).
 - **Provider**: The adapter targeting a relational database (PostgreSQL primary) for SQL generation
   and schema operations; also the scope that declares which native types and functions are available.
 - **Native Type Binding**: A provider-scoped mapping between a database-native column type (e.g.
@@ -750,6 +819,11 @@ same mechanism as an optional companion package.
   native functions, schema names) are snake_case; changing the project convention or applying a
   per-unit override changes exactly the affected identifiers and nothing else, verifiable by inspecting
   the generated DDL/SQL.
+- **SC-016**: A plugin can add or transform a generated construct (e.g. inject a column mapping or
+  rewrite a query's produced statement) purely by registering against the IR — with **no** edits to the
+  core generator — verified by an example plugin, with determinism and zero AOT warnings preserved.
+- **SC-017**: A repeated query/command executes without re-allocating its compiled definition (one
+  definition instance reused across executions), verifiable by allocation measurement. _(Later phase.)_
 
 ## Out of Scope (v1)
 
@@ -775,6 +849,9 @@ same mechanism as an optional companion package.
   build-time portability diagnostic are in scope, not cross-provider equivalence or translation.
 - GIS (PostGIS) support bundled into the core provider — GIS ships as an optional companion package
   built on the native mechanism (FR-044).
+- A **stable, public plugin API** and the **compiled-definition cache** (FR-061/FR-064) are a later
+  phase. v1 may ship the internal structured IR (FR-059/FR-060) and an internal transformation seam;
+  the externally-supported plugin contract and the definition cache are not committed for v1.
 
 ## Assumptions
 
