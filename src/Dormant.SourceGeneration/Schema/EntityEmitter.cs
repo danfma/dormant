@@ -34,6 +34,8 @@ internal static class EntityEmitter
             .Line()
             .Open(declaration);
 
+        EmitConstructors(writer, entity);
+
         foreach (var property in entity.Properties)
         {
             var name = Naming.ToPascalCase(property.Name);
@@ -58,6 +60,37 @@ internal static class EntityEmitter
         }
 
         return writer.Close().ToString();
+    }
+
+    // Two constructors (FR-048): the public parameterless ctor preserves the consumer `required`-init
+    // contract (`new E { ... }`); the internal `[SetsRequiredMembers]` ctor materializes a row by reading
+    // value columns positionally through ordinary public setters — no reflection, no `[UnsafeAccessor]`,
+    // no backing-field access. References are left at their default Unloaded sentinel (filled by US3
+    // shapes / explicit load); `[SetsRequiredMembers]` lets required single refs stay Unloaded here.
+    private static void EmitConstructors(SourceWriter writer, EntityModel entity)
+    {
+        writer
+            .Line($"/// <summary>Initializes a new <see cref=\"{entity.Name}\"/> for `required`-init construction.</summary>")
+            .Line($"public {entity.Name}() {{ }}")
+            .Line();
+
+        writer
+            .Line("/// <summary>Materializes an instance from a data row (internal; used by the generated binding).</summary>")
+            .Line("[global::System.Diagnostics.CodeAnalysis.SetsRequiredMembers]")
+            .Open($"internal {entity.Name}(global::Dormant.Abstractions.Querying.IFieldReader reader)");
+
+        var ordinal = 0;
+        foreach (var property in entity.Properties)
+        {
+            var name = Naming.ToPascalCase(property.Name);
+            var read = $"reader.GetValue<{property.ClrType}>({ordinal})";
+            writer.Line(property.IsNullable
+                ? $"this.{name} = reader.IsNull({ordinal}) ? null : {read};"
+                : $"this.{name} = {read};");
+            ordinal++;
+        }
+
+        writer.Close().Line();
     }
 
     private static void EmitReference(SourceWriter writer, ReferenceModel reference)

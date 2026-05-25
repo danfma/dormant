@@ -7,15 +7,14 @@ namespace Dormant.SourceGeneration.Schema;
 
 /// <summary>
 /// Emits a per-entity <c>IEntityBinding&lt;TEntity&gt;</c> (registered via a <c>[ModuleInitializer]</c>):
-/// no-reflection materialization (a <c>[UnsafeAccessor]</c> constructor past C# <c>required</c> +
-/// <c>[UnsafeAccessor]</c> field accessors, no boxing — FR-017/FR-019/FR-048) plus prebuilt INSERT and
-/// SELECT-by-primary-key statements with positional parameters. v1 slice maps **value columns only**;
+/// no-reflection materialization that delegates to the entity's generated
+/// <c>[SetsRequiredMembers]</c> constructor (no boxing, no <c>[UnsafeAccessor]</c>, no backing-field access
+/// — FR-017/FR-019/FR-048) plus prebuilt INSERT and SELECT-by-primary-key statements with positional
+/// parameters. Reads/writes go through public getters/setters. v1 slice maps **value columns only**;
 /// reference (FK) columns are handled in a later slice.
 /// </summary>
 internal static class EntityBindingEmitter
 {
-    private const string Uac = "global::System.Runtime.CompilerServices.UnsafeAccessor";
-    private const string UacKind = "global::System.Runtime.CompilerServices.UnsafeAccessorKind";
     private const string Abs = "global::Dormant.Abstractions";
 
     public static string Emit(string @namespace, EntityModel entity)
@@ -37,45 +36,24 @@ internal static class EntityBindingEmitter
             .Open($"internal sealed class {entity.Name}Binding : {Abs}.Entities.IEntityBinding<{entity.Name}>")
             .Line("[global::System.Runtime.CompilerServices.ModuleInitializer]")
             .Line($"internal static void Register() => {Abs}.Entities.EntityBindings.Register<{entity.Name}>(new {entity.Name}Binding());")
-            .Line()
-            .Line($"[{Uac}({UacKind}.Constructor)]")
-            .Line($"private static extern {entity.Name} Create();")
             .Line();
 
-        foreach (var property in columns)
-        {
-            var fieldType = property.IsNullable ? property.ClrType + "?" : property.ClrType;
-            var name = Naming.ToPascalCase(property.Name);
-            writer
-                .Line($"[{Uac}({UacKind}.Field, Name = \"<{name}>k__BackingField\")]")
-                .Line($"private static extern ref {fieldType} {name}Field({entity.Name} entity);")
-                .Line();
-        }
-
-        EmitMaterialize(writer, entity, columns);
+        EmitMaterialize(writer, entity);
         EmitInsert(writer, entity, insertSql, columns);
         EmitSelectByKey(writer, entity, columnsSql, key);
 
         return writer.Close().ToString();
     }
 
-    private static void EmitMaterialize(SourceWriter writer, EntityModel entity, EquatableArray<PropertyModel> columns)
+    private static void EmitMaterialize(SourceWriter writer, EntityModel entity)
     {
-        writer.Open($"public {entity.Name} Materialize({Abs}.Querying.IFieldReader reader)")
-            .Line("var entity = Create();");
-
-        var ordinal = 0;
-        foreach (var property in columns)
-        {
-            var name = Naming.ToPascalCase(property.Name);
-            var read = $"reader.GetValue<{property.ClrType}>({ordinal})";
-            writer.Line(property.IsNullable
-                ? $"{name}Field(entity) = reader.IsNull({ordinal}) ? null : {read};"
-                : $"{name}Field(entity) = {read};");
-            ordinal++;
-        }
-
-        writer.Line("return entity;").Close().Line();
+        // Delegates to the entity's generated [SetsRequiredMembers] ctor (EntityEmitter); the ctor reads
+        // value columns positionally in the same order as the SELECT below. No reflection/UnsafeAccessor.
+        writer
+            .Open($"public {entity.Name} Materialize({Abs}.Querying.IFieldReader reader)")
+            .Line($"return new {entity.Name}(reader);")
+            .Close()
+            .Line();
     }
 
     private static void EmitInsert(SourceWriter writer, EntityModel entity, string insertSql, EquatableArray<PropertyModel> columns)
@@ -89,7 +67,7 @@ internal static class EntityBindingEmitter
         var index = 1;
         foreach (var property in columns)
         {
-            writer.Line($"        writer.Write({index}, {Naming.ToPascalCase(property.Name)}Field(entity));");
+            writer.Line($"        writer.Write({index}, entity.{Naming.ToPascalCase(property.Name)});");
             index++;
         }
 

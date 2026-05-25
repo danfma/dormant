@@ -59,12 +59,18 @@ public sealed class SchemaEmitTests
         // PK identity equality emitted (FR-051).
         await Assert.That(generated).Contains("public bool Equals(User? other)");
         await Assert.That(generated).Contains(": global::System.IEquatable<User>");
-        // Per-entity binding (T044/US2): IEntityBinding with no-reflection materializer (UnsafeAccessor
-        // ctor past required + field accessors), module-init registration, and prebuilt INSERT.
+        // Materialization (FR-048): a [SetsRequiredMembers] ctor on the entity partial reading value
+        // columns via ordinary setters — no UnsafeAccessor, no backing-field access.
+        await Assert.That(generated).Contains("[global::System.Diagnostics.CodeAnalysis.SetsRequiredMembers]");
+        await Assert.That(generated).Contains("internal User(global::Dormant.Abstractions.Querying.IFieldReader reader)");
+        await Assert.That(generated).Contains("public User() { }");
+        await Assert.That(generated).DoesNotContain("UnsafeAccessor");
+        // Per-entity binding (T044/US2): IEntityBinding, module-init registration, materialize delegates
+        // to the generated ctor, and prebuilt INSERT.
         await Assert.That(generated).Contains("internal sealed class UserBinding : global::Dormant.Abstractions.Entities.IEntityBinding<User>");
         await Assert.That(generated).Contains("global::System.Runtime.CompilerServices.ModuleInitializer");
-        await Assert.That(generated).Contains("global::System.Runtime.CompilerServices.UnsafeAccessorKind.Constructor");
         await Assert.That(generated).Contains("public User Materialize(global::Dormant.Abstractions.Querying.IFieldReader reader)");
+        await Assert.That(generated).Contains("return new User(reader);");
         await Assert.That(generated).Contains("INSERT INTO");
     }
 
