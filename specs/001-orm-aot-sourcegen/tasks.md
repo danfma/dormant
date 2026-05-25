@@ -279,6 +279,38 @@ model). They revise the already-built US1 generator/kernel and close `/speckit-a
 
 ---
 
+## Phase 5b: US3 follow-up — extension-block query surface (FR-058)
+
+- [ ] T108 [US3] Refactor `QueryEmitter` to emit the generated query methods inside a **C# 14 extension block** (`extension(global::Dormant.Abstractions.Sessions.ISession session) { … }`) within `partial static {Module}Queries`, instead of classic `this`-parameter static methods, so extension properties/static members can be added later without a breaking shape change. Update `ProjectionEmitTests` assertions + re-run generator and PostgreSQL query tests (FR-058)
+
+---
+
+## Phase 12: User Story 9 - Configurable database naming conventions with overrides (Priority: P2)
+
+**Goal**: Database identifiers (tables, columns, native functions, schema names) follow a configurable convention — snake_case by default — with per-project setting and per-unit (table/column/function) explicit overrides; resolved at build time; consistent across DDL/DML/queries/params/migrations.
+
+**Independent Test**: PascalCase entities + snake_case members build to snake_case DDL/SQL by default; one table + one column override use exact names everywhere while siblings keep the convention; switching the project convention changes all non-overridden names consistently. (FR-052..FR-057, SC-015)
+
+### Tests for User Story 9
+
+- [ ] T109 [P] [US9] Verify snapshot/string asserts: default snake_case table/column/function names in generated SQL (entity `RecentPost` → `recent_post`, member `createdAt` → `created_at`) in `tests/Dormant.SourceGeneration.Tests/NamingConventionTests.cs` (FR-052)
+- [ ] T110 [P] [US9] Per-project convention change → all non-overridden names follow it (verbatim vs snake_case) in `tests/Dormant.SourceGeneration.Tests/NamingConventionTests.cs` (FR-053)
+- [ ] T111 [P] [US9] Per-unit override (table/column/function) wins over convention, siblings unaffected in `tests/Dormant.SourceGeneration.Tests/NamingOverrideTests.cs` (FR-054)
+- [ ] T112 [P] [US9] Convention collision (two members → same DB name) → source-located diagnostic in `tests/Dormant.SourceGeneration.Tests/NamingDiagnosticTests.cs` (FR-057, new ORM0xx)
+- [ ] T113 [P] [US9] Integration: snake_case round-trip against real PostgreSQL (table/column names) in `tests/Dormant.Provider.PostgreSql.Tests/NamingTests.cs` (FR-055, SC-015)
+
+### Implementation for User Story 9
+
+- [ ] T114 [US9] Naming-convention model + resolver (snake_case + verbatim; deterministic, build-time) in `src/Dormant.SourceGeneration/Naming/NamingConvention.cs` (FR-052/FR-053/FR-056)
+- [ ] T115 [US9] Project-level convention from `AnalyzerConfigOptions` (e.g. `build_property.DormantNamingConvention`) wired into the generator pipeline (FR-053)
+- [ ] T116 [US9] Per-unit override syntax in DSL (explicit DB name for entity/property/function) + parse into the schema model (FR-054)
+- [ ] T117 [US9] Resolve names once into the schema model (`DbTableName`/`DbColumnName`/`DbFunctionName`/`DbSchemaName`) and consume in `EntityBindingEmitter`, `QueryEmitter`, and migration DDL — single source of truth, no drift (FR-055)
+- [ ] T118 [US9] Collision detection across an entity's columns / a module's tables → source-located diagnostic (FR-057)
+
+**Checkpoint**: Database naming is snake_case by default, project-configurable, per-unit overridable, build-time-resolved, and consistent everywhere a name is emitted.
+
+---
+
 ## Phase 11: Polish & Cross-Cutting Concerns
 
 - [ ] T094 [P] BenchmarkDotNet suite + per-release perf budgets (throughput, alloc/op, no boxing) in `tests/Dormant.Benchmarks/` (SC-004/SC-007)

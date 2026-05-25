@@ -94,3 +94,15 @@
   sample emits AppQueries. DEFERRED (next passes): nested-link single-round-trip via JSON aggregation
   (one JsonSerializerContext/assembly, snake_case — research §6), link loading (T058), user-owned-record
   projection (T104/FR-050), path-nav + optional-param query grammar (US4).
+- 2026-05-25 naming-conventions + extension-block pass: added US9 (configurable DB naming) +
+  FR-052..FR-057 (snake_case default; per-project convention; per-unit table/column/function override;
+  build-time resolution; consistency across DDL/DML/queries/params/migrations; collision diagnostic) +
+  SC-015 + Key Entities (Naming Convention, Name Override) + edge cases + Clarifications. Also FR-058:
+  generated session extension surface MUST use C# 14 extension blocks (enables extension properties/
+  static members without breaking shape). research §12/§13, contracts/generated-code.md updated.
+  Tasks: US9 phase (T109-T118) + T108 (extension-block refactor of QueryEmitter). DRIFT (code): naming
+  not yet implemented (binding/query emitters use raw DSL names); QueryEmitter still emits classic
+  extension methods — both land in /speckit-implement (T108 then US9).
+- VALIDATION NOTE: FR-047/048/049/058 name C# language features (`required`, `[SetsRequiredMembers]`,
+  `Ref<T>`, extension blocks). Consistent with the spec's treatment of generated-code/API as explicit
+  compatibility surfaces (Constitution II); "no implementation details" item kept passing on that basis.

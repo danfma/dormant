@@ -37,6 +37,8 @@
 - Q: How is the Clean-Architecture invasiveness (Dormant types on entities) resolved? → A: Two surfaces. Entities are the persistence model and carry `Ref`-types (safe-by-default requires encoding load state in the type; a minimal, dependency-free, AOT `Dormant.Abstractions` leaf reference is accepted). **Projections may materialize into user-owned plain record/DTO types with zero Dormant types**, so domain/application code stays Dormant-free — projections are the clean boundary.
 - Q: Should entities get Equals/GetHashCode by default? → A: Yes — identity (primary-key) equality by default; a transient/unset key falls back to reference equality; an annotation opts out. Projections (records) keep value equality.
 - Q: How is single-reference optionality encoded in the type? → A: Via the nullability of the type argument, orthogonal to load-state. A required single ref (`owner: User`) → `Ref<User>` (loaded value non-null); an optional single ref (`manager: User?`) → `Ref<User?>` (loaded value may be null = no related row). The `Ref<>` wrapper still encodes Loaded/Unloaded. Collections do not take an element `?` (`Set<User>` → `RefSet<User>`, non-null elements); an "optional" collection is simply Unloaded or empty. `Ref<T>` is therefore constrained `where T : class?`.
+- Q: How are database identifiers cased, and can it be overridden? → A: A configurable **naming convention** maps schema identifiers to DB identifiers, defaulting to **snake_case** for tables, columns, native functions, and the module's schema name. It is configurable at the **project** level (v1: `snake_case` default + `verbatim`), and any single **table/column/function** can be overridden with an explicit DB name that wins over the convention. Resolution is build-time (no runtime reflection/transform); convention collisions are a source-located diagnostic; applied consistently across DDL/DML/queries/params/migrations (FR-052..FR-057).
+- Q: How are generated extension surfaces on the session emitted? → A: Using **C# 14 extension blocks** (`extension(ISession session) { … }`), not classic `this`-parameter static methods, so the generated query surface can later add extension properties and static members without a breaking shape change (FR-058). _(Code drift: the US3 MVP currently emits classic extension methods; refactor queued — see tasks T108.)_
 
 ## User Scenarios & Testing _(mandatory)_
 
@@ -258,6 +260,46 @@ companion package.
 
 ---
 
+### User Story 9 - Control database naming conventions with overrides (Priority: P2)
+
+A developer wants the database identifiers (table, column, and native-function names, plus the schema
+name a module maps to) to follow a chosen casing convention — **snake_case by default** — without
+hand-naming every member. When a specific identifier must differ (a legacy table, a reserved word, a
+column that must match an existing database), the developer overrides just that one unit. The chosen
+convention and any overrides are applied uniformly everywhere a name appears (DDL, DML, queries,
+parameters, migrations), and are resolved at build time.
+
+**Why this priority**: Teams routinely standardize on snake_case in PostgreSQL, and real schemas must
+map onto pre-existing databases whose names cannot be changed. A sensible default plus targeted
+overrides removes per-member boilerplate while preserving exact control where it matters. P2 because
+the MVP functions with a fixed mapping; configurable naming is an ergonomic and integration
+requirement, not a correctness blocker.
+
+**Independent Test**: Declare entities in PascalCase with snake_case members, build with the default
+convention, and confirm the emitted DDL/SQL uses snake_case table/column/function names. Override one
+table and one column name explicitly and confirm those exact names are used everywhere (and the
+unrelated names still follow the convention). Switch the project convention and confirm all
+non-overridden names change consistently.
+
+**Acceptance Scenarios**:
+
+1. **Given** no naming configuration, **When** the schema is built, **Then** tables, columns,
+   functions, and the module's schema name are emitted in snake_case (e.g. entity `RecentPost` →
+   table `recent_post`, member `createdAt`/`created_at` → column `created_at`).
+2. **Given** a project-level naming convention setting, **When** it is changed, **Then** every
+   non-overridden database identifier follows the new convention consistently across DDL, DML,
+   queries, parameters, and migrations.
+3. **Given** an explicit name override on a single table, column, or function, **When** the schema is
+   built, **Then** that exact name is used everywhere it appears and takes precedence over the
+   convention, while sibling identifiers continue to follow the convention.
+4. **Given** the convention or overrides, **When** the project is published with Native AOT, **Then**
+   names are resolved at build time with no runtime reflection or string transformation on hot paths.
+5. **Given** two members that would map to the same database identifier under the active convention,
+   **When** the schema is built, **Then** a clear, source-located diagnostic reports the collision
+   rather than emitting ambiguous SQL.
+
+---
+
 ### Edge Cases
 
 - A schema link targets an undefined entity, or required links form a cycle → build-time located
@@ -278,6 +320,10 @@ companion package.
   produce a runtime-decided shape).
 - A native construct is targeted at a provider that does not support it → source-located build
   diagnostic (never a silent non-portable build).
+- Two distinct members map to the same database identifier under the active naming convention →
+  source-located collision diagnostic (no ambiguous SQL).
+- An explicit name override conflicts with a convention-derived name on another member → same
+  collision diagnostic (overrides do not silently shadow).
 
 ## Requirements _(mandatory)_
 
@@ -491,6 +537,30 @@ companion package.
   type with equal primary-key values; an entity with an unset/transient key falls back to reference
   equality. An annotation MUST allow opting out. (Projections are value types/records with structural
   equality.)
+- **FR-052**: The system MUST derive database identifiers from schema identifiers using a configurable
+  **naming convention**, defaulting to **snake_case**, applied to: table names (from entity names),
+  column names (from value-member names), native-function names, and the database schema name a module
+  maps to (FR-045). Derivation MUST be deterministic and build-time-known (e.g. entity `RecentPost` →
+  table `recent_post`; member `createdAt` → column `created_at`). Singularization/pluralization is out
+  of scope (names are transformed, not inflected).
+- **FR-053**: The naming convention MUST be configurable at the **project level** as a single setting.
+  v1 MUST support at least `snake_case` (default) and `verbatim` (use the authored identifier as-is);
+  the chosen convention applies uniformly to all non-overridden identifiers.
+- **FR-054**: Any individual **table, column, or native function** MUST be overridable with an explicit
+  database name. An override is scoped to that single unit, takes precedence over the active project
+  convention, and leaves sibling identifiers following the convention.
+- **FR-055**: The active convention and all overrides MUST be applied **consistently** wherever a
+  database identifier is emitted — DDL, INSERT/UPDATE/DELETE, queries, parameter mapping, and
+  migrations — with no drift between statements for the same entity/member.
+- **FR-056**: Naming resolution MUST occur at **build time** with no runtime reflection or per-row
+  string transformation, preserving the Native AOT and no-warm-up guarantees (FR-016/FR-017/FR-018).
+- **FR-057**: When the active convention maps two distinct members of the same scope to the same
+  database identifier, the build MUST report a **source-located collision diagnostic** rather than
+  emit ambiguous SQL.
+- **FR-058**: Generated extension surfaces on the session (e.g. query methods, and future extension
+  properties/static members) MUST be emitted using **C# 14 extension blocks** (`extension(receiver)
+  { … }`) rather than classic `this`-parameter static methods, so the generated surface can grow to
+  include extension properties and static members without a breaking change to its shape.
 
 ### Key Entities _(conceptual model of the system)_
 
@@ -511,6 +581,11 @@ companion package.
 - **Migration**: A versioned, ordered, reversible schema change with applied/pending state.
 - **Type Handler**: An extension defining how a .NET type is stored to and read from a column.
 - **Convention**: A rule deriving mapping defaults (e.g., names) without per-member configuration.
+- **Naming Convention**: The project-level rule mapping schema identifiers to database identifiers
+  (default snake_case; e.g. `verbatim`), applied uniformly to tables, columns, native functions, and
+  schema names, resolved at build time (FR-052/FR-053/FR-056).
+- **Name Override**: An explicit, per-unit (table/column/function) database name that takes precedence
+  over the active naming convention for that single identifier (FR-054).
 - **Provider**: The adapter targeting a relational database (PostgreSQL primary) for SQL generation
   and schema operations; also the scope that declares which native types and functions are available.
 - **Native Type Binding**: A provider-scoped mapping between a database-native column type (e.g.
@@ -671,6 +746,10 @@ same mechanism as an optional companion package.
   companion package in a Native-AOT-published application with **zero** library-originated warnings.
 - **SC-014**: When a native construct is targeted at a provider that does not support it, the build
   reports a source-located diagnostic **100%** of the time (no silent non-portable builds).
+- **SC-015**: With no naming configuration, **100%** of emitted database identifiers (tables, columns,
+  native functions, schema names) are snake_case; changing the project convention or applying a
+  per-unit override changes exactly the affected identifiers and nothing else, verifiable by inspecting
+  the generated DDL/SQL.
 
 ## Out of Scope (v1)
 

@@ -268,6 +268,43 @@ rejected); equality opt-in only (less useful default — rejected, opt-out chose
 
 ---
 
+## 12. Database naming conventions & overrides (FR-052..FR-057)
+
+**Decision**: Database identifiers are derived from schema identifiers by a **naming convention**,
+defaulting to **snake_case** (entity `RecentPost` → table `recent_post`; member `createdAt` →
+`created_at`; native function names; the module's schema name). The convention is set **per project**
+via an `AnalyzerConfigOptions` build property (e.g. `build_property.DormantNamingConvention`, values
+`snake_case` (default) | `verbatim`), projected into the generator's equatable config alongside
+`RootNamespace`/`ProjectDir`. Any single **table/column/function** carries an optional **explicit name
+override** (a DSL annotation) that wins over the convention for that unit. Names are **resolved once**
+into the schema model (`DbTableName`/`DbColumnName`/…), then consumed by `EntityBindingEmitter`,
+`QueryEmitter`, and migration DDL — a single source of truth, so INSERT/SELECT/UPDATE/DELETE/query/DDL
+never drift. Resolution is pure build-time string work (no runtime reflection/transform — FR-056). A
+convention that collapses two members to the same identifier is a **source-located diagnostic** (no
+ambiguous SQL — FR-057).
+
+**Rationale**: snake_case is the PostgreSQL norm; a default + targeted overrides removes per-member
+boilerplate while still mapping onto pre-existing databases. Resolving in the model (not at each emit
+site) guarantees consistency and keeps emitters dumb. Build-property config matches the existing FR-046
+namespace mechanism — no new config channel.
+
+**Alternatives**: per-emit-site transformation (drift risk — rejected); attribute-only naming with no
+project default (boilerplate — rejected); runtime name mapping (violates AOT/no-warm-up — rejected);
+inflection/pluralization (`User`→`users`) — out of scope (transform, don't inflect).
+
+## 13. Generated extension surface = C# 14 extension blocks (FR-058)
+
+**Decision**: Generated query methods (and any future session-scoped extension members) are emitted
+inside a **C# 14 extension block** — `partial static {Module}Queries { extension(ISession session) { … } }`
+— rather than classic `this`-parameter static methods. **Rationale**: C# 14 / .NET 10 extension members
+let the generated surface later add **extension properties and static members** (e.g. `session.Users`)
+without changing the shape consumers bind to (Constitution II additive-only). **Alternatives**: classic
+extension methods (can't grow to properties/statics — rejected); instance methods on a wrapper (extra
+type, worse ergonomics — rejected). _Code drift_: the US3 MVP shipped classic extension methods; T108
+applies the switch.
+
+---
+
 ## Resolved unknowns summary
 
 | Unknown | Resolution |

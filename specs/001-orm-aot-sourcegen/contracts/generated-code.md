@@ -27,9 +27,19 @@ Per projection shape `P`:
 - `public sealed partial class P` (or record) with exactly the requested fields + nested projection types
   (FR-007/FR-008). No setters for non-requested fields — they do not exist.
 
-Per query `Q`:
-- A typed method (e.g. `ISession.Q(...)` partial/extension) returning the result type, carrying a
-  `CompiledQuery<TResult>` with the **prebuilt SQL** (and optional-param fragments) (FR-013/FR-031).
+Per query `Q` (in a `partial static {Module}Queries` class, namespace per FR-046):
+- A typed query method returning the result type (`IAsyncEnumerable<TResult>` / `ValueTask<TResult?>`),
+  carrying a `CompiledQuery<TResult>` = `{ PreparedStatement Statement; RowMaterializer<TResult> Materialize }`
+  with the **prebuilt SQL** (and optional-param fragments) (FR-013/FR-031). Full entities materialize via
+  the generated entity ctor; flat projections via a distinct `record {Q}Result(...)` (exactly the requested
+  members, FR-007/FR-008).
+- The method MUST be emitted inside a **C# 14 extension block** — `extension(global::Dormant.Abstractions.Sessions.ISession session) { … }` — not a classic `this`-parameter static method, so extension
+  properties/static members can be added within a MAJOR without a breaking shape change (FR-058).
+
+Database identifiers (table/column/function/schema names) in all emitted SQL/DDL are resolved at build
+time from the active **naming convention** (snake_case default; project-configurable) with per-unit
+overrides taking precedence (FR-052..FR-057). The same resolved names are used across binding INSERT/
+SELECT/UPDATE/DELETE, query SQL, and migration DDL — no drift.
 
 Per jsonb-mapped type:
 - A `[JsonSerializable]` `partial JsonSerializerContext` and the (de)serialize calls (research §3).
