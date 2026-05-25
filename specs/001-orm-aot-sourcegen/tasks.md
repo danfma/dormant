@@ -13,7 +13,7 @@ NON-NEGOTIABLE and the plan defines the test projects (Verify snapshots, cacheab
 AOT smoke, BenchmarkDotNet). Write tests first within each story and ensure they fail before implementation.
 
 **Organization**: Grouped by user story. Stack: C# 14 / .NET 10; multi-package, one-directional dependencies
-(`Dormant.Abstractions` ports/kernel ← `Dormant.Core` engine ← adapters `Provider.PostgreSql` /
+(`Dormant.Abstractions` kernel ← `Dormant.Core` engine ← adapters `Provider.PostgreSql` /
 `Spatial.PostgreSql` / `Tool`; `Dormant.SourceGeneration` emits against the kernel).
 
 ## Format: `[ID] [P?] [Story] Description`
@@ -43,9 +43,9 @@ AOT smoke, BenchmarkDotNet). Write tests first within each story and ensure they
 
 ## Phase 2: Foundational (Blocking Prerequisites)
 
-**Purpose**: Kernel contracts (ports), generator pipeline skeleton, diagnostics + test harnesses. **⚠️ No user story may begin until complete.**
+**Purpose**: Kernel contracts (grouped by capability), generator pipeline skeleton, diagnostics + test harnesses. **⚠️ No user story may begin until complete.**
 
-- [X] T012 [P] Define `Link<T>` / `LinkSet<T>` loaded/unloaded state in `src/Dormant.Abstractions/Links/`
+- [X] T012 [P] Define `Link<T>` / `LinkSet<T>` loaded/unloaded state in `src/Dormant.Abstractions/Links/` _(renamed Link→Ref + collection kinds added in T100; FR-009/049)_
 - [X] T013 [P] Define `ISession`, `ISessionFactory`, `ConcurrencyConflictException` in `src/Dormant.Abstractions/Sessions/`
 - [X] T014 [P] Define provider/data-access contracts `IDataSource`, `IDbSession` in `Providers/`; `PreparedStatement`, `RowMaterializer<T>` in `Querying/` (`src/Dormant.Abstractions/`)
 - [X] T015 [P] Define `ISqlDialect` (Providers/), `ITypeBinding<T>`/`ITypeBindingRegistry` (Mapping/), `INativeFunctionCatalog` (Native/), `IMigrationStore` (Migrations/) — semantic grouping, no `Ports` bucket (`src/Dormant.Abstractions/`)
@@ -79,12 +79,30 @@ AOT smoke, BenchmarkDotNet). Write tests first within each story and ensure they
 - [X] T027 [US1] Schema parser → equatable schema AST in `src/Dormant.SourceGeneration/Parsing/SchemaParser.cs` (depends T026)
 - [X] T028 [US1] Schema validation (undefined links, cycles, duplicate names) → `DiagnosticInfo` in `src/Dormant.SourceGeneration/Schema/SchemaValidator.cs` _(undefined-link-target ORM002 done; unknown-type ORM003 in parser; cycle + duplicate-name checks deferred to a later hardening pass)_
 - [X] T029 [P] [US1] Deterministic emit helpers (ordinal sort, `InvariantCulture`, stable hint names, normalized newlines) in `src/Dormant.SourceGeneration/Emit/EmitHelpers.cs`
-- [X] T030 [US1] Emit partial entity types (properties + `Link<T>`/`LinkSet<T>` members) in `src/Dormant.SourceGeneration/Schema/EntityEmitter.cs` (depends T027, T029)
+- [X] T030 [US1] Emit partial entity types (properties + `Link<T>`/`LinkSet<T>` members) in `src/Dormant.SourceGeneration/Schema/EntityEmitter.cs` (depends T027, T029) _(superseded by Ref vocabulary + collection kinds in T102; FR-049)_
 - [ ] T031 [US1] Emit `[UnsafeAccessor]` field accessors per entity in `src/Dormant.SourceGeneration/Schema/AccessorEmitter.cs` _(DEFERRED to US2: accessors are materialization/snapshot infrastructure with no consumer until US2; emitting them now would be dead code and risk unused-warnings)_
 - [X] T032 [US1] Wire schema pipeline into `RegisterSourceOutput` (emit + report diagnostics) in `src/Dormant.SourceGeneration/DormantGenerator.cs`
 - [X] T033 [US1] Quickstart schema + hand-written partial coexistence sample in `samples/Dormant.Sample.Quickstart/` _(schema/app.dqls + UserExtensions.cs partial; generator wired as analyzer; builds + runs)_
 
 **Checkpoint**: Schema → entities works and is independently testable.
+
+---
+
+## Phase 3b: Relationship-model revision & coverage gaps (FR-045/049/050/051)
+
+**Why**: These tasks were added after the original tasks.md (spec gained FR-045..051 + the Link→Ref
+model). They revise the already-built US1 generator/kernel and close `/speckit-analyze` coverage gaps.
+**Complete before continuing US2.** Story labels show which story's scope each augments.
+
+- [ ] T100 [US1] Rename `Link<T>`→`Ref<T>`, `LinkSet<T>`→`RefSet<T>` and add `RefList<T>`, `RefBag<T>`, `RefMap<TKey,TValue>` in `src/Dormant.Abstractions/Links/` (readonly structs, Unloaded sentinel); constrain `Ref<T> where T : class?` so optional single is `Ref<User?>` (FR-009/FR-049). Update adapter/sample/tests references
+- [ ] T101 [US1] Extend DSL parser for collection syntax `Set<T>`/`List<T>`/`Bag<T>`/`Map<K,V>` → `ReferenceModel.Kind` in `src/Dormant.SourceGeneration/Parsing/SchemaParser.cs` (replace any residual `multi`); validate `Map` key type (FR-047/FR-049)
+- [ ] T102 [US1] Update `EntityEmitter` to emit `Ref`/`RefSet`/`RefList`/`RefBag`/`RefMap` members with Unloaded-sentinel initializers (never `= []`) and `Ref<T?>` for optional single refs in `src/Dormant.SourceGeneration/Schema/EntityEmitter.cs` (FR-047/FR-048/FR-049)
+- [ ] T103 [P] [US1] Emit entity identity `Equals`/`GetHashCode` by primary key (transient → reference equality) + `[NoIdentityEquality]` opt-out in `src/Dormant.SourceGeneration/Schema/EqualityEmitter.cs`; tests in `tests/Dormant.SourceGeneration.Tests/EqualityEmitTests.cs` (FR-051)
+- [ ] T104 [US3] Emit projection materialization into a **user-owned plain `record`/DTO** (no Dormant types) — map columns → record constructor by name/order — in `src/Dormant.SourceGeneration/Query/ProjectionEmitter.cs`; tests assert a Dormant-free result type (FR-050)
+- [ ] T105 [US5] Schema-qualified DDL/SQL + `CREATE SCHEMA IF NOT EXISTS <module>` in migration generation (`src/Dormant.Core/Migrations/` + `src/Dormant.Provider.PostgreSql/Migrations/DdlGenerator.cs`); integration test asserts tables created in the module schema (FR-045)
+- [ ] T106 [P] [US1] Update generator Verify/diagnostic tests + sample (`schema/app.dqls` collection syntax, generated `Ref*` members, equality) for the Ref model in `tests/Dormant.SourceGeneration.Tests/` + `samples/Dormant.Sample.Quickstart/`
+
+**Checkpoint**: Kernel + generator on the Ref model (collections, Unloaded sentinel, PK equality, record projections); sample builds + runs; generator tests green. Resume US2 after this.
 
 ---
 
