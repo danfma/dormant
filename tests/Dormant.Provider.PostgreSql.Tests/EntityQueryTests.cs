@@ -63,12 +63,7 @@ public sealed class EntityQueryTests
 
     private static async Task<ISessionFactory> SeedAsync(string connectionString)
     {
-        await using (var dataSource = DormantPostgres.CreateDataSource(connectionString))
-        await using (var db = await dataSource.OpenAsync())
-        {
-            await db.ExecuteAsync(new PreparedStatement(
-                "CREATE TABLE \"widget\" (\"id\" uuid primary key, \"name\" text not null, \"quantity\" integer not null)"));
-        }
+        await DormantPostgres.EnsureCreatedAsync(connectionString);
 
         var factory = DormantPostgres.CreateSessionFactory(connectionString);
         await using (var session = await factory.OpenSessionAsync())

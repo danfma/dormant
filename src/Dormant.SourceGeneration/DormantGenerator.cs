@@ -60,6 +60,9 @@ public sealed class DormantGenerator : IIncrementalGenerator
                 schema.FilePath,
                 schema.ModuleName);
 
+            // The module maps to a database schema (FR-045); its name follows the active convention.
+            var schemaName = NamingConventions.Resolve(schema.ModuleName, null, generatorConfig.Naming);
+
             foreach (var entity in schema.Entities)
             {
                 foreach (var collision in NameResolution.FindColumnCollisions(entity, generatorConfig.Naming))
@@ -73,7 +76,7 @@ public sealed class DormantGenerator : IIncrementalGenerator
 
                 productionContext.AddSource(
                     Naming.HintName(@namespace, entity.Name + ".Binding"),
-                    EntityBindingEmitter.Emit(@namespace, entity, generatorConfig.Naming));
+                    EntityBindingEmitter.Emit(@namespace, entity, schemaName, generatorConfig.Naming));
             }
         });
 
@@ -103,12 +106,15 @@ public sealed class DormantGenerator : IIncrementalGenerator
                     return;
                 }
 
-                var entities = new Dictionary<string, EntityModel>(StringComparer.Ordinal);
+                // Map each entity to its model + the database schema (module) it belongs to, so query SQL
+                // can schema-qualify the table (FR-045).
+                var entities = new Dictionary<string, (EntityModel Entity, string Schema)>(StringComparer.Ordinal);
                 foreach (var schema in allSchemas)
                 {
+                    var schemaName = NamingConventions.Resolve(schema.ModuleName, null, generatorConfig.Naming);
                     foreach (var entity in schema.Entities)
                     {
-                        entities[entity.Name] = entity;
+                        entities[entity.Name] = (entity, schemaName);
                     }
                 }
 

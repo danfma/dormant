@@ -28,4 +28,17 @@ public static class EntityBindings
             ? (IEntityBinding<TEntity>)binding
             : throw new InvalidOperationException(
                 $"No Dormant entity binding registered for '{typeof(TEntity)}'. Ensure its schema is compiled by the generator.");
+
+    /// <summary>All registered bindings (used to apply the generated schema, FR-020).</summary>
+    /// <returns>Every registered entity binding, in registration order.</returns>
+    public static IReadOnlyCollection<IEntityBinding> All()
+    {
+        var all = new List<IEntityBinding>(Bindings.Count);
+        foreach (var binding in Bindings.Values)
+        {
+            all.Add((IEntityBinding)binding);
+        }
+
+        return all;
+    }
 }

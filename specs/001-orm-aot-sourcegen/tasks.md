@@ -99,7 +99,7 @@ model). They revise the already-built US1 generator/kernel and close `/speckit-a
 - [X] T102 [US1] Update `EntityEmitter` to emit `Ref`/`RefSet`/`RefList`/`RefBag`/`RefMap` members with Unloaded-sentinel initializers (never `= []`) and `Ref<T?>` for optional single refs in `src/Dormant.SourceGeneration/Schema/EntityEmitter.cs` (FR-047/FR-048/FR-049)
 - [X] T103 [P] [US1] Emit entity identity `Equals`/`GetHashCode` by primary key (transient → reference equality) (FR-051) _(folded into `EntityEmitter` (single-PK entities, `: IEquatable<T>`); SchemaEmitTests assert it. `[NoIdentityEquality]` opt-out + multi-key still deferred)_
 - [ ] T104 [US3] Emit projection materialization into a **user-owned plain `record`/DTO** (no Dormant types) — map columns → record constructor by name/order — in `src/Dormant.SourceGeneration/Query/ProjectionEmitter.cs`; tests assert a Dormant-free result type (FR-050)
-- [ ] T105 [US5] Schema-qualified DDL/SQL + `CREATE SCHEMA IF NOT EXISTS <module>` in migration generation (`src/Dormant.Core/Migrations/` + `src/Dormant.Provider.PostgreSql/Migrations/DdlGenerator.cs`); integration test asserts tables created in the module schema (FR-045)
+- [X] T105 [US5] Schema-qualified DDL/SQL + `CREATE SCHEMA IF NOT EXISTS <module>` (FR-045) _(done — see Phase 6: `TableRef(schema, name)` qualifies all emitted SQL + DDL; `SchemaInitializer` creates the schema; integration suite runs schema-qualified)_
 - [X] T106 [P] [US1] Update generator tests + sample for the Ref model (`SchemaEmitTests` asserts Ref/RefSet/Unloaded/equality; `RefTests` renamed from LinkTests; `app.dqls` uses `Set<Post>`); builds + runs green
 - [X] T107 [US1] Replace `[UnsafeAccessor]` materialization (fragile backing-field hack) with a generated `[SetsRequiredMembers] internal {Entity}(IFieldReader reader)` ctor on the entity partial (ordinary setters) + retained public parameterless ctor (`EntityEmitter`); binding `Materialize` → `new {Entity}(reader)`, INSERT/snapshot reads via public getters, drop field accessors + `Create()` (`EntityBindingEmitter`); update SchemaEmitTests + re-run the Testcontainers round-trip (FR-048) _(done: `EntityEmitter` emits public `()` + `[SetsRequiredMembers] internal E(IFieldReader)` reading value columns by ordinal via setters; `EntityBindingEmitter` dropped `Uac`/`UacKind`/`Create()`/field accessors, `Materialize` → `new E(reader)`, `Insert` writes via public getters. Supersedes T044's UnsafeAccessor emitter. Build 0/0; generator 8/8; core 6/6; PostgreSQL Testcontainers round-trip 2/2 — required-init contract intact, sample compiles)_
 
@@ -172,20 +172,22 @@ model). They revise the already-built US1 generator/kernel and close `/speckit-a
 
 ### Tests for User Story 5
 
-- [ ] T059 [P] [US5] Integration: initial migration apply → DB schema matches in `tests/Dormant.Provider.PostgreSql.Tests/MigrationApplyTests.cs`
+- [X] T059 [P] [US5] Integration: initial schema apply → DB schema matches in `tests/Dormant.Provider.PostgreSql.Tests/MigrationApplyTests.cs` _(EnsureCreated applies generated CREATE SCHEMA + CREATE TABLE; idempotent (applied twice) + table immediately usable; the whole integration suite now provisions via EnsureCreated)_
 - [ ] T060 [P] [US5] Integration: incremental migration contains only the diff in `tests/Dormant.Provider.PostgreSql.Tests/MigrationDiffTests.cs`
 - [ ] T061 [P] [US5] Integration: rollback restores prior state in `tests/Dormant.Provider.PostgreSql.Tests/MigrationRollbackTests.cs`
 - [ ] T062 [P] [US5] Integration: destructive (data-loss) op flagged, not auto-applied in `tests/Dormant.Provider.PostgreSql.Tests/MigrationSafetyTests.cs`
 
 ### Implementation for User Story 5
 
-- [ ] T063 [US5] Migration model + schema snapshot + diff engine in `src/Dormant.Core/Migrations/`
-- [ ] T064 [US5] DDL generation (create/alter/drop) via dialect in `src/Dormant.Provider.PostgreSql/Migrations/DdlGenerator.cs`
-- [ ] T065 [US5] `IMigrationStore` impl (applied/pending tracking) in `src/Dormant.Provider.PostgreSql/Migrations/MigrationStore.cs`
-- [ ] T066 [US5] CLI commands `migrations add/apply/rollback/status` + `schema validate` in `src/Dormant.Tool/Commands/`
-- [ ] T067 [US5] Destructive-op detection + explicit confirm gate in `src/Dormant.Core/Migrations/DestructiveGuard.cs`
+- [ ] T063 [US5] Migration model + schema snapshot + diff engine in `src/Dormant.Core/Migrations/` _(DEFERRED: incremental diff/versioned migrations — this slice does idempotent create-if-not-exists, not versioned diffs)_
+- [X] T064 [US5] DDL generation (CREATE TABLE) via the SQL IR + PG type map _(folded into `EntityBindingEmitter` → `CreateTableStatement`/`CreateSchemaStatement` rendered by `SqlRenderer`; `TypeMap.ToSqlType` (DSL→PG). ALTER/DROP deferred with the diff engine; emitted on the binding as `CreateTableSql` + `Schema`)_
+- [X] T065 [US5] Schema apply over registered bindings in `src/Dormant.Core/Migrations/SchemaInitializer.cs` + `DormantPostgres.EnsureCreatedAsync` _(applies CREATE SCHEMA per distinct schema + each binding's CREATE TABLE in one tx; idempotent. A **versioned** `IMigrationStore` (applied/pending tracking) is DEFERRED)_
+- [ ] T066 [US5] CLI commands `migrations add/apply/rollback/status` + `schema validate` in `src/Dormant.Tool/Commands/` _(DEFERRED: CLI slice)_
+- [ ] T067 [US5] Destructive-op detection + explicit confirm gate in `src/Dormant.Core/Migrations/DestructiveGuard.cs` _(DEFERRED: needs the diff engine T063)_
 
-**Checkpoint**: Migration workflow usable end-to-end via CLI only.
+> T105 (schema-qualified DDL/SQL + CREATE SCHEMA) done in this slice — see Phase 3b.
+
+**Checkpoint**: Generated schema-qualified DDL + idempotent apply (CREATE SCHEMA + CREATE TABLE) works end-to-end; all SQL is schema-qualified. DEFERRED: versioned migration store + incremental diff (T063), rollback (T061), destructive guard (T067), CLI (T066).
 
 ---
 

@@ -1,4 +1,3 @@
-using Dormant.Abstractions.Querying;
 using Dormant.Provider.PostgreSql;
 using Dormant.Provider.PostgreSql.Tests.Schema.Catalog;
 using Testcontainers.PostgreSql;
@@ -8,35 +7,36 @@ using TUnit.Core;
 
 namespace Dormant.Provider.PostgreSql.Tests;
 
-// US9 (T113): the default snake_case convention is applied end-to-end against real PostgreSQL. A
-// multi-word entity (StockItem) and member (itemName) round-trip through the snake_case table/column
-// names `stock_item` / `item_name` (FR-055, SC-015).
-public sealed class NamingTests
+// US5 (T059): applying the generated initial schema creates the module schema + tables (schema-qualified,
+// FR-020/FR-045), is idempotent (IF NOT EXISTS), and the resulting tables are immediately usable.
+public sealed class MigrationApplyTests
 {
     [Test]
-    public async Task Snake_case_table_and_column_round_trip()
+    public async Task EnsureCreated_is_idempotent_and_creates_usable_schema()
     {
         await using var postgres = new PostgreSqlBuilder().WithImage("postgres:16-alpine").Build();
         await postgres.StartAsync();
         var connectionString = postgres.GetConnectionString();
 
-        // Schema/table created by the generated DDL (schema-qualified, snake_case).
+        // Apply twice — second run must not fail (CREATE SCHEMA/TABLE IF NOT EXISTS).
+        await DormantPostgres.EnsureCreatedAsync(connectionString);
         await DormantPostgres.EnsureCreatedAsync(connectionString);
 
+        // The generated, schema-qualified table is immediately usable.
         await using var factory = DormantPostgres.CreateSessionFactory(connectionString);
         var id = Guid.NewGuid();
 
         await using (var session = await factory.OpenSessionAsync())
         {
-            await session.AddAsync(new StockItem { Id = id, ItemName = "bolt" });
+            await session.AddAsync(new Widget { Id = id, Name = "applied", Quantity = 3 });
             await session.CommitAsync();
         }
 
         await using (var session = await factory.OpenSessionAsync())
         {
-            var item = await session.GetAsync<StockItem>(id);
-            await Assert.That(item).IsNotNull();
-            await Assert.That(item!.ItemName).IsEqualTo("bolt");
+            var widget = await session.GetAsync<Widget>(id);
+            await Assert.That(widget).IsNotNull();
+            await Assert.That(widget!.Name).IsEqualTo("applied");
         }
     }
 }

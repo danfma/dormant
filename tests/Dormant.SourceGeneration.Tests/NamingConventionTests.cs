@@ -38,9 +38,9 @@ public sealed class NamingConventionTests
     {
         var generated = Run();
 
-        // Table and columns are snake_case in the prebuilt INSERT.
+        // Table and columns are snake_case in the prebuilt INSERT (schema-qualified, module → schema).
         await Assert.That(generated)
-            .Contains("INSERT INTO \\\"recent_post\\\" (\\\"id\\\", \\\"created_at\\\", \\\"title\\\")");
+            .Contains("INSERT INTO \\\"shop\\\".\\\"recent_post\\\" (\\\"id\\\", \\\"created_at\\\", \\\"title\\\")");
         // C# member names are unaffected (PascalCase).
         await Assert.That(generated).Contains("public required global::System.DateTime CreatedAt { get; set; }");
     }
@@ -54,6 +54,6 @@ public sealed class NamingConventionTests
         });
 
         await Assert.That(generated)
-            .Contains("INSERT INTO \\\"RecentPost\\\" (\\\"id\\\", \\\"createdAt\\\", \\\"title\\\")");
+            .Contains("INSERT INTO \\\"shop\\\".\\\"RecentPost\\\" (\\\"id\\\", \\\"createdAt\\\", \\\"title\\\")");
     }
 }

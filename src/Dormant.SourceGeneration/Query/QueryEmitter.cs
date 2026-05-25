@@ -24,7 +24,7 @@ internal static class QueryEmitter
     public static (string? Source, IReadOnlyList<DiagnosticInfo> Diagnostics) Emit(
         string @namespace,
         QueryFile file,
-        IReadOnlyDictionary<string, EntityModel> entities,
+        IReadOnlyDictionary<string, (EntityModel Entity, string Schema)> entities,
         NamingConvention convention)
     {
         var diagnostics = new List<DiagnosticInfo>();
@@ -33,19 +33,19 @@ internal static class QueryEmitter
 
         foreach (var query in file.Queries)
         {
-            if (!entities.TryGetValue(query.RootEntity, out var entity))
+            if (!entities.TryGetValue(query.RootEntity, out var entry))
             {
                 diagnostics.Add(Diag(
                     DiagnosticDescriptors.UnknownQueryEntity, file.FilePath, query.Name, query.RootEntity));
                 continue;
             }
 
-            if (!Validate(query, entity, file.FilePath, diagnostics))
+            if (!Validate(query, entry.Entity, file.FilePath, diagnostics))
             {
                 continue;
             }
 
-            bodies.Add(EmitMethod(query, entity, convention, out var projection));
+            bodies.Add(EmitMethod(query, entry.Entity, entry.Schema, convention, out var projection));
             if (projection is not null)
             {
                 projections.Add(projection);
@@ -147,10 +147,10 @@ internal static class QueryEmitter
         return ok;
     }
 
-    private static string EmitMethod(QueryModel query, EntityModel entity, NamingConvention convention, out string? projection)
+    private static string EmitMethod(QueryModel query, EntityModel entity, string schema, NamingConvention convention, out string? projection)
     {
         var parameterOrder = new List<string>();
-        var sql = BuildSql(query, entity, convention, parameterOrder);
+        var sql = BuildSql(query, entity, schema, convention, parameterOrder);
 
         string resultType;
         string materializer;
@@ -198,7 +198,7 @@ internal static class QueryEmitter
     // Builds the SELECT as a structured IR node (FR-059) and renders it; populates parameterOrder (the
     // bind-callback order) as positional parameters are assigned. Database names resolved via the active
     // convention / per-unit overrides (FR-052/FR-054/FR-055).
-    private static string BuildSql(QueryModel query, EntityModel entity, NamingConvention convention, List<string> parameterOrder)
+    private static string BuildSql(QueryModel query, EntityModel entity, string schema, NamingConvention convention, List<string> parameterOrder)
     {
         var columns = query.IsProjection
             ? query.ProjectionFields.Select(f => ColByName(entity, f, convention)).ToList()
@@ -217,7 +217,7 @@ internal static class QueryEmitter
             .ToList();
 
         var statement = new SelectStatement(
-            NamingConventions.Resolve(entity.Name, entity.NameOverride, convention),
+            new TableRef(schema, NamingConventions.Resolve(entity.Name, entity.NameOverride, convention)),
             columns,
             where,
             orderBy,

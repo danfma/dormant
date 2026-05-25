@@ -14,6 +14,12 @@ public interface IEntityBinding
     /// <summary>Whether the entity carries an optimistic-concurrency token (drives conflict detection).</summary>
     bool TracksConcurrency { get; }
 
+    /// <summary>The database schema this entity's table lives in (the module's schema, FR-045).</summary>
+    string Schema { get; }
+
+    /// <summary>The prebuilt <c>CREATE TABLE IF NOT EXISTS</c> DDL for this entity (schema-qualified, FR-020/FR-045).</summary>
+    string CreateTableSql { get; }
+
     /// <summary>Captures the current value-column state of <paramref name="entity"/> for later diffing.</summary>
     /// <param name="entity">The entity to snapshot.</param>
     /// <returns>An opaque snapshot consumed by <see cref="Update"/>.</returns>

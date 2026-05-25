@@ -30,6 +30,30 @@ internal static class TypeMap
 
     /// <summary>Attempts to map a DormantQL value type to a CLR type.</summary>
     public static bool TryMap(string dslType, out string clrType) => Map.TryGetValue(dslType, out clrType!);
+
+    // DormantQL value type → PostgreSQL column type, for generated DDL (FR-020). PostgreSQL-specific;
+    // a provider-neutral dialect abstraction is a later concern.
+    private static readonly Dictionary<string, string> SqlMap = new(System.StringComparer.Ordinal)
+    {
+        ["str"] = "text",
+        ["bool"] = "boolean",
+        ["int16"] = "smallint",
+        ["int32"] = "integer",
+        ["int"] = "integer",
+        ["int64"] = "bigint",
+        ["float32"] = "real",
+        ["float64"] = "double precision",
+        ["decimal"] = "numeric",
+        ["bigint"] = "numeric",
+        ["uuid"] = "uuid",
+        ["datetime"] = "timestamptz",
+        ["duration"] = "interval",
+        ["bytes"] = "bytea",
+        ["json"] = "jsonb",
+    };
+
+    /// <summary>Maps a DormantQL value type to its PostgreSQL column type (falls back to <c>text</c>).</summary>
+    public static string ToSqlType(string dslType) => SqlMap.TryGetValue(dslType, out var sql) ? sql : "text";
 }
 
 /// <summary>Deterministic naming helpers (ordinal, culture-invariant) for generated code (research §5).</summary>

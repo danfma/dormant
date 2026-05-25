@@ -20,12 +20,7 @@ public sealed class CrudTests
         await postgres.StartAsync();
         var connectionString = postgres.GetConnectionString();
 
-        await using (var dataSource = DormantPostgres.CreateDataSource(connectionString))
-        await using (var db = await dataSource.OpenAsync())
-        {
-            await db.ExecuteAsync(new PreparedStatement(
-                "CREATE TABLE \"widget\" (\"id\" uuid primary key, \"name\" text not null, \"quantity\" integer not null)"));
-        }
+        await DormantPostgres.EnsureCreatedAsync(connectionString);
 
         await using var factory = DormantPostgres.CreateSessionFactory(connectionString);
         var id = Guid.NewGuid();
@@ -54,12 +49,7 @@ public sealed class CrudTests
         await postgres.StartAsync();
         var connectionString = postgres.GetConnectionString();
 
-        await using (var dataSource = DormantPostgres.CreateDataSource(connectionString))
-        await using (var db = await dataSource.OpenAsync())
-        {
-            await db.ExecuteAsync(new PreparedStatement(
-                "CREATE TABLE \"widget\" (\"id\" uuid primary key, \"name\" text not null, \"quantity\" integer not null)"));
-        }
+        await DormantPostgres.EnsureCreatedAsync(connectionString);
 
         await using var factory = DormantPostgres.CreateSessionFactory(connectionString);
         var id = Guid.NewGuid();

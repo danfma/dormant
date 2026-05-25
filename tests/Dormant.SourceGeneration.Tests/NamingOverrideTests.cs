@@ -32,6 +32,6 @@ public sealed class NamingOverrideTests
         // Table override "posts" and column override "created" win; "title" still follows snake_case;
         // "id" unchanged.
         await Assert.That(generated)
-            .Contains("INSERT INTO \\\"posts\\\" (\\\"id\\\", \\\"created\\\", \\\"title\\\")");
+            .Contains("INSERT INTO \\\"shop\\\".\\\"posts\\\" (\\\"id\\\", \\\"created\\\", \\\"title\\\")");
     }
 }

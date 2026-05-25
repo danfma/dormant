@@ -13,12 +13,18 @@ namespace Dormant.SourceGeneration.Ir;
 /// </summary>
 internal abstract record SqlStatement;
 
+/// <summary>A (optionally schema-qualified) table reference; names already resolved (FR-045/FR-052).</summary>
+internal sealed record TableRef(string? Schema, string Name);
+
+/// <summary>A column definition for DDL: resolved name, provider SQL type, nullability, key.</summary>
+internal sealed record ColumnDef(string Name, string SqlType, bool NotNull, bool PrimaryKey);
+
 /// <summary>An INSERT with positional <c>$1…$n</c> values, one per column (declaration order).</summary>
-internal sealed record InsertStatement(string Table, IReadOnlyList<string> Columns) : SqlStatement;
+internal sealed record InsertStatement(TableRef Table, IReadOnlyList<string> Columns) : SqlStatement;
 
 /// <summary>A SELECT with an optional WHERE / ORDER BY / LIMIT / OFFSET.</summary>
 internal sealed record SelectStatement(
-    string Table,
+    TableRef Table,
     IReadOnlyList<string> Columns,
     IReadOnlyList<SqlCondition> Where,
     IReadOnlyList<SqlOrder> OrderBy,
@@ -26,7 +32,13 @@ internal sealed record SelectStatement(
     SqlLimit? Offset) : SqlStatement;
 
 /// <summary>A DELETE with a WHERE clause.</summary>
-internal sealed record DeleteStatement(string Table, IReadOnlyList<SqlCondition> Where) : SqlStatement;
+internal sealed record DeleteStatement(TableRef Table, IReadOnlyList<SqlCondition> Where) : SqlStatement;
+
+/// <summary>A <c>CREATE SCHEMA IF NOT EXISTS</c> for a module's database schema (FR-045).</summary>
+internal sealed record CreateSchemaStatement(string Schema) : SqlStatement;
+
+/// <summary>A <c>CREATE TABLE IF NOT EXISTS</c> with column definitions (FR-020/FR-045).</summary>
+internal sealed record CreateTableStatement(TableRef Table, IReadOnlyList<ColumnDef> Columns) : SqlStatement;
 
 /// <summary>A <c>"column" op $index</c> comparison (database column name already resolved).</summary>
 internal sealed record SqlCondition(string Column, string Operator, int ParameterIndex);
@@ -45,6 +57,8 @@ internal static class SqlRenderer
         InsertStatement insert => RenderInsert(insert),
         SelectStatement select => RenderSelect(select),
         DeleteStatement delete => RenderDelete(delete),
+        CreateSchemaStatement createSchema => $"CREATE SCHEMA IF NOT EXISTS {Quote(createSchema.Schema)}",
+        CreateTableStatement createTable => RenderCreateTable(createTable),
         _ => throw new System.NotSupportedException($"Unknown statement: {statement.GetType().Name}"),
     };
 
@@ -54,14 +68,36 @@ internal static class SqlRenderer
         var values = string.Join(
             ", ",
             insert.Columns.Select((_, i) => "$" + (i + 1).ToString(CultureInfo.InvariantCulture)));
-        return $"INSERT INTO {Quote(insert.Table)} ({columns}) VALUES ({values})";
+        return $"INSERT INTO {RenderTable(insert.Table)} ({columns}) VALUES ({values})";
+    }
+
+    private static string RenderCreateTable(CreateTableStatement createTable)
+    {
+        var columns = string.Join(
+            ", ",
+            createTable.Columns.Select(c =>
+            {
+                var parts = Quote(c.Name) + " " + c.SqlType;
+                if (c.NotNull)
+                {
+                    parts += " NOT NULL";
+                }
+
+                if (c.PrimaryKey)
+                {
+                    parts += " PRIMARY KEY";
+                }
+
+                return parts;
+            }));
+        return $"CREATE TABLE IF NOT EXISTS {RenderTable(createTable.Table)} ({columns})";
     }
 
     private static string RenderSelect(SelectStatement select)
     {
         var sb = new System.Text.StringBuilder();
         sb.Append("SELECT ").Append(string.Join(", ", select.Columns.Select(Quote)));
-        sb.Append(" FROM ").Append(Quote(select.Table));
+        sb.Append(" FROM ").Append(RenderTable(select.Table));
         AppendWhere(sb, select.Where);
 
         if (select.OrderBy.Count > 0)
@@ -80,10 +116,13 @@ internal static class SqlRenderer
     private static string RenderDelete(DeleteStatement delete)
     {
         var sb = new System.Text.StringBuilder();
-        sb.Append("DELETE FROM ").Append(Quote(delete.Table));
+        sb.Append("DELETE FROM ").Append(RenderTable(delete.Table));
         AppendWhere(sb, delete.Where);
         return sb.ToString();
     }
+
+    private static string RenderTable(TableRef table) =>
+        table.Schema is null ? Quote(table.Name) : Quote(table.Schema) + "." + Quote(table.Name);
 
     private static void AppendWhere(System.Text.StringBuilder sb, IReadOnlyList<SqlCondition> where)
     {

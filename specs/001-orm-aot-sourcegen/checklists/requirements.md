@@ -134,3 +134,12 @@
   statements. Byte-identical: generator 16/16 (exact-SQL asserts unchanged), PostgreSQL 8/8, build 0/0.
   UPDATE excluded (runtime-dynamic changed-columns-only assembly) → tracked under T121. Deferred:
   transform seam (T121), plugin API + definition cache (T123/T124, later phase).
+- 2026-05-25 IMPLEMENTED US5 first slice (DDL + CREATE SCHEMA): module → DB schema (snake_case via
+  convention); IR gained `TableRef(schema,name)` + `CreateSchemaStatement`/`CreateTableStatement` +
+  `TypeMap.ToSqlType` (DSL→PG). ALL emitted SQL now schema-qualified (binding INSERT/SELECT/UPDATE/DELETE
+  + query SELECT + DDL). Bindings expose `Schema` + `CreateTableSql`; `EntityBindings.All()` enumerates;
+  `Core/Migrations/SchemaInitializer.EnsureCreatedAsync` + `DormantPostgres.EnsureCreatedAsync` apply
+  CREATE SCHEMA + CREATE TABLE (idempotent, one tx). Integration suite converted to provision via
+  EnsureCreated (de-brittled). Tests: generator 16/16 (schema-qualified asserts), Core 7/7, PostgreSQL
+  9/9 (+ MigrationApplyTests idempotency). Build 0/0. T059/T064/T065/T105 done. DEFERRED: versioned
+  migration store + incremental diff (T063), rollback (T061), destructive guard (T067), CLI (T066).

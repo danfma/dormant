@@ -80,7 +80,7 @@ public sealed class SchemaEmitTests
         // User carries `version: int concurrency` → token bump in SET + match in WHERE (FR-015).
         await Assert.That(generated).Contains("public bool TracksConcurrency => true;");
         await Assert.That(generated).Contains("var newToken = s.Version + 1;");
-        await Assert.That(generated).Contains("DELETE FROM \\\"user\\\" WHERE \\\"id\\\" = $1 AND \\\"version\\\" = $2");
+        await Assert.That(generated).Contains("DELETE FROM \\\"app\\\".\\\"user\\\" WHERE \\\"id\\\" = $1 AND \\\"version\\\" = $2");
         // Post has no concurrency token.
         await Assert.That(generated).Contains("internal readonly record struct PostSnapshot(");
     }
