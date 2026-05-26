@@ -26,6 +26,18 @@ have decided to try it. The content is synthesized from existing SpecKit artifac
 context) so that the documentation reflects the project's real, decided design rather than
 invented claims.
 
+The feature must also add a small set of runnable sample applications so developers can see DormantQL
+outside the narrow quickstart shape. At minimum, the repository should include a Todo-style task
+API sample and a Scheduling-oriented task API sample, both implemented as ASP.NET Core API sample
+applications. Each sample must remain faithful to the current grammar, include its own schema and
+query/mutation units, and be documented clearly enough for a developer to build and inspect it.
+
+## Clarifications
+
+### Session 2026-05-26
+
+- Q: How should the new Todo and Scheduling samples be delivered? -> A: As new ASP.NET Core API sample applications.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Evaluator understands the project from the README (Priority: P1)
@@ -64,7 +76,8 @@ opening any source file.
 A developer who has decided to try Dormant opens the `docs/` folder and follows a guided path:
 install/reference the library, define a schema module in DormantQL, author a read query and a
 write mutation, understand how names map to generated C# (snake_case unit → PascalCase method,
-schema/folder → namespace), and run it against a provider. They reach a working first result.
+schema/folder → namespace), review the Todo and Scheduling ASP.NET Core API samples, and run it
+against a provider. They reach a working first result.
 
 **Why this priority**: Converts interest into adoption. It depends on P1 existing (the README
 points here) but delivers distinct, standalone value: a path from zero to a running query.
@@ -86,6 +99,10 @@ with every DormantQL construct used matching the grammar defined in the SpecKit 
    rules (unit → method, entity casing, namespace = PascalCaseEachPart(RootNamespace + schema
    folders + module), member `name: TypeExpr[?]`, relationship types, required-by-default)
    match the conventions stated in the project context and data-model artifacts.
+4. **Given** the repository includes the Todo and Scheduling sample APIs, **When** a developer
+   reviews either sample, **Then** the sample demonstrates a realistic schema plus read/write API
+   endpoints backed by DormantQL units without introducing unsupported syntax or unsupported
+   runtime behavior.
 
 ---
 
@@ -122,10 +139,14 @@ plans.
 - **Documentation drift**: Source design changes after docs are written. Documentation MUST be
   traceable to its SpecKit sources so reviewers can detect and correct divergence; examples
   should be minimal enough to stay valid.
-- **Unverified runtime claims**: A getting-started example cannot be end-to-end executed in this
-  documentation effort (e.g., provider/container not available). Such examples MUST be clearly
-  marked as illustrative and kept faithful to the documented grammar/conventions rather than
-  presented as verified runs.
+- **Unverified runtime claims**: A getting-started example or sample API may require provider
+  infrastructure that is not available in every local environment. Documentation MUST distinguish
+  buildable sample code from provider-dependent runtime verification and clearly state any required
+  local services.
+- **Sample-domain overreach**: Todo and Scheduling samples are sample applications, not product
+  feature commitments. They MUST stay small, avoid unsupported scheduling engines, recurrence
+  semantics, background workers, notifications, authentication systems, or calendar integrations
+  unless those capabilities are grounded in current SpecKit artifacts.
 - **Conflicting or superseded design notes**: Where SpecKit artifacts contain superseded framing
   (e.g., the old "multi-command" wording replaced by the `with` block; the Link→Ref rename
   predated by committed code), documentation MUST present the current decided design and not the
@@ -176,6 +197,18 @@ plans.
   grammar and conventions defined in the SpecKit artifacts.
 - **FR-014**: Internal links between the README and `docs/` (and among `docs/` pages) MUST resolve
   to existing files/sections (no broken links).
+- **FR-015**: The repository MUST include at least two additional sample applications beyond the
+  minimal quickstart: a Todo/task-list ASP.NET Core API sample and a Scheduling-oriented ASP.NET
+  Core API sample.
+- **FR-016**: Each new sample API MUST include its own DormantQL schema file and at least one
+  DormantQL query unit plus one DormantQL mutation unit, all syntactically consistent with the
+  current grammar and generated-code conventions.
+- **FR-017**: Each new sample API MUST expose HTTP endpoints that demonstrate the sample's read and
+  write units in a developer-inspectable way, while avoiding unsupported runtime scheduling,
+  recurrence, notification, authentication, or calendar behavior.
+- **FR-018**: README and `docs/` MUST document where the new sample API projects live, what each
+  sample demonstrates, how to build or run them, and any provider/container prerequisites or
+  caveats.
 
 ### Key Entities *(include if feature involves data)*
 
@@ -188,6 +221,9 @@ plans.
   authoritative inputs from which documentation content is synthesized.
 - **DormantQL examples**: Illustrative schema and query/mutation snippets embedded in the docs,
   each traceable to the grammar/conventions in the SpecKit artifacts.
+- **Sample API application**: A runnable ASP.NET Core API project under `samples/` that demonstrates
+  DormantQL in a recognizable problem space. Required sample applications for this feature are a
+  Todo/task-list API and a Scheduling task API.
 
 ## Success Criteria *(mandatory)*
 
@@ -209,6 +245,12 @@ plans.
 - **SC-006**: A reviewer reading the architecture documentation can reproduce the high-level
   component map and the dependency direction with no contradictions against the constitution or
   SpecKit plans.
+- **SC-007**: A developer reviewing the additional samples can identify one Todo API use case and
+  one Scheduling API use case, and 100% of those samples' DormantQL files pass the same
+  grammar/convention review applied to the core quickstart examples.
+- **SC-008**: Both new sample API projects build successfully in the standard local build workflow
+  or document a provider/environment prerequisite that explains why runtime execution was not
+  completed in this feature.
 
 ## Assumptions
 
@@ -220,14 +262,18 @@ plans.
 - **Source of truth**: SpecKit artifacts (001–005), the constitution, and CLAUDE.md are the
   authoritative inputs; where they conflict, the most recently decided design (latest clarifications)
   wins, and superseded framing is omitted.
-- **No end-to-end runtime verification required**: This feature delivers documentation; it does not
-  require standing up a provider/container to execute examples. Examples are validated for
-  grammatical/convention consistency, and any non-executed example is marked illustrative.
+- **Sample runtime verification**: The new API sample projects are expected to build with the
+  repository's standard workflow. End-to-end runtime execution may still depend on provider/container
+  availability; any such caveat is documented rather than hidden.
+- **Additional sample intent**: The Todo API is assumed to mean a small task-list domain
+  (tasks/items, completion state, owner or timestamps as appropriate). The Scheduling API is
+  assumed to mean a time-oriented task domain (scheduled item/job/appointment-style work with a
+  planned time and status), not a full scheduling engine.
 - **Format**: Documentation is authored as Markdown files (README at root, pages under `docs/`),
   consistent with existing repository conventions. Selection of any documentation-site
   tooling/generator is an implementation detail deferred to planning.
-- **Scope boundary**: This feature does not change product code, the generator, or the DormantQL
-  grammar; it only adds documentation describing the already-decided design.
+- **Scope boundary**: This feature may add sample application code and sample DormantQL files, but
+  it does not change product library code, the generator, providers, or the DormantQL grammar.
 - **Status honesty**: Because parts of the design are specified but not fully implemented,
   documentation reflects current reality and marks planned/deferred items, rather than implying a
   finished, fully shipped product.

@@ -70,6 +70,21 @@ units, use only documented grammar forms, and avoid obsolete `002` syntax. Requi
 - Show C# generated output exhaustively: rejected for README/getting-started; use focused snippets and link
   to the generated-code guide.
 
+## Decision: Add Todo and Scheduling as ASP.NET Core API sample applications
+
+**Rationale**: The updated spec requires examples beyond the minimal quickstart so developers can recognize
+DormantQL in familiar problem spaces, and the clarification specifies that these must be new ASP.NET API
+sample applications. Todo/task-list and Scheduling APIs should be small enough to review quickly, and they
+should demonstrate schema plus read/write DormantQL units behind HTTP endpoints without implying a runtime
+scheduling engine.
+
+**Alternatives considered**:
+
+- Add only documentation snippets: rejected because the clarification asks for new sample API applications.
+- Add only prose descriptions of Todo/Scheduling: rejected because FR-015 requires concrete DormantQL snippets.
+- Model recurrence, reminders, or calendar integrations: rejected because those capabilities are not grounded in
+  current SpecKit artifacts and would overstate product scope.
+
 ## Decision: Document provider status conservatively
 
 **Rationale**: Current source contains PostgreSQL provider and spatial companion projects. `005` specifies

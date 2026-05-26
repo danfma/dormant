@@ -41,6 +41,8 @@ The docs folder MUST:
 - Begin with `docs/index.md` that routes readers by task.
 - Include a first-success path ordered as prerequisites → package/reference approach → schema → query →
   mutation → generation/build → run/check.
+- Route readers to the Todo and Scheduling ASP.NET Core API sample projects and state their build/run
+  prerequisites.
 - Include schema and unit grammar explanations that match the current SpecKit grammar baseline.
 - Include architecture/design pages covering:
   - package/layer structure: Abstractions, Core, SourceGeneration, Provider.PostgreSql, Spatial.PostgreSql,
@@ -51,6 +53,26 @@ The docs folder MUST:
   - provider status and planned dialect framework;
   - constitution principles in developer-facing language.
 - Include `docs/speckit-sources.md` mapping each major doc topic to its source artifacts.
+
+## Sample API Contract
+
+The repository MUST include two additional ASP.NET Core API sample applications:
+
+| Sample | Required path | Required purpose |
+|--------|---------------|------------------|
+| Todo API | `samples/Dormant.Sample.TodoApi/` | Demonstrate a small task-list domain backed by DormantQL schema, query, and mutation units. |
+| Scheduling API | `samples/Dormant.Sample.SchedulingApi/` | Demonstrate a time-oriented scheduled-task domain backed by DormantQL schema, query, and mutation units. |
+
+Each sample API MUST:
+
+- Target the repository's supported .NET version.
+- Reference the same local Dormant packages/projects needed to exercise the generated DormantQL surface.
+- Include `.dqls` schema files and `.dql` query/mutation files as additional files for the generator.
+- Expose HTTP endpoints for at least one read flow and one write flow.
+- Build through the standard repository workflow, or document the exact provider/environment prerequisite that
+  prevents runtime verification.
+- Avoid authentication, recurrence engines, background schedulers, notifications, calendar integrations, and
+  any other feature not grounded in current SpecKit artifacts.
 
 ## Example Contract
 
@@ -103,6 +125,8 @@ Required status statements:
 
 - README overview/status → constitution, `001`, `002`, `003`, `004`, `005`, source layout.
 - Getting started examples → sample `.dqls`/`.dql` and `003` grammar contract.
+- Todo and Scheduling API samples → their sample project files, sample `.dqls`/`.dql`, and `003` grammar
+  contract.
 - Schema guide → `001` plan/data-model/contracts and sample schema.
 - Query/mutation guide → `003` grammar/generated-code contracts and `002` command design.
 - Generated-code naming → `001`/`003` plans and contracts.

@@ -17,6 +17,8 @@ specs/004-raw-string-sql/
 specs/005-sqlite-nmemory-providers/spec.md
 samples/Dormant.Sample.Quickstart/schema/app.dqls
 samples/Dormant.Sample.Quickstart/schema/app.dql
+samples/Dormant.Sample.TodoApi/
+samples/Dormant.Sample.SchedulingApi/
 ```
 
 ## 2. Create the docs files
@@ -55,7 +57,25 @@ specs/003-linq-dql-grammar/contracts/dql-grammar.md
 
 Do not use removed `002` forms.
 
-## 4. Label capability status
+## 4. Add the sample API applications
+
+Create two ASP.NET Core API sample projects:
+
+```text
+samples/Dormant.Sample.TodoApi/
+samples/Dormant.Sample.SchedulingApi/
+```
+
+Each sample API should include its own `.dqls` schema file and `.dql` units, with at least one query and one
+mutation. Keep the APIs intentionally small:
+
+- Todo API: task-list data, completion state, and simple ownership or timestamps as appropriate.
+- Scheduling API: scheduled task/job/appointment-style data with planned time and status.
+
+Do not add recurrence engines, background schedulers, notifications, authentication, or calendar integrations
+as part of these samples.
+
+## 5. Label capability status
 
 At minimum, make these distinctions:
 
@@ -63,9 +83,9 @@ At minimum, make these distinctions:
 - Raw string SQL literals in generated code: implemented if source/tests reflect `004`.
 - SQLite provider/dialect framework: planned from `005` unless implementation has landed.
 - NMemory: deferred future non-AOT provider.
-- Any unexecuted getting-started flow: illustrative, not verified by this docs-only feature.
+- Any runtime flow that cannot be executed without provider/container setup: documented with that caveat.
 
-## 5. Check links
+## 6. Check links
 
 List Markdown links and verify every relative file target exists:
 
@@ -75,13 +95,15 @@ rg -n '\]\(([^)#][^)]+)\)' README.md docs
 
 For each relative target, confirm the destination file exists. Avoid anchors unless needed.
 
-## 6. Check product build context
+## 7. Check product and sample build context
 
 If the local environment is ready, run:
 
 ```sh
 ./build.sh build
 ```
+
+Confirm the new sample API projects participate in the normal build or document the exact reason they cannot.
 
 For full verification, run:
 
@@ -91,11 +113,12 @@ For full verification, run:
 
 The full test path includes provider tests that require Docker for PostgreSQL.
 
-## 7. Final review checklist
+## 8. Final review checklist
 
 - README explains what Dormant is, why it exists, differentiators, status, and next docs links.
 - `docs/getting-started.md` has no forward references that block first success.
 - DormantQL examples use current `003` syntax.
+- Todo and Scheduling sample APIs build or have documented provider/runtime prerequisites.
 - Docs do not claim planned/deferred capabilities are shipped.
 - Major claims are traceable in `docs/speckit-sources.md`.
 - All documentation is in English.

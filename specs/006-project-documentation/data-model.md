@@ -14,6 +14,7 @@ implementation and review.
 - `pages`: collection of Documentation Page
 - `source_artifacts`: collection of SpecKit Source Artifact
 - `examples`: collection of DormantQL Example
+- `sample_api_applications`: collection of Sample API Application
 - `links`: collection of Documentation Link
 
 **Validation rules**:
@@ -22,6 +23,7 @@ implementation and review.
 - Must include `docs/index.md`.
 - Must be written in English.
 - Must distinguish implemented, planned, deferred, and illustrative capabilities.
+- Must include Todo/task-list and Scheduling task ASP.NET Core API sample applications.
 
 ## Entity: Documentation Page
 
@@ -94,6 +96,8 @@ implementation and review.
 - NMemory is Deferred.
 - PostgreSQL provider and current DormantQL grammar are Implemented where source/tests support them.
 - Unexecuted examples in this docs feature are marked Illustrative when appropriate.
+- Todo/task-list and Scheduling task sample APIs must be buildable sample projects unless provider/runtime
+  prerequisites prevent full execution in the local environment.
 
 ## Entity: DormantQL Example
 
@@ -115,6 +119,39 @@ implementation and review.
   type keywords, and supported operators.
 - `.dqls` examples must use `name: TypeExpr[?]` member syntax and required-by-default nullability rules.
 - C# snippets must avoid implying unimplemented package names or APIs unless clearly illustrative.
+
+## Entity: Sample API Application
+
+**Purpose**: A compact ASP.NET Core API sample project that shows DormantQL in a recognizable problem space
+beyond the minimal quickstart.
+
+**Fields**:
+
+- `name`: sample label shown to readers
+- `project_path`: repository-relative path under `samples/`
+- `docs_page_path`: documentation page describing or routing to the sample
+- `api_surface`: HTTP endpoints exposed by the sample
+- `schema_files`: DormantQL `.dqls` files included by the sample project
+- `unit_files`: DormantQL `.dql` files containing at least one query and one mutation
+- `build_status`: build verified or caveated
+- `runtime_caveats`: provider/container prerequisites, if any
+- `scope_notes`: what the sample intentionally does not claim
+- `source_basis`: grammar/spec/sample artifacts used to validate the example
+
+**Required sample API applications**:
+
+| Name | Project path | Intent | Required scope boundary |
+|------|--------------|--------|-------------------------|
+| Todo/task-list API | `samples/Dormant.Sample.TodoApi/` | Show a small task/item domain with completion state and simple ownership or timestamps as appropriate. | Do not imply task-management product features beyond the shown API, schema, and units. |
+| Scheduling task API | `samples/Dormant.Sample.SchedulingApi/` | Show a time-oriented task/job/appointment-style domain with planned time and status. | Do not imply recurrence, background execution, notifications, authentication, or calendar integrations. |
+
+**Validation rules**:
+
+- Each required sample API must include one schema file and at least one query unit plus one mutation unit.
+- Each DormantQL file must satisfy the DormantQL Example validation rules.
+- Each sample API project must build in the standard local workflow, or document the provider/environment
+  prerequisite that prevents runtime verification.
+- Scheduling APIs must represent scheduled data, not a runtime scheduler.
 
 ## Entity: Documentation Link
 

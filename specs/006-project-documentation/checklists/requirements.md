@@ -36,3 +36,9 @@
   grammar, SpecKit specs, the constitution). These are the *subject matter* being documented, not
   an implementation prescription for the documentation feature itself; choice of doc tooling/format
   is explicitly deferred to planning (see Assumptions). All items pass.
+- Update 2026-05-26: added Todo/task-list and Scheduling task sample requirements. Revalidated
+  checklist items remain passing: the new requirements are testable, bounded to documentation
+  samples, status-labeled as verified or illustrative, and contain no clarification markers.
+- Clarification 2026-05-26: Todo and Scheduling samples are now required as ASP.NET Core API sample
+  applications. The explicit technology choice comes from user clarification, is scoped to samples,
+  and does not change product library/generator/provider behavior. Revalidation remains passing.
