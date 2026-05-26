@@ -357,7 +357,28 @@ internal sealed class UnitParser
             }
         }
 
-        // TODO(003): `returning`, multi-command sequences, and `with` bindings are deferred follow-ups.
+        // 003 (T015): an optional `returning` clause shapes the result (insert only in this slice). On
+        // update/delete it needs RETURNING in the UPDATE/DELETE IR — a deferred follow-up. Multi-command
+        // sequences and `with` bindings are also deferred (T016).
+        ReturningShape? returning = null;
+        if (IsKeyword("returning"))
+        {
+            _pos++;
+            if (kind != CommandKind.Insert)
+            {
+                Error("'returning' on update/delete is not supported yet (deferred)");
+                RecoverToUnitEnd();
+                return null;
+            }
+
+            returning = ParseReturning(alias);
+            if (returning is null)
+            {
+                RecoverToUnitEnd();
+                return null;
+            }
+        }
+
         while (Current.Kind != TokenKind.RightBrace && Current.Kind != TokenKind.EndOfFile)
         {
             if (Current.Kind == TokenKind.Semicolon)
@@ -366,10 +387,10 @@ internal sealed class UnitParser
                 continue;
             }
 
-            if (IsKeyword("returning") || IsKeyword("with") || IsKeyword("insert") ||
-                IsKeyword("update") || IsKeyword("delete") || IsKeyword("from"))
+            if (IsKeyword("with") || IsKeyword("insert") || IsKeyword("update") ||
+                IsKeyword("delete") || IsKeyword("from") || IsKeyword("returning"))
             {
-                Error($"'{Current.Text}' is not supported yet in a mutation body (deferred: returning/multi-command/with)");
+                Error($"'{Current.Text}' is not supported yet in a mutation body (deferred: multi-command/with; at most one returning per command)");
                 RecoverToUnitEnd();
                 return null;
             }
@@ -388,7 +409,8 @@ internal sealed class UnitParser
             alias,
             new EquatableArray<QueryParameter>([.. parameters]),
             new EquatableArray<Assignment>([.. assignments]),
-            new EquatableArray<FilterCondition>([.. filters]));
+            new EquatableArray<FilterCondition>([.. filters]),
+            returning);
     }
 
     // alias := IDENT (required; missing → ORM021). A reserved clause/keyword token cannot be an alias (so
@@ -670,6 +692,59 @@ internal sealed class UnitParser
 
         Error($"expected an alias or a '{{ … }}' projection after 'select' but found '{Describe(Current)}'");
         return false;
+    }
+
+    // returning := alias | '{' member (','? member)* '}' | alias '.' member  (mirrors select + a scalar form)
+    private ReturningShape? ParseReturning(string alias)
+    {
+        if (Current.Kind == TokenKind.LeftBrace)
+        {
+            _pos++; // '{'
+            var members = new List<string>();
+            while (Current.Kind != TokenKind.RightBrace && Current.Kind != TokenKind.EndOfFile)
+            {
+                var member = ParseMemberRef(alias);
+                if (member is null)
+                {
+                    return null;
+                }
+
+                members.Add(member);
+                if (Current.Kind == TokenKind.Comma)
+                {
+                    _pos++;
+                }
+            }
+
+            return Expect(TokenKind.RightBrace, "'}' to close the returning projection")
+                ? new ReturningShape(ReturningKind.Projection, new EquatableArray<string>([.. members]))
+                : null;
+        }
+
+        if (Current.Kind != TokenKind.Identifier)
+        {
+            Error($"expected an alias or a '{{ … }}' projection after 'returning' but found '{Describe(Current)}'");
+            return null;
+        }
+
+        // `returning alias.member` → scalar; `returning alias` → full entity.
+        if (Peek().Kind == TokenKind.Dot)
+        {
+            var member = ParseMemberRef(alias);
+            return member is null
+                ? null
+                : new ReturningShape(ReturningKind.Scalar, new EquatableArray<string>([member]));
+        }
+
+        var selected = Current.Text;
+        _pos++;
+        if (selected != alias)
+        {
+            _diagnostics.Add(Located(DiagnosticDescriptors.UndeclaredAlias, _tokens[_pos - 1], selected));
+            return null;
+        }
+
+        return new ReturningShape(ReturningKind.Entity, new EquatableArray<string>([]));
     }
 
     // '{' (member '=' value)* '}' — assignments are alias-qualified; '=' is assignment.

@@ -58,4 +58,50 @@ public sealed class CommandEmitTests
         await Assert.That(generated).Contains("new global::Dormant.Abstractions.Querying.CompiledCommand<Widget>(statement, static reader => new Widget(reader))");
         await Assert.That(generated).Contains("session.ExecuteCommandAsync(command, cancellationToken)");
     }
+
+    private static string RunWith(string commands)
+    {
+        var driver = GeneratorTestHarness.CreateDriver(
+            new TestAdditionalText("schema/catalog.dqls", Schema),
+            new TestAdditionalText("schema/catalog.dql", commands));
+        driver = driver.RunGenerators(CSharpCompilation.Create("Tests"));
+        return string.Join(
+            "\n",
+            driver.GetRunResult().Results.SelectMany(r => r.GeneratedSources).Select(s => s.SourceText.ToString()));
+    }
+
+    // 003 T015/FR-017: `returning alias` shapes the result as the full entity (the default shape, made explicit).
+    [Test]
+    public async Task Insert_returning_entity_emits_entity_result()
+    {
+        var generated = RunWith(
+            "module catalog;\nmutation create_widget(id: uuid, name: string, quantity: int) { insert Widget w { w.id = id w.name = name w.quantity = quantity } returning w }");
+
+        await Assert.That(generated).Contains("global::System.Threading.Tasks.ValueTask<Widget> CreateWidget(");
+        await Assert.That(generated).Contains("RETURNING \\\"id\\\", \\\"name\\\", \\\"quantity\\\"");
+    }
+
+    // 003 T015/FR-017: `returning alias.member` shapes a scalar result (RETURNING one column, read column 0).
+    [Test]
+    public async Task Insert_returning_scalar_emits_scalar_result()
+    {
+        var generated = RunWith(
+            "module catalog;\nmutation create_widget(id: uuid, name: string, quantity: int) { insert Widget w { w.id = id w.name = name w.quantity = quantity } returning w.id }");
+
+        await Assert.That(generated).Contains("global::System.Threading.Tasks.ValueTask<global::System.Guid> CreateWidget(");
+        await Assert.That(generated).Contains("VALUES ($1, $2, $3) RETURNING \\\"id\\\"");
+        await Assert.That(generated).Contains("reader.GetValue<global::System.Guid>(0)");
+    }
+
+    // 003 T015/FR-017: `returning { … }` shapes a distinct projection record exposing exactly those members.
+    [Test]
+    public async Task Insert_returning_projection_emits_distinct_record()
+    {
+        var generated = RunWith(
+            "module catalog;\nmutation create_widget(id: uuid, name: string, quantity: int) { insert Widget w { w.id = id w.name = name w.quantity = quantity } returning { w.id, w.name } }");
+
+        await Assert.That(generated).Contains("public sealed record CreateWidgetResult(global::System.Guid Id, string Name);");
+        await Assert.That(generated).Contains("global::System.Threading.Tasks.ValueTask<CreateWidgetResult> CreateWidget(");
+        await Assert.That(generated).Contains("RETURNING \\\"id\\\", \\\"name\\\"");
+    }
 }

@@ -38,6 +38,7 @@ internal enum CommandKind
 /// <param name="Parameters">Declared parameters, in source order.</param>
 /// <param name="Assignments">Column assignments (<c>alias.col = expr</c>), in source order (insert/update).</param>
 /// <param name="Filters">WHERE conditions for <c>update</c>/<c>delete</c> (incl. concurrency-token match).</param>
+/// <param name="Returning">Optional explicit result shape (003 FR-017); <see langword="null"/> ⇒ default inference.</param>
 internal sealed record CommandModel(
     string Name,
     CommandKind Kind,
@@ -45,7 +46,26 @@ internal sealed record CommandModel(
     string Alias,
     EquatableArray<QueryParameter> Parameters,
     EquatableArray<Assignment> Assignments,
-    EquatableArray<FilterCondition> Filters = default);
+    EquatableArray<FilterCondition> Filters = default,
+    ReturningShape? Returning = null);
+
+/// <summary>The shape of an explicit <c>returning</c> clause (003 FR-017) — mirrors <c>select</c>.</summary>
+internal enum ReturningKind
+{
+    /// <summary><c>returning alias</c> — the full immutable entity.</summary>
+    Entity,
+
+    /// <summary><c>returning { alias.a, alias.b }</c> — a distinct projection type.</summary>
+    Projection,
+
+    /// <summary><c>returning alias.field</c> — a single scalar value.</summary>
+    Scalar,
+}
+
+/// <summary>An explicit mutation <c>returning</c> shape. <see cref="Members"/> is empty for
+/// <see cref="ReturningKind.Entity"/>, a single member for <see cref="ReturningKind.Scalar"/>, and the
+/// projected members for <see cref="ReturningKind.Projection"/> (FR-008/FR-017).</summary>
+internal sealed record ReturningShape(ReturningKind Kind, EquatableArray<string> Members);
 
 /// <summary>A column assignment in a command body: <c>column := value</c>.</summary>
 /// <param name="Column">The target column (DSL member name).</param>

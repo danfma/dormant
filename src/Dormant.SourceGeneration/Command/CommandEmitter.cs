@@ -29,6 +29,7 @@ internal static class CommandEmitter
     {
         var diagnostics = new List<DiagnosticInfo>();
         var bodies = new List<string>();
+        var projections = new List<string>();
 
         foreach (var command in file.Commands)
         {
@@ -43,7 +44,11 @@ internal static class CommandEmitter
                 continue;
             }
 
-            bodies.Add(EmitMethod(command, entry.Entity, entry.Schema, convention));
+            bodies.Add(EmitMethod(command, entry.Entity, entry.Schema, convention, out var projection));
+            if (projection is not null)
+            {
+                projections.Add(projection);
+            }
         }
 
         if (bodies.Count == 0)
@@ -70,6 +75,12 @@ internal static class CommandEmitter
         }
 
         writer.Close().Close().Line();
+
+        foreach (var projection in projections)
+        {
+            writer.Line(projection);
+        }
+
         return (writer.ToString(), diagnostics);
     }
 
@@ -109,20 +120,36 @@ internal static class CommandEmitter
             }
         }
 
+        if (command.Returning is { } returning)
+        {
+            foreach (var member in returning.Members)
+            {
+                if (!columns.Contains(member))
+                {
+                    diagnostics.Add(Diag(DiagnosticDescriptors.UnknownQueryColumn, filePath, command.Name, member, entity.Name));
+                    ok = false;
+                }
+            }
+        }
+
         return ok;
     }
 
-    private static string EmitMethod(CommandModel command, EntityModel entity, string schema, NamingConvention convention) =>
-        command.Kind switch
+    private static string EmitMethod(CommandModel command, EntityModel entity, string schema, NamingConvention convention, out string? projection)
+    {
+        projection = null;
+        return command.Kind switch
         {
-            CommandKind.Insert => EmitInsert(command, entity, schema, convention),
+            CommandKind.Insert => EmitInsert(command, entity, schema, convention, out projection),
             CommandKind.Update => EmitUpdate(command, entity, schema, convention),
             CommandKind.Delete => EmitDelete(command, entity, schema, convention),
             _ => throw new System.NotSupportedException($"Unknown command kind: {command.Kind}"),
         };
+    }
 
-    private static string EmitInsert(CommandModel command, EntityModel entity, string schema, NamingConvention convention)
+    private static string EmitInsert(CommandModel command, EntityModel entity, string schema, NamingConvention convention, out string? projection)
     {
+        projection = null;
         var table = new TableRef(schema, Col(entity.Name, entity.NameOverride, convention));
         var binds = new List<string>();
         var p = 0;
@@ -136,6 +163,63 @@ internal static class CommandEmitter
         }
 
         var columns = string.Join(", ", assignedColumns.Select(c => "\"" + c.Name + "\""));
+
+        // 003 (T015/FR-017): the result shape is the `returning` clause, defaulting to the full entity.
+        //  - Entity   → ValueTask<Entity>,        RETURNING all columns, materialize via the entity ctor.
+        //  - Scalar   → ValueTask<Clr>,           RETURNING one column,  read column 0.
+        //  - Projection → ValueTask<{Method}Result>, RETURNING the members, materialize a distinct record.
+        var shape = command.Returning;
+        if (shape is { Kind: ReturningKind.Scalar })
+        {
+            var property = entity.Properties.First(x => x.Name == shape.Members[0]);
+            var clr = property.IsNullable ? property.ClrType + "?" : property.ClrType;
+            var sqlScalar = $"INSERT INTO {QualifiedTable(table)} ({columns}) VALUES ({string.Join(", ", valueTokens)}) RETURNING \"{Col(property.Name, property.NameOverride, convention)}\"";
+            var read = property.IsNullable ? $"reader.IsNull(0) ? null : reader.GetValue<{property.ClrType}>(0)" : $"reader.GetValue<{property.ClrType}>(0)";
+            var ws = OpenMethod(command, $"global::System.Threading.Tasks.ValueTask<{clr}>");
+            EmitStatement(ws, sqlScalar, binds);
+            ws
+                .Line($"var command = new {Abs}.Querying.CompiledCommand<{clr}>(statement, static reader => {read});")
+                .Line("return await session.ExecuteCommandAsync(command, cancellationToken).ConfigureAwait(false);")
+                .Close();
+            return ws.ToString().TrimEnd('\n');
+        }
+
+        if (shape is { Kind: ReturningKind.Projection })
+        {
+            var resultType = Naming.ToPascalCase(command.Name) + "Result";
+            var members = shape.Members.ToArray();
+            var returnCols = string.Join(", ", members.Select(m =>
+            {
+                var prop = entity.Properties.First(x => x.Name == m);
+                return "\"" + Col(prop.Name, prop.NameOverride, convention) + "\"";
+            }));
+            var sqlProj = $"INSERT INTO {QualifiedTable(table)} ({columns}) VALUES ({string.Join(", ", valueTokens)}) RETURNING {returnCols}";
+
+            var recordFields = members.Select(m =>
+            {
+                var prop = entity.Properties.First(x => x.Name == m);
+                var clr = prop.IsNullable ? prop.ClrType + "?" : prop.ClrType;
+                return $"{clr} {Naming.ToPascalCase(m)}";
+            });
+            projection = $"public sealed record {resultType}({string.Join(", ", recordFields)});";
+
+            var args = members.Select((m, i) =>
+            {
+                var prop = entity.Properties.First(x => x.Name == m);
+                var read = $"reader.GetValue<{prop.ClrType}>({i})";
+                return prop.IsNullable ? $"reader.IsNull({i}) ? null : {read}" : read;
+            });
+
+            var wp = OpenMethod(command, $"global::System.Threading.Tasks.ValueTask<{resultType}>");
+            EmitStatement(wp, sqlProj, binds);
+            wp
+                .Line($"var command = new {Abs}.Querying.CompiledCommand<{resultType}>(statement, static reader => new {resultType}({string.Join(", ", args)}));")
+                .Line("return await session.ExecuteCommandAsync(command, cancellationToken).ConfigureAwait(false);")
+                .Close();
+            return wp.ToString().TrimEnd('\n');
+        }
+
+        // Default / `returning alias` → full immutable entity.
         var returning = string.Join(", ", entity.Properties.Select(x => "\"" + Col(x.Name, x.NameOverride, convention) + "\""));
         var sql = $"INSERT INTO {QualifiedTable(table)} ({columns}) VALUES ({string.Join(", ", valueTokens)}) RETURNING {returning}";
 
