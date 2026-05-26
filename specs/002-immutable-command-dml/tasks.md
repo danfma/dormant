@@ -117,9 +117,9 @@ commands; removes the mutable session + change-tracking). Paths below are reused
 
 ## Phase 10: Polish & Cross-Cutting Concerns
 
-- [ ] T036 [P] Carry naming (snake_case + overrides), schema-qualified DDL + `EnsureCreatedAsync`, and jsonb (`::jsonb` cast) forward; confirm green for commands too (FR-014/FR-016)
-- [ ] T037 [P] AOT smoke: extend `tests/Dormant.Aot.SmokeTests` to root commands (insert/nested/update) → zero library-originated warnings (FR-015/SC-006)
-- [ ] T038 [P] Update `samples/Dormant.Sample.Quickstart` (immutable entities + authored commands) and validate the quickstart end-to-end vs a live container (SC-008)
+- [X] T036 [P] Carry naming (snake_case + overrides), schema-qualified DDL + `EnsureCreatedAsync`, and jsonb (`::jsonb` cast) forward; confirm green for commands too (FR-014/FR-016)
+- [X] T037 [P] AOT smoke: extend `tests/Dormant.Aot.SmokeTests` to root commands (insert/nested/update) → zero library-originated warnings (FR-015/SC-006)
+- [X] T038 [P] Update `samples/Dormant.Sample.Quickstart` (immutable entities + authored commands) and validate the quickstart end-to-end vs a live container (SC-008)
 - [ ] T039 [P] PublicApiAnalyzers baselines for the reduced public surface (`ISession`, `CompiledCommand`/`CompiledQuery`, `DormantPostgres`) (Constitution II)
 - [ ] T040 Generator determinism + cacheability tests for the command path (Verify snapshots + `WithTrackingName`) in `tests/Dormant.SourceGeneration.Tests/`
 - [ ] T041 Remove dead `001` code (snapshot structs, change-tracker remnants) and run the full suite (`./build.sh test`) green
