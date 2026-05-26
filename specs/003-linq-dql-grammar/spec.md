@@ -62,7 +62,28 @@ identifiers change.
 - Q: In a **multi-command** mutation (several writes plus an optional trailing read), what determines the
   unit's result type? → A: The **trailing statement** — the last `returning`/read (`from … select …`)
   expression sets the result type; if neither is present, the default inference applies. **`with`-bindings
-  flow values between commands** (FR-017).
+  flow values between commands** (FR-017). *(Superseded by the 2026-05-26 session: the "multi-command
+  sequence" framing is replaced by a `with`-block + single terminal `select`.)*
+
+### Session 2026-05-26
+
+- Q: How is a single reference (`author: User`) persisted and written, to enable parent→child id flow? → A:
+  The generator emits a **`<ref>_id` foreign-key column** (typed as the target's primary key) in the entity's
+  `CREATE TABLE`, written by a command via `alias.ref = <expr>` (a parameter or a `with`-bound result). The
+  entity keeps its read-side `Ref<T>` navigation member; no shadow `{Ref}Id` property. This is `002` FR-019,
+  now owned/implemented by `003` (FR-020). It is the prerequisite that unblocks the `with` value-flow.
+- Q: What does a `with` binding (`with u = (insert User …)`) bind? → A: The bound name carries the
+  expression's **result object** (`u.*`), usable as a projectable value (`u.field`) and composable into the
+  terminal projection; **in a reference/FK context (`p.author = u`) it is semantically resolved to the
+  target's primary key (id)**. It is not a bare scalar — the object is bound and coerced to its id only where
+  a ref is expected (FR-021).
+- Q: What is the multi-statement authoring + execution model (given future non-PostgreSQL providers may lack
+  `WITH`/CTEs)? → A: A unit is **zero-or-more `with name = (expr)` bindings followed by a single terminal
+  `select`/return** (the EdgeQL shape), **replacing** the earlier "multi-command sequence + trailing read".
+  Each `with`-bound expression (`insert`/`update`/`delete`/`select`) executes as its **own SQL statement, in
+  declaration order, within the session transaction** — provider-portable, **NOT** dependent on a single
+  data-modifying CTE. The terminal `select { a.x, b.y, c }` composes the unit result from the bound names.
+  Single-round-trip CTE remains a deferred PostgreSQL-only optimization (`002` US2) (FR-017, FR-022).
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -262,9 +283,24 @@ addition, and that all `002` semantics still pass on the new front-end. Depends 
   names follow `002`'s existing snake_case-DQL → PascalCase-C# convention.
 - **FR-017**: A `mutation` MUST support shaping a richer result via (a) a **`returning <expr>` clause** whose
   expression mirrors `select` — `returning alias` (full entity), `returning { alias.f, … }` (projection),
-  `returning alias.field` (scalar) — and/or (b) **multi-command** blocks containing more than one write
-  and/or a trailing read, with **`with`-bindings flowing values between commands**. The unit's result type is
-  the trailing statement's shape (per FR-008).
+  `returning alias.field` (scalar); and/or (b) a **`with` block + single terminal `select`/return**: zero or
+  more `with name = (insert|update|delete|select …)` bindings followed by one terminal `select` that composes
+  the unit result from the bound names. This **replaces** the earlier "multi-command sequence + trailing read"
+  framing. The unit's result type is the terminal statement's shape (per FR-008). *(Returning shaping —
+  clause (a) — is implemented; the `with`-block — clause (b) — depends on FR-020 and is the remaining work,
+  ex-T016.)*
+- **FR-020**: For each single reference member (`ref: Target`), the generator MUST emit a **`<ref>_id`
+  foreign-key column** (typed as the target's primary key) in the entity's `CREATE TABLE`, writable by a
+  command via `alias.ref = <expr>`. The entity keeps its read-side `Ref<T>` navigation member; no shadow
+  `{Ref}Id` property is added. (Implements `002` FR-019, the prerequisite for `with` value-flow.)
+- **FR-021**: A `with name = (expr)` binding MUST carry the expression's **result object**, usable as a
+  projectable value (`name.field`) and composable into the terminal `select`. In a reference/FK context
+  (`alias.ref = name`) the binding MUST be semantically resolved to the target's **primary key (id)** — not
+  treated as a bare scalar elsewhere.
+- **FR-022**: A unit's `with`-bound expressions MUST execute as **separate SQL statements, in declaration
+  order, within the session transaction** — provider-portable and **NOT** dependent on a single data-modifying
+  CTE (so future non-PostgreSQL providers run them as multiple commands). A single-round-trip CTE is a
+  deferred PostgreSQL-only optimization (`002` US2).
 
 ### Key Entities *(include if feature involves data)*
 
@@ -327,18 +363,18 @@ addition, and that all `002` semantics still pass on the new front-end. Depends 
   forms (`and`, `or`, `not`), per the "C#/TypeScript operators" intent.
 - Scalar type keywords stay language-neutral for DB concepts (`uuid`, `datetime`, `date`, `json`) because C#
   (`Guid`/`DateTime`/`DateOnly`) and TypeScript lack a single shared name; primitives align to C# names.
-- The **`with`-binding mechanism** (EdgeQL `with` keyword) is in scope for **multi-command sequencing** —
-  binding a value or a command's result for reuse by later commands and the `returning`/trailing read
-  (FR-017). What is deferred is **single-statement nested/multi-subject writes compiled to one round-trip**
-  (the data-modifying CTE of `002` US2): in v1 a `mutation` may contain a sequence of commands, but the
-  one-round-trip nesting of a parent+child in a single `insert` is a follow-up.
+- The **`with`-binding mechanism** (EdgeQL `with` keyword) is in scope as a **`with` block + single terminal
+  `select`** (FR-017/FR-021/FR-022): bind `with name = (insert|update|delete|select …)` and compose the
+  terminal `select` from the bound names; each binding runs as its own SQL statement in the transaction
+  (portable, not CTE-bound). What is deferred is **single-statement nested/multi-subject writes compiled to
+  one round-trip** (the data-modifying CTE of `002` US2) — a PostgreSQL-only optimization of the same shape.
 - C# 14 / .NET 10; target user is a .NET application developer; there is no end-user UI for the ORM itself.
 
 ## Out of Scope (v1 of this grammar)
 
 - **Single-statement** nested/multi-subject writes compiled to one round-trip (the data-modifying CTE of
-  `002` US2) — deferred to a follow-up. (Multi-**command** sequences with `with`-bindings and a trailing
-  read/`returning` are **in scope** — FR-017.)
+  `002` US2) — deferred to a follow-up. (The **`with` block + single terminal `select`** — executed as
+  separate per-binding SQL statements — is **in scope** — FR-017/FR-022.)
 - Dynamic/runtime DQL and dynamic mapping (deferred to the future "macros" feature).
 - Joins across multiple subjects, set algebra, polymorphic/backlink queries, and other advanced EdgeQL
   features beyond the single-subject read/write surface.
