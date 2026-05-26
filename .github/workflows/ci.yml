@@ -67,7 +67,9 @@ jobs:
         run: dotnet test --solution Dormant.slnx -c Release --no-build
 
       - name: Publish AOT Smoke Tests
-        run: dotnet publish tests/Dormant.Aot.SmokeTests/Dormant.Aot.SmokeTests.csproj -r linux-x64 -c Release /p:PublishAot=true -o ./publish-aot
+        # PublishAot is set in the project; passing it on the CLI makes it a global property that
+        # also hits the netstandard2.0 source generator (NETSDK1207). Let the csproj own it.
+        run: dotnet publish tests/Dormant.Aot.SmokeTests/Dormant.Aot.SmokeTests.csproj -r linux-x64 -c Release -o ./publish-aot
 
       - name: Run AOT Smoke Tests
         run: ./publish-aot/Dormant.Aot.SmokeTests
