@@ -23,10 +23,12 @@ public sealed class OptionalParamTypeTests
     private const string Queries = """
         module catalog;
 
-        query SearchWidgets(minQuantity: optional int, name: optional str) =
-          select Widget
-          filter .quantity >= minQuantity and .name = name
-          order by .name asc;
+        query search_widgets(minQuantity: optional int, name: optional string) {
+          from Widget w
+          where w.quantity >= minQuantity && w.name == name
+          order by w.name asc
+          select w
+        }
         """;
 
     private static string Run()

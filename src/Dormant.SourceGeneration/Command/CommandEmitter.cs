@@ -214,10 +214,12 @@ internal static class CommandEmitter
 
     private static SourceWriter OpenMethod(CommandModel command, string returnType)
     {
+        // 003: the authored snake_case unit name becomes a PascalCase C# method.
+        var methodName = Naming.ToPascalCase(command.Name);
         var declared = string.Join(", ", command.Parameters.Select(x => $"{x.ClrType} {x.Name}"));
         var parameterList = declared.Length > 0 ? declared + ", " : string.Empty;
         return new SourceWriter()
-            .Open($"public async {returnType} {command.Name}({parameterList}global::System.Threading.CancellationToken cancellationToken = default)");
+            .Open($"public async {returnType} {methodName}({parameterList}global::System.Threading.CancellationToken cancellationToken = default)");
     }
 
     private static void EmitStatement(SourceWriter w, string sql, List<string> binds)
@@ -253,6 +255,7 @@ internal static class CommandEmitter
     private static string OperatorSql(CompareOp op) => op switch
     {
         CompareOp.Eq => "=",
+        CompareOp.Neq => "<>",
         CompareOp.Lt => "<",
         CompareOp.Gt => ">",
         CompareOp.Le => "<=",

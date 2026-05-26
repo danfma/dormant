@@ -149,11 +149,14 @@ internal static class QueryEmitter
 
     private static string EmitMethod(QueryModel query, EntityModel entity, string schema, NamingConvention convention, out string? projection)
     {
+        // 003: the authored snake_case unit name becomes a PascalCase C# method; the projection record
+        // mirrors it ({Method}Result).
+        var methodName = Naming.ToPascalCase(query.Name);
         string resultType;
         string materializer;
         if (query.IsProjection)
         {
-            resultType = query.Name + "Result";
+            resultType = methodName + "Result";
             projection = BuildProjectionRecord(resultType, query, entity);
             materializer = BuildProjectionMaterializer(resultType, query, entity);
         }
@@ -179,7 +182,7 @@ internal static class QueryEmitter
 
         // Inside the extension block the receiver `session` is implicit — no `this` parameter.
         var writer = new SourceWriter()
-            .Open($"public global::System.Collections.Generic.IAsyncEnumerable<{resultType}> {query.Name}({parameterList}global::System.Threading.CancellationToken cancellationToken = default)");
+            .Open($"public global::System.Collections.Generic.IAsyncEnumerable<{resultType}> {methodName}({parameterList}global::System.Threading.CancellationToken cancellationToken = default)");
 
         if (dynamic)
         {
@@ -410,6 +413,7 @@ internal static class QueryEmitter
     private static string OperatorSql(CompareOp op) => op switch
     {
         CompareOp.Eq => "=",
+        CompareOp.Neq => "<>",
         CompareOp.Lt => "<",
         CompareOp.Gt => ">",
         CompareOp.Le => "<=",

@@ -1,13 +1,27 @@
 module smoke;
 
-command CreateItem(id: uuid, name: str, quantity: int, tags: json, version: int) =
-  insert Item { id := id, name := name, quantity := quantity, tags := tags, version := version };
+mutation create_item(id: uuid, name: string, quantity: int, tags: json, version: int) {
+  insert Item i {
+    i.id = id
+    i.name = name
+    i.quantity = quantity
+    i.tags = tags
+    i.version = version
+  }
+}
 
-query ItemsByName(name: str) =
-  select Item
-  filter .name = name
-  order by .name asc;
+query items_by_name(name: string) {
+  from Item i
+  where i.name == name
+  order by i.name asc
+  select i
+}
 
-query ItemNames(min: optional int) =
-  select Item { id, name }
-  filter .quantity >= min;
+query item_names(min: optional int) {
+  from Item i
+  where i.quantity >= min
+  select {
+    i.id
+    i.name
+  }
+}

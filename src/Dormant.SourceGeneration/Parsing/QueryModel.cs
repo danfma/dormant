@@ -17,18 +17,20 @@ internal sealed record QueryFile(
     public bool IsValid => Diagnostics.Count == 0;
 }
 
-/// <summary>A single declared query (v1 MVP: select full entity or flat scalar projection + filter/order/limit).</summary>
-/// <param name="Name">The query name (becomes the generated method name).</param>
-/// <param name="RootEntity">The entity being selected.</param>
+/// <summary>A single declared query (003: <c>from Entity alias [where …] [order by …] select …</c>).</summary>
+/// <param name="Name">The unit's authored snake_case name (becomes a PascalCase method via <see cref="Emit.Naming.ToPascalCase"/>).</param>
+/// <param name="RootEntity">The entity being selected (the <c>from</c> subject).</param>
+/// <param name="Alias">The subject alias declared in <c>from Entity alias</c> (003 — member refs are alias-qualified).</param>
 /// <param name="Parameters">Declared parameters, in source order.</param>
 /// <param name="ProjectionFields">Projected field names; empty ⇒ full-entity result.</param>
-/// <param name="Filters">Conjunctive filter conditions (ANDed).</param>
+/// <param name="Filters">Conjunctive filter conditions (ANDed; the <c>where … &amp;&amp; …</c> chain).</param>
 /// <param name="OrderBy">Order-by terms, in source order.</param>
-/// <param name="Limit">Optional LIMIT (literal or parameter).</param>
-/// <param name="Offset">Optional OFFSET (literal or parameter).</param>
+/// <param name="Limit">Optional LIMIT (literal or parameter). // TODO(003): no surface grammar yet; always null.</param>
+/// <param name="Offset">Optional OFFSET (literal or parameter). // TODO(003): no surface grammar yet; always null.</param>
 internal sealed record QueryModel(
     string Name,
     string RootEntity,
+    string Alias,
     EquatableArray<QueryParameter> Parameters,
     EquatableArray<string> ProjectionFields,
     EquatableArray<FilterCondition> Filters,
@@ -50,8 +52,11 @@ internal sealed record QueryParameter(string Name, string DslType, string ClrTyp
 /// <summary>A comparison operator usable in a filter condition (FR-032, MVP subset).</summary>
 internal enum CompareOp
 {
-    /// <summary><c>=</c></summary>
+    /// <summary><c>==</c> (renders SQL <c>=</c>)</summary>
     Eq,
+
+    /// <summary><c>!=</c> (renders SQL <c>&lt;&gt;</c>)</summary>
+    Neq,
 
     /// <summary><c>&lt;</c></summary>
     Lt,

@@ -37,7 +37,7 @@ public sealed class CommandConcurrencyTests
             await Assert.That(affected).IsEqualTo(1);
         }
 
-        // Second writer is stale (filter .version = 0 matches no row) → 0 affected.
+        // Second writer is stale (where a.version == 0 matches no row) → 0 affected.
         await using (var session = await factory.OpenSessionAsync())
         {
             var affected = await session.BumpAccountBalance(id, 200, 0, 1);

@@ -1,41 +1,75 @@
 module catalog;
 
-# 002 fork: authored write commands → INSERT … RETURNING, materialize the inserted row.
-command CreateWidget(id: uuid, name: str, quantity: int) =
-  insert Widget { id := id, name := name, quantity := quantity };
+# Authored write mutations → INSERT … RETURNING, materialize the inserted row.
+mutation create_widget(id: uuid, name: string, quantity: int) {
+  insert Widget w {
+    w.id = id
+    w.name = name
+    w.quantity = quantity
+  }
+}
 
-command CreateAccount(id: uuid, balance: int, version: int) =
-  insert Account { id := id, balance := balance, version := version };
+mutation create_account(id: uuid, balance: int, version: int) {
+  insert Account a {
+    a.id = id
+    a.balance = balance
+    a.version = version
+  }
+}
 
-command CreateStockItem(id: uuid, itemName: str) =
-  insert StockItem { id := id, itemName := itemName };
+mutation create_stock_item(id: uuid, itemName: string) {
+  insert StockItem s {
+    s.id = id
+    s.itemName = itemName
+  }
+}
 
-command CreateDocument(id: uuid, data: json) =
-  insert Document { id := id, data := data };
+mutation create_document(id: uuid, data: json) {
+  insert Document d {
+    d.id = id
+    d.data = data
+  }
+}
 
 # update with optimistic concurrency: matches the expected version; stale → 0 rows affected.
-command BumpAccountBalance(id: uuid, balance: int, expectedVersion: int, newVersion: int) =
-  update Account filter .id = id and .version = expectedVersion
-  set { balance := balance, version := newVersion };
+mutation bump_account_balance(id: uuid, balance: int, expectedVersion: int, newVersion: int) {
+  update Account a
+  where a.id == id && a.version == expectedVersion
+  set {
+    a.balance = balance
+    a.version = newVersion
+  }
+}
 
-command DeleteWidget(id: uuid) =
-  delete Widget filter .id = id;
+mutation delete_widget(id: uuid) {
+  delete Widget w
+  where w.id == id
+}
 
 # Full-entity query: returns Widget with all mapped columns (FR-006).
-query WidgetsByMinQuantity(min: int) =
-  select Widget
-  filter .quantity >= min
-  order by .quantity desc;
+query widgets_by_min_quantity(min: int) {
+  from Widget w
+  where w.quantity >= min
+  order by w.quantity desc
+  select w
+}
 
 # Flat projection: a distinct type exposing exactly id + name (FR-007/FR-008).
-query WidgetNames(min: int) =
-  select Widget { id, name }
-  filter .quantity >= min
-  order by .name asc;
+query widget_names(min: int) {
+  from Widget w
+  where w.quantity >= min
+  order by w.name asc
+  select {
+    w.id
+    w.name
+  }
+}
 
 # Optional parameters (FR-012/FR-031): each filter is included only when its parameter is supplied;
 # the result type is the same for every combination.
-query SearchWidgets(minQuantity: optional int, name: optional str) =
-  select Widget
-  filter .quantity >= minQuantity and .name = name
-  order by .name asc;
+query search_widgets(minQuantity: optional int, name: optional string) {
+  from Widget w
+  where w.quantity >= minQuantity && w.name == name
+  order by w.name asc
+  select w
+}

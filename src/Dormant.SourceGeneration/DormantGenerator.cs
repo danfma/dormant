@@ -211,9 +211,12 @@ public sealed class DormantGenerator : IIncrementalGenerator
             new EquatableArray<DiagnosticInfo>([.. diagnostics]));
     }
 
+    // 003: one unified pass per .dql produces both reads and writes; we project to QueryFile/CommandFile so
+    // the existing emitters are reused. Diagnostics are carried on the query side only (and not duplicated on
+    // the command side) so each parse diagnostic is reported exactly once.
     private static QueryFile BuildQueries(DslFile file)
     {
-        var parse = QueryParser.Parse(file.Path, file.Text);
+        var parse = UnitParser.Parse(file.Path, file.Text);
         return new QueryFile(
             parse.ModuleName,
             file.Path,
@@ -223,12 +226,12 @@ public sealed class DormantGenerator : IIncrementalGenerator
 
     private static CommandFile BuildCommands(DslFile file)
     {
-        var parse = CommandParser.Parse(file.Path, file.Text);
+        var parse = UnitParser.Parse(file.Path, file.Text);
         return new CommandFile(
             parse.ModuleName,
             file.Path,
             new EquatableArray<CommandModel>([.. parse.Commands]),
-            new EquatableArray<DiagnosticInfo>([.. parse.Diagnostics]));
+            new EquatableArray<DiagnosticInfo>(System.Array.Empty<DiagnosticInfo>()));
     }
 }
 

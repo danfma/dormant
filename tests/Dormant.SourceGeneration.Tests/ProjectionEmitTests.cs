@@ -24,15 +24,22 @@ public sealed class ProjectionEmitTests
     private const string Queries = """
         module catalog;
 
-        query WidgetNames(min: int) =
-          select Widget { id, name }
-          filter .quantity >= min
-          order by .name asc;
+        query widget_names(min: int) {
+          from Widget w
+          where w.quantity >= min
+          order by w.name asc
+          select {
+            w.id
+            w.name
+          }
+        }
 
-        query AllWidgets(min: int) =
-          select Widget
-          filter .quantity >= min
-          order by .quantity desc;
+        query all_widgets(min: int) {
+          from Widget w
+          where w.quantity >= min
+          order by w.quantity desc
+          select w
+        }
         """;
 
     private static string Run()

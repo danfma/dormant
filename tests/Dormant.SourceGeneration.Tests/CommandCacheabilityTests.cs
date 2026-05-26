@@ -12,7 +12,7 @@ namespace Dormant.SourceGeneration.Tests;
 public sealed class CommandCacheabilityTests
 {
     private const string Schema = "module catalog;\nentity Widget { id: uuid primary; name: str; quantity: int; }";
-    private const string Commands = "module catalog;\ncommand CreateWidget(id: uuid, name: str, quantity: int) = insert Widget { id := id, name := name, quantity := quantity };";
+    private const string Commands = "module catalog;\nmutation create_widget(id: uuid, name: string, quantity: int) { insert Widget w { w.id = id w.name = name w.quantity = quantity } }";
 
     [Test]
     public async Task Command_pipeline_steps_are_cached_on_unchanged_rerun()

@@ -11,6 +11,12 @@ internal static class TypeMap
 {
     private static readonly Dictionary<string, string> Map = new(System.StringComparer.Ordinal)
     {
+        // 003 lowercase type keywords (data-model.md vocabulary).
+        ["string"] = "string",
+        ["long"] = "long",
+        ["double"] = "double",
+        ["date"] = "global::System.DateOnly",
+        // Carried 002 type keywords (the .dqls schema grammar is unchanged, so these still parse).
         ["str"] = "string",
         ["bool"] = "bool",
         ["int16"] = "short",
@@ -35,6 +41,12 @@ internal static class TypeMap
     // a provider-neutral dialect abstraction is a later concern.
     private static readonly Dictionary<string, string> SqlMap = new(System.StringComparer.Ordinal)
     {
+        // 003 lowercase type keywords.
+        ["string"] = "text",
+        ["long"] = "bigint",
+        ["double"] = "double precision",
+        ["date"] = "date",
+        // Carried 002 type keywords.
         ["str"] = "text",
         ["bool"] = "boolean",
         ["int16"] = "smallint",

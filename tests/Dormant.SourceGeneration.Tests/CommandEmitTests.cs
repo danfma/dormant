@@ -23,8 +23,13 @@ public sealed class CommandEmitTests
     private const string Commands = """
         module catalog;
 
-        command CreateWidget(id: uuid, name: str, quantity: int) =
-          insert Widget { id := id, name := name, quantity := quantity };
+        mutation create_widget(id: uuid, name: string, quantity: int) {
+          insert Widget w {
+            w.id = id
+            w.name = name
+            w.quantity = quantity
+          }
+        }
         """;
 
     private static string Run()

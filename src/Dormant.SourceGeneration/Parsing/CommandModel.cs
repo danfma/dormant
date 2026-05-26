@@ -30,17 +30,19 @@ internal enum CommandKind
     Delete,
 }
 
-/// <summary>A single authored write command (v1 MVP: <c>insert Entity { col := expr, … }</c>).</summary>
-/// <param name="Name">The command name (becomes the generated method name).</param>
+/// <summary>A single authored write command (003: <c>insert|update|delete Entity alias …</c>).</summary>
+/// <param name="Name">The unit's authored snake_case name (becomes a PascalCase method via <see cref="Emit.Naming.ToPascalCase"/>).</param>
 /// <param name="Kind">The command kind.</param>
 /// <param name="RootEntity">The target entity.</param>
+/// <param name="Alias">The subject alias declared after the entity (003 — member refs are alias-qualified).</param>
 /// <param name="Parameters">Declared parameters, in source order.</param>
-/// <param name="Assignments">Column assignments (<c>col := expr</c>), in source order (insert/update).</param>
+/// <param name="Assignments">Column assignments (<c>alias.col = expr</c>), in source order (insert/update).</param>
 /// <param name="Filters">WHERE conditions for <c>update</c>/<c>delete</c> (incl. concurrency-token match).</param>
 internal sealed record CommandModel(
     string Name,
     CommandKind Kind,
     string RootEntity,
+    string Alias,
     EquatableArray<QueryParameter> Parameters,
     EquatableArray<Assignment> Assignments,
     EquatableArray<FilterCondition> Filters = default);

@@ -1,16 +1,29 @@
 module app;
 
-# Authored write command → INSERT … RETURNING the immutable User.
-command CreateUser(id: uuid, email: str, created_at: datetime, version: int) =
-  insert User { id := id, email := email, created_at := created_at, version := version };
+# Authored write mutation → INSERT … RETURNING the immutable User.
+mutation create_user(id: uuid, email: string, created_at: datetime, version: int) {
+  insert User u {
+    u.id = id
+    u.email = email
+    u.created_at = created_at
+    u.version = version
+  }
+}
 
 # Full-entity query → IAsyncEnumerable<User> with build-time SQL.
-query UsersByEmail(email: str) =
-  select User
-  filter .email = email;
+query users_by_email(email: string) {
+  from User u
+  where u.email == email
+  select u
+}
 
 # Flat projection → a distinct AppQueries-scoped record exposing exactly id + email.
-query UserContacts(since: datetime) =
-  select User { id, email }
-  filter .created_at >= since
-  order by .email asc;
+query user_contacts(since: datetime) {
+  from User u
+  where u.created_at >= since
+  order by u.email asc
+  select {
+    u.id
+    u.email
+  }
+}
