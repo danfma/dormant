@@ -9,6 +9,21 @@ mutation create_widget(id: uuid, name: string, quantity: int) {
   }
 }
 
+# 003 with-block (FR-021/FR-022): bind an inserted Author, then insert an Article whose `writer` FK flows
+# from the bound author id; each binding is its own statement in the transaction. Returns the article id.
+mutation create_author_with_article(aid: uuid, aname: string, artid: uuid, title: string) {
+  with a = (insert Author x {
+    x.id = aid
+    x.name = aname
+  })
+  insert Article r {
+    r.id = artid
+    r.title = title
+    r.writer = a
+  }
+  returning r.id
+}
+
 mutation create_account(id: uuid, balance: int, version: int) {
   insert Account a {
     a.id = id

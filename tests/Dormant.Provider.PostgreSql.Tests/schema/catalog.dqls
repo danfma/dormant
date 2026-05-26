@@ -21,3 +21,14 @@ entity Document {
   id: uuid primary;
   data: json;
 }
+
+entity Author {
+  id: uuid primary;
+  name: str;
+}
+
+entity Article {
+  id: uuid primary;
+  title: str;
+  writer: Author;
+}
