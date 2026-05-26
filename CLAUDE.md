@@ -1,9 +1,18 @@
 <!-- SPECKIT START -->
 For additional context about technologies, project structure, conventions, and
 important decisions for the active feature, read the current plan:
-`specs/005-sqlite-nmemory-providers/plan.md` (with `research.md`, `data-model.md`,
-`contracts/dialect-boundary.md`, `contracts/provider-sqlite.md`, `quickstart.md`).
-Feature 005 generalizes the PostgreSQL-only `SqlRenderer` into a **multi-variant
+`specs/008-orm-benchmarks/plan.md` (with `research.md`, `data-model.md`,
+`contracts/benchmark-operations.md`, `quickstart.md`).
+Feature 008 turns the placeholder `tests/Dormant.Benchmarks` into a real
+**BenchmarkDotNet** suite comparing **Dormant vs Dapper, EF Core, Insight.Database**
+across five operations (read-by-key, filtered read, insert, update, delete) over one
+shared **in-memory SQLite** DB — Dormant owns the DDL (`DormantSqlite.EnsureCreatedAsync`),
+peers bind to the same table; `MemoryDiagnoser` + Dormant baseline; single-command run
+(`dotnet run -c Release --project tests/Dormant.Benchmarks`) + CI `Dry`-job smoke. The
+project ref swaps PG → `Dormant.Provider.Sqlite`; not AOT (peers use reflection); Insight
+via inline-SQL APIs (provider shim as fallback — primary risk). The background plans
+below remain completed-feature context:
+`specs/005-sqlite-nmemory-providers/plan.md` — Feature 005 generalizes the PostgreSQL-only `SqlRenderer` into a **multi-variant
 dialect framework** (per-dialect renderers over the existing neutral `SqlIr`,
 rendered at build time) and adds the **SQLite** provider (`Dormant.Provider.Sqlite`,
 AOT-clean via `Microsoft.Data.Sqlite.Core` + `bundle_e_sqlite3` + explicit
