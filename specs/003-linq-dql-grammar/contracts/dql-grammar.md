@@ -107,3 +107,23 @@ Precedence: `!` > comparison > `&&` > `||`; parentheses group.
 
 `command Name(...) = …;`, `query Name(...) = …;`, leading-dot members (`.email`), `:=` assignment, single-`=`
 comparison, `and`/`or`/`not` keyword connectives, `::`/`->` operators.
+
+## Implementation status (003 baseline — recorded per Constitution II)
+
+This contract is the DSL compatibility baseline. As of the 003 cutover the implemented surface is:
+
+| Construct | Status |
+|-----------|--------|
+| `query` (from / where / order by / select-entity / select-projection) | **Implemented** |
+| `mutation` insert / update(+where+set) / delete(+where) | **Implemented** |
+| Operators `== != < <= > >=`, assignment `=` | **Implemented** |
+| `where` conjunction with `&&` | **Implemented** |
+| `returning alias` / `returning { … }` / `returning alias.field` on insert **and** update/delete | **Implemented** (FR-008/FR-017) |
+| Result inference (insert→id-or-entity per `returning`; update/delete→count or `returning` shape) | **Implemented** |
+| snake_case unit name → PascalCase method; alias-qualified members; located diagnostics | **Implemented** |
+| Removed-`002`-form diagnostics (ORM020) | **Implemented** |
+| Logical `\|\|` and `!` in `where` | **Deferred** (parser reports "not supported yet"; only `&&` conjunction) |
+| Multi-command `mutation` bodies + `with` bindings + trailing read | **Deferred** (T016) |
+| Unit-file extension | `.dql` (queries + mutations); `.dqls` for schema |
+
+Deferred items are additive over this baseline and do not change the implemented surface.

@@ -77,10 +77,10 @@ unchanged.
 ## Phase 8: Polish & Cross-Cutting
 
 - [X] T031 [P] Cacheability + determinism tests for the new unit pipeline (LoadUnitFiles/ParseQueries/ParseMutations cached on unchanged rerun) — adapt the existing cacheability test — in tests/Dormant.SourceGeneration.Tests/GrammarCacheabilityTests.cs
-- [ ] T032 [P] Refresh Verify snapshots for changed generated output across the generator test project
-- [ ] T033 [P] Re-verify the PublicApiAnalyzers baseline (the public surface should be materially unchanged; update only intentional diffs) in tests/Dormant.SourceGeneration.Tests/ (and any PublicAPI.*.txt)
-- [ ] T034 [P] Verify quickstart.md examples against the built sample and update any docs/comments referencing the old grammar
-- [ ] T035 Confirm contracts/dql-grammar.md matches the implemented grammar and record it as the DSL compatibility baseline (Constitution II)
+- [X] T032 [P] Refresh Verify snapshots — **N/A**: the generator tests are assertion-based (`.Contains`), there are no Verify `.verified.txt` snapshots in this project, so nothing to refresh.
+- [X] T033 [P] Re-verify the PublicApiAnalyzers baseline — **N/A (deferred to 001 T017)**: PublicApiAnalyzers is version-pinned but not wired per shipped project and no `PublicAPI.*.txt` baselines exist yet (see src/Directory.Build.props). Public surface unchanged by 003/004 (slnx build 0/0). Wiring the analyzer+baselines is a 001 foundational task, out of scope here.
+- [X] T034 [P] Verify quickstart.md examples against the built sample — sample (schema/app.dql + Program.cs) uses the new grammar and builds green (slnx 0/0); quickstart examples are valid grammar; no docs reference the removed 002 forms.
+- [X] T035 Confirm contracts/dql-grammar.md matches the implemented grammar and record it as the DSL compatibility baseline (Constitution II) — added an "Implementation status (003 baseline)" table marking implemented vs deferred (`||`/`!`, multi-command/`with`).
 
 ## Dependencies & order
 
