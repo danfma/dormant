@@ -8,11 +8,17 @@
 
 **Input**: User description: "Configurar CI para o projeto."
 
+## Clarifications
+
+### Session 2026-05-26
+- Q: How should CSharpier integrate with the existing .editorconfig linting? → A: Coexistence: Run both `csharpier check` and `.editorconfig` linting.
+- Q: Should dotnet-husky be added for pre-commit hooks? → A: Yes, add dotnet-husky to trigger the linter on pre-commit.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Developer Validation (Priority: P1)
 
-As a developer, I want to have my changes automatically validated (build + test) on every pull request to ensure I don't break the codebase.
+As a developer, I want to have my changes automatically validated (build + test + lint) on every pull request to ensure I don't break the codebase.
 
 **Why this priority**: Immediate feedback for developers is the core value of CI. It prevents regressions from reaching the main branch.
 
@@ -20,9 +26,10 @@ As a developer, I want to have my changes automatically validated (build + test)
 
 **Acceptance Scenarios**:
 
-1. **Given** a pull request with valid code, **When** it is opened or updated, **Then** the CI pipeline builds the project and passes all tests.
+1. **Given** a pull request with valid code, **When** it is opened or updated, **Then** the CI pipeline builds the project, runs CSharpier check, and passes all tests.
 2. **Given** a pull request with a compile error, **When** it is opened, **Then** the CI pipeline fails at the build step.
 3. **Given** a pull request with failing tests, **When** it is opened, **Then** the CI pipeline fails at the test step.
+4. **Given** a pull request with unformatted code, **When** it is opened, **Then** the CI pipeline fails at the CSharpier check step.
 
 ---
 
@@ -52,10 +59,25 @@ As a maintainer, I want to ensure that all database providers are tested against
 
 1. **Given** multiple provider test projects, **When** CI runs, **Then** tests for PostgreSql (and others as they are added) are executed.
 
+---
+
+### User Story 4 - Local Git Hooks (Priority: P2)
+
+As a developer, I want to have formatting checked locally before I commit, so I don't wait for CI to tell me about style issues.
+
+**Why this priority**: Shortens the feedback loop further and keeps the commit history clean.
+
+**Independent Test**: Try to commit unformatted code and verify the commit is blocked by the pre-commit hook.
+
+**Acceptance Scenarios**:
+
+1. **Given** unformatted C# code, **When** I attempt to commit, **Then** the husky pre-commit hook runs CSharpier and prevents the commit if formatting is incorrect.
+
 ### Edge Cases
 
 - **Build-time Source Generation Failures**: How does CI handle cases where the Roslyn source generator fails but the rest of the build succeeds (or vice versa)?
 - **Environment Dependencies**: What happens if tests require a database (e.g., PostgreSql) that isn't available in the CI runner?
+- **Tool Version Mismatch**: What happens if the CI runner uses a different version of CSharpier than the developer?
 
 ## Requirements *(mandatory)*
 
@@ -68,8 +90,10 @@ As a maintainer, I want to ensure that all database providers are tested against
 - **FR-005**: System MUST fail the entire pipeline if any individual build or test step fails.
 - **FR-006**: System MUST trigger automatically on push to `main` and on any pull request targeting `main`.
 - **FR-007**: System MUST provide a clear summary of test results (pass/fail count).
-- **FR-008**: System MUST enforce code style and linting rules defined in `.editorconfig` and fail the build on any violations.
+- **FR-008**: System MUST enforce code style using `dotnet csharpier --check` AND linting rules defined in `.editorconfig` and fail the build on any violations.
 - **FR-009**: System MUST support database integration tests by spinning up real PostgreSQL containers (using Docker/Service Containers) during the test execution phase.
+- **FR-010**: System MUST include `dotnet-husky` as a local development dependency to automate pre-commit formatting checks.
+- **FR-011**: System MUST ensure both `csharpier` and `husky` are registered as local dotnet tools if not already present.
 
 ## Success Criteria *(mandatory)*
 
@@ -79,6 +103,7 @@ As a maintainer, I want to ensure that all database providers are tested against
 - **SC-002**: Total pipeline execution time (build + all tests) should be under 7 minutes for a clean build.
 - **SC-003**: All build artifacts and test logs must be available for inspection for at least 30 days.
 - **SC-004**: Zero "flaky" tests allowed (CI must be 100% deterministic given the same code).
+- **SC-005**: 100% of committed code in `main` must be formatted according to CSharpier rules.
 
 ## Assumptions
 
