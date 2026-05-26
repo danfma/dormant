@@ -1,5 +1,9 @@
 module catalog;
 
+# 002 fork: authored write command → INSERT … RETURNING, materializes the inserted row.
+command CreateWidget(id: uuid, name: str, quantity: int) =
+  insert Widget { id := id, name := name, quantity := quantity };
+
 # Full-entity query: returns Widget with all mapped columns (FR-006).
 query WidgetsByMinQuantity(min: int) =
   select Widget

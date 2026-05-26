@@ -77,9 +77,13 @@ internal sealed class QueryParser
                     queries.Add(query);
                 }
             }
+            else if (IsKeyword("command"))
+            {
+                RecoverToQueryEnd(); // commands are handled by the command parser
+            }
             else
             {
-                Error($"unexpected '{Describe(Current)}'; expected 'query'");
+                Error($"unexpected '{Describe(Current)}'; expected 'query' or 'command'");
                 RecoverToQueryEnd();
             }
         }

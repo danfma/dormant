@@ -50,6 +50,19 @@ public interface ISession : IAsyncDisposable
         CompiledQuery<TResult> query,
         CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Executes a build-time-compiled write command (authored DQL <c>insert</c>/<c>update</c>/<c>delete</c>)
+    /// within the session transaction and returns its single result (spec FR-002/FR-005). Generated command
+    /// methods on <c>{Module}Commands</c> call this.
+    /// </summary>
+    /// <typeparam name="TResult">The statically-known result type.</typeparam>
+    /// <param name="command">The compiled command.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The command's result (e.g. the inserted row via <c>RETURNING</c>).</returns>
+    ValueTask<TResult> ExecuteCommandAsync<TResult>(
+        CompiledCommand<TResult> command,
+        CancellationToken cancellationToken = default);
+
     /// <summary>Loads an unloaded single reference on demand, returning a loaded one (spec FR-009).</summary>
     /// <typeparam name="TTarget">The related entity type.</typeparam>
     /// <param name="reference">The (typically unloaded) reference.</param>

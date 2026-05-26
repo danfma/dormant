@@ -9,20 +9,27 @@ commands; removes the mutable session + change-tracking). Paths below are reused
 
 ## Phase 1: Setup (Shared Infrastructure)
 
-- [ ] T001 Confirm the `001` foundation builds on `refactor/new-way` (`dotnet build Dormant.slnx` 0/0) and record the reused pieces (generator, SQL IR, query path, naming, DDL/EnsureCreated, AOT, jsonb, `Ref*`, `.dqls`) as the baseline for the fork
-- [ ] T002 [P] Add `specs/002` design docs to the agent context (CLAUDE.md already points to 002/plan.md) and verify `feature.json` = `specs/002-immutable-command-dml`
+- [X] T001 Confirm the `001` foundation builds on `refactor/new-way` (`dotnet build Dormant.slnx` 0/0) and record the reused pieces (generator, SQL IR, query path, naming, DDL/EnsureCreated, AOT, jsonb, `Ref*`, `.dqls`) as the baseline for the fork
+- [X] T002 [P] Add `specs/002` design docs to the agent context (CLAUDE.md already points to 002/plan.md) and verify `feature.json` = `specs/002-immutable-command-dml`
 
 ## Phase 2: Foundational (Blocking Prerequisites)
 
 **Purpose**: shift the core model to immutable + command-driven. Blocks all user stories.
 
-- [ ] T003 Emit **immutable** entities in `src/Dormant.SourceGeneration/Schema/EntityEmitter.cs`: init-only/positional members, **no public setters**, no snapshot; retain the no-reflection materialization ctor + PK identity equality + `Ref*` read-side members (FR-001)
-- [ ] T004 Remove the change-tracking write/snapshot members from the entity binding in `src/Dormant.SourceGeneration/Schema/EntityBindingEmitter.cs` + `src/Dormant.Abstractions/Entities/IEntityBinding.cs` (drop `Insert`/`Update`/`Delete`/`Snapshot`/`TracksConcurrency`); keep `Materialize` + `SelectByKey` (reads) + `Schema`/`CreateTableSql` (DDL) (FR-003)
-- [ ] T005 Reduce `ISession` in `src/Dormant.Abstractions/Sessions/ISession.cs` to transaction (`CommitAsync`/`RollbackAsync`) + `GetAsync<T>` (read identity map) + `DisposeAsync`; **remove** `AddAsync`/`Remove` and the `Load*`/`QueryAsync` mutable members not needed (per contracts/public-api.md) (FR-010)
-- [ ] T006 Reduce `src/Dormant.Core/Persistence/Session.cs` to a thin unit-of-work: transaction + read identity map + command/query execution; delete `_added`/`_tracked`/`_removed`, snapshot diff, and UPDATE/DELETE-by-diff logic (FR-003/FR-010)
-- [ ] T007 Add `CompiledCommand<TResult>` in `src/Dormant.Abstractions/Querying/CompiledCommand.cs` (prebuilt CTE statement + no-boxing binder + result materializer) (FR-005/FR-012, contracts/public-api.md)
-- [ ] T008 Extend the SQL IR in `src/Dormant.SourceGeneration/Ir/SqlIr.cs` with `UpdateStatement`, `DeleteStatement`, a `Returning` clause on insert/update/delete, and a `CteStatement` (ordered `WITH` steps + final), with deterministic rendering in `SqlRenderer` (FR-004, data-model §A)
-- [ ] T009 Add the command AST in `src/Dormant.SourceGeneration/Parsing/CommandModel.cs` (`CommandFile`, `CommandModel`, `WriteNode` tree, `Assignment`, `WithBinding`), equatable for caching (data-model §A)
+> **Sequencing note (2026-05-25)**: implemented the **additive command path first** (US1) to keep the build
+> green, deferring the *breaking* reshape (T003 immutable entities, T004 binding trim, T005/T006 session
+> reduction, T030 test migration) to the next pass. Rationale: removing the mutable API breaks every existing
+> test/sample with no replacement until commands exist; landing the additive command path first lets the
+> reshape replace the mutable API cleanly. Transitional state: mutable API + commands coexist until the next
+> pass removes the former.
+
+- [ ] T003 **[DEFERRED next pass — see sequencing note]** Emit **immutable** entities in `src/Dormant.SourceGeneration/Schema/EntityEmitter.cs`: init-only/positional members, **no public setters**, no snapshot; retain the no-reflection materialization ctor + PK identity equality + `Ref*` read-side members (FR-001)
+- [ ] T004 **[DEFERRED next pass]** Remove the change-tracking write/snapshot members from the entity binding in `src/Dormant.SourceGeneration/Schema/EntityBindingEmitter.cs` + `src/Dormant.Abstractions/Entities/IEntityBinding.cs` (drop `Insert`/`Update`/`Delete`/`Snapshot`/`TracksConcurrency`); keep `Materialize` + `SelectByKey` (reads) + `Schema`/`CreateTableSql` (DDL) (FR-003)
+- [ ] T005 **[DEFERRED next pass]** Reduce `ISession` to transaction + `GetAsync<T>` + `DisposeAsync`; **remove** `AddAsync`/`Remove` + mutable members (per contracts/public-api.md) (FR-010) _(additive `ExecuteCommandAsync` already added)_
+- [ ] T006 **[DEFERRED next pass]** Reduce `src/Dormant.Core/Persistence/Session.cs` to a thin unit-of-work: delete `_added`/`_tracked`/`_removed`, snapshot diff, UPDATE/DELETE-by-diff (FR-003/FR-010)
+- [X] T007 Add `CompiledCommand<TResult>` in `src/Dormant.Abstractions/Querying/CompiledCommand.cs` (prebuilt statement + no-boxing binder + result materializer) (FR-005/FR-012) _(+ `ISession.ExecuteCommandAsync` + `Session` impl)_
+- [ ] T008 Extend the SQL IR in `src/Dormant.SourceGeneration/Ir/SqlIr.cs` with `UpdateStatement`, `DeleteStatement`, a `Returning` clause, and a `CteStatement` (ordered `WITH` steps + final) (FR-004) _(DEFERRED to US2/US6: US1's INSERT…RETURNING SQL is built directly in `CommandEmitter`; CTE nodes land with nested writes)_
+- [X] T009 Add the command AST in `src/Dormant.SourceGeneration/Parsing/CommandModel.cs` (`CommandFile`, `CommandModel`, `Assignment`, `CommandValue`) equatable for caching _(WriteNode tree + WithBinding land with nested/`with` in US2/US3)_
 
 **Checkpoint**: immutable entities emit; session is thin; binding is read-only; command IR + AST exist. Build 0/0.
 
@@ -31,12 +38,12 @@ commands; removes the mutable session + change-tracking). Paths below are reused
 **Goal**: a named `insert` command → typed `ISession` method with build-time SQL; immutable result; no auto-DML.
 **Independent Test**: author `insert User {…}`, build, call the method vs real PostgreSQL → exactly one row, immutable result, no Add/Save API exists.
 
-- [ ] T010 [P] [US1] Integration: authored `insert` command writes exactly one row + returns immutable result in `tests/Dormant.Provider.PostgreSql.Tests/CommandInsertTests.cs` (Testcontainers)
-- [ ] T011 [P] [US1] Generator: `insert` command → `partial static {Module}Commands` extension method + `CompiledCommand<T>`, exact SQL asserted in `tests/Dormant.SourceGeneration.Tests/CommandEmitTests.cs`
-- [ ] T012 [US1] Parse `command Name(params) = insert Entity { field := expr, … };` (params, literals, native calls) in `src/Dormant.SourceGeneration/Parsing/CommandParser.cs` (FR-002/FR-008)
-- [ ] T013 [US1] Build a single `InsertStatement` (with `Returning`) from the command AST via the IR in `src/Dormant.SourceGeneration/Command/CommandSqlBuilder.cs` (FR-005)
-- [ ] T014 [US1] Emit the command method + reused `CompiledCommand<T>` (C# 14 extension block on `ISession`) in `src/Dormant.SourceGeneration/Command/CommandEmitter.cs` (FR-002/FR-012)
-- [ ] T015 [US1] Wire the command path into `src/Dormant.SourceGeneration/DormantGenerator.cs` (glob `.dql` commands, combine with schemas, emit) + execute via `Session` (FR-002)
+- [X] T010 [P] [US1] Integration: authored `insert` command writes exactly one row + returns immutable result in `tests/Dormant.Provider.PostgreSql.Tests/CommandInsertTests.cs` (Testcontainers)
+- [X] T011 [P] [US1] Generator: `insert` command → `partial static {Module}Commands` extension method + `CompiledCommand<T>`, exact SQL asserted in `tests/Dormant.SourceGeneration.Tests/CommandEmitTests.cs`
+- [X] T012 [US1] Parse `command Name(params) = insert Entity { field := expr, … };` (params, literals, native calls) in `src/Dormant.SourceGeneration/Parsing/CommandParser.cs` (FR-002/FR-008)
+- [~] T013 [US1] _(folded into CommandEmitter; INSERT…RETURNING built directly — CTE IR deferred to US2)_ Build a single `InsertStatement` (with `Returning`) from the command AST via the IR in `src/Dormant.SourceGeneration/Command/CommandSqlBuilder.cs` (FR-005)
+- [X] T014 [US1] Emit the command method + reused `CompiledCommand<T>` (C# 14 extension block on `ISession`) in `src/Dormant.SourceGeneration/Command/CommandEmitter.cs` (FR-002/FR-012)
+- [X] T015 [US1] Wire the command path into `src/Dormant.SourceGeneration/DormantGenerator.cs` (glob `.dql` commands, combine with schemas, emit) + execute via `Session` (FR-002)
 
 **Checkpoint**: 🎯 MVP — author + run an insert command against real PostgreSQL; immutable result.
 

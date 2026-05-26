@@ -142,6 +142,18 @@ internal sealed class Session(IDbSession db) : ISession
         return default;
     }
 
+    // 002: authored write command executed in the session transaction; INSERT … RETURNING yields one row.
+    public async ValueTask<TResult> ExecuteCommandAsync<TResult>(CompiledCommand<TResult> command, CancellationToken cancellationToken = default)
+    {
+        await foreach (var row in db.QueryAsync(command.Statement, command.Materialize, cancellationToken)
+                           .ConfigureAwait(false))
+        {
+            return row;
+        }
+
+        throw new System.InvalidOperationException("The command returned no row.");
+    }
+
     // --- Deferred to a later US2/US3 slice -------------------------------------------------------
 
     public ValueTask<Ref<TTarget>> LoadAsync<TTarget>(Ref<TTarget> reference, CancellationToken cancellationToken = default)

@@ -9,6 +9,8 @@ internal enum TokenKind
     Number,
     String,
     Colon,
+    Assign,
+    DoubleColon,
     Semicolon,
     LeftBrace,
     RightBrace,
@@ -93,6 +95,14 @@ internal static class Lexer
 
             switch (c)
             {
+                case ':' when i + 1 < text.Length && text[i + 1] == '=':
+                    Advance(2);
+                    tokens.Add(new Token(TokenKind.Assign, ":=", start, 2, startLine, startColumn));
+                    continue;
+                case ':' when i + 1 < text.Length && text[i + 1] == ':':
+                    Advance(2);
+                    tokens.Add(new Token(TokenKind.DoubleColon, "::", start, 2, startLine, startColumn));
+                    continue;
                 case ':':
                     Advance();
                     tokens.Add(new Token(TokenKind.Colon, ":", start, 1, startLine, startColumn));

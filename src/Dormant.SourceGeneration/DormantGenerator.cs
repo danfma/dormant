@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Dormant.SourceGeneration.Diagnostics;
+using Dormant.SourceGeneration.Command;
 using Dormant.SourceGeneration.Emit;
 using Dormant.SourceGeneration.Parsing;
 using Dormant.SourceGeneration.Query;
@@ -138,6 +139,63 @@ public sealed class DormantGenerator : IIncrementalGenerator
                     productionContext.AddSource($"{@namespace}.{className}.{fileName}.g.cs", source);
                 }
             });
+
+        // Command files (.dql) compile to ISession write-command extension methods carrying build-time SQL
+        // (002 fork, FR-002). Same files as queries; the command parser extracts `command` blocks.
+        var commands = context.AdditionalTextsProvider
+            .Where(static text => text.Path.EndsWith(".dql", StringComparison.Ordinal))
+            .Select(static (text, cancellationToken) =>
+                new DslFile(text.Path, text.GetText(cancellationToken)?.ToString() ?? string.Empty))
+            .WithTrackingName(TrackingNames.LoadCommandFiles)
+            .Select(static (file, _) => BuildCommands(file))
+            .WithTrackingName(TrackingNames.ParseCommands);
+
+        context.RegisterSourceOutput(
+            commands.Combine(schemas.Collect()).Combine(config),
+            static (productionContext, pair) =>
+            {
+                var ((commandFile, allSchemas), generatorConfig) = pair;
+
+                foreach (var diagnostic in commandFile.Diagnostics)
+                {
+                    productionContext.ReportDiagnostic(diagnostic.ToDiagnostic());
+                }
+
+                if (!commandFile.IsValid || commandFile.Commands.Count == 0)
+                {
+                    return;
+                }
+
+                var entities = new Dictionary<string, (EntityModel Entity, string Schema)>(StringComparer.Ordinal);
+                foreach (var schema in allSchemas)
+                {
+                    var schemaName = NamingConventions.Resolve(schema.ModuleName, null, generatorConfig.Naming);
+                    foreach (var entity in schema.Entities)
+                    {
+                        entities[entity.Name] = (entity, schemaName);
+                    }
+                }
+
+                var @namespace = Naming.ComputeNamespace(
+                    generatorConfig.RootNamespace,
+                    generatorConfig.ProjectDir,
+                    commandFile.FilePath,
+                    commandFile.ModuleName);
+
+                var (source, diagnostics) = CommandEmitter.Emit(@namespace, commandFile, entities, generatorConfig.Naming);
+
+                foreach (var diagnostic in diagnostics)
+                {
+                    productionContext.ReportDiagnostic(diagnostic.ToDiagnostic());
+                }
+
+                if (source is not null)
+                {
+                    var className = Naming.ToPascalCase(commandFile.ModuleName) + "Commands";
+                    var fileName = System.IO.Path.GetFileNameWithoutExtension(commandFile.FilePath);
+                    productionContext.AddSource($"{@namespace}.{className}.{fileName}.commands.g.cs", source);
+                }
+            });
     }
 
     private static SchemaModel BuildSchema(DslFile file)
@@ -160,6 +218,16 @@ public sealed class DormantGenerator : IIncrementalGenerator
             parse.ModuleName,
             file.Path,
             new EquatableArray<QueryModel>([.. parse.Queries]),
+            new EquatableArray<DiagnosticInfo>([.. parse.Diagnostics]));
+    }
+
+    private static CommandFile BuildCommands(DslFile file)
+    {
+        var parse = CommandParser.Parse(file.Path, file.Text);
+        return new CommandFile(
+            parse.ModuleName,
+            file.Path,
+            new EquatableArray<CommandModel>([.. parse.Commands]),
             new EquatableArray<DiagnosticInfo>([.. parse.Diagnostics]));
     }
 }
@@ -192,6 +260,12 @@ internal static class TrackingNames
 
     /// <summary>The step that parses a query file.</summary>
     public const string ParseQueries = "ParseQueries";
+
+    /// <summary>The step that loads DormantQL command files from additional texts.</summary>
+    public const string LoadCommandFiles = "LoadCommandFiles";
+
+    /// <summary>The step that parses a command file.</summary>
+    public const string ParseCommands = "ParseCommands";
 
     /// <summary>The step that projects build configuration (root namespace, project dir).</summary>
     public const string Config = "Config";
