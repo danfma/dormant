@@ -62,7 +62,9 @@ jobs:
           dotnet format Dormant.slnx --no-restore --verify-no-changes --severity warn
 
       - name: Run tests
-        run: dotnet test Dormant.slnx -c Release --no-build --logger "GitHubActions;summary.includePassedTests=true;summary.includeSkippedTests=true"
+        # TUnit runs on Microsoft.Testing.Platform; on .NET 10 the MTP `dotnet test` (opted in via
+        # global.json) takes --solution, not a positional path, and does not use VSTest --logger.
+        run: dotnet test --solution Dormant.slnx -c Release --no-build
 
       - name: Publish AOT Smoke Tests
         run: dotnet publish tests/Dormant.Aot.SmokeTests/Dormant.Aot.SmokeTests.csproj -r linux-x64 -c Release /p:PublishAot=true -o ./publish-aot
@@ -75,4 +77,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: test-results
-          path: '**/TestResults/*.trx'
+          path: '**/TestResults/**'
+          if-no-files-found: ignore

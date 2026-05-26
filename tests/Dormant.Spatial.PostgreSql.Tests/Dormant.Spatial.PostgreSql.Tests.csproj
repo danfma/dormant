@@ -6,6 +6,10 @@
     <IsAotCompatible>false</IsAotCompatible>
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
     <TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
+    <!-- Placeholder project: no spatial tests authored yet. Microsoft.Testing.Platform exits 8
+         ("ran zero tests") which would fail the solution test run; ignore it for THIS project only
+         until real tests land. Scoped here so other projects still fail loudly on zero tests. -->
+    <TestingPlatformCommandLineArguments>$(TestingPlatformCommandLineArguments) --ignore-exit-code 8</TestingPlatformCommandLineArguments>
   </PropertyGroup>
 
   <ItemGroup>
