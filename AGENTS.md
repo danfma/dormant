@@ -1,5 +1,5 @@
 <!-- SPECKIT START -->
 For additional context about technologies to be used, project structure,
-shell commands, and other important information, read the current plan
-at specs/007-configure-ci/plan.md
+shell commands, and other important information, read the current plan:
+specs/006-project-documentation/plan.md
 <!-- SPECKIT END -->
