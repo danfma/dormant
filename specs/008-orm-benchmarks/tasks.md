@@ -29,10 +29,10 @@ Single existing project reused: `tests/Dormant.Benchmarks/` at repo root. Centra
 
 **Purpose**: Wire the project for SQLite + the three peer libraries + the runner.
 
-- [ ] T001 Add `<PackageVersion>` entries to `Directory.Packages.props`: `Dapper` 2.1.66, `Microsoft.EntityFrameworkCore.Sqlite` 10.0.0, `Insight.Database` 6.3.10 (validate/adjust on restore)
-- [ ] T002 Rewire `tests/Dormant.Benchmarks/Dormant.Benchmarks.csproj`: swap the `Dormant.Provider.PostgreSql` ProjectReference for `Dormant.Provider.Sqlite`; add version-less `<PackageReference>` for Dapper, Microsoft.EntityFrameworkCore.Sqlite, Insight.Database; register `schema/*.dqls` and `schema/*.dql` as generator `AdditionalFiles` (depends T001)
-- [ ] T003 [P] Create `tests/Dormant.Benchmarks/BenchmarkConfig.cs`: `MemoryDiagnoser.Default`, baseline ratio column, and a `Dry`-job toggle (env var / `--job dry`) for the CI smoke
-- [ ] T004 Replace `tests/Dormant.Benchmarks/Program.cs` with `BenchmarkSwitcher.FromAssembly(typeof(Program).Assembly).Run(args)` (depends T003)
+- [X] T001 Add `<PackageVersion>` entries to `Directory.Packages.props`: `Dapper` 2.1.66, `Microsoft.EntityFrameworkCore.Sqlite` 10.0.0, `Insight.Database` 6.3.10 (validate/adjust on restore)
+- [X] T002 Rewire `tests/Dormant.Benchmarks/Dormant.Benchmarks.csproj`: swap the `Dormant.Provider.PostgreSql` ProjectReference for `Dormant.Provider.Sqlite`; add version-less `<PackageReference>` for Dapper, Microsoft.EntityFrameworkCore.Sqlite, Insight.Database; register `schema/*.dqls` and `schema/*.dql` as generator `AdditionalFiles` (depends T001)
+- [X] T003 [P] Create `tests/Dormant.Benchmarks/BenchmarkConfig.cs`: `MemoryDiagnoser.Default`, baseline ratio column, and a `Dry`-job toggle (env var / `--job dry`) for the CI smoke
+- [X] T004 Replace `tests/Dormant.Benchmarks/Program.cs` with `BenchmarkSwitcher.FromAssembly(typeof(Program).Assembly).Run(args)` (depends T003)
 
 ---
 
@@ -42,13 +42,13 @@ Single existing project reused: `tests/Dormant.Benchmarks/` at repo root. Centra
 
 **⚠️ CRITICAL**: No user-story benchmark can run until this phase is complete.
 
-- [ ] T005 [P] Author `tests/Dormant.Benchmarks/schema/bench.dqls`: `module bench;` + `entity Product { id: uuid primary; name: string; category: string; price: decimal; quantity: int; }`
-- [ ] T006 [P] Author `tests/Dormant.Benchmarks/schema/bench.dql`: query `products_by_category(category: string)` and mutations `create_product(...)`, `update_product_quantity(id, quantity)`, `delete_product(id)` (validate against the 003 LINQ/DQL grammar)
-- [ ] T007 [P] Create plain `Product` POCO (no Dormant types) for Dapper + Insight in `tests/Dormant.Benchmarks/Model/Product.cs`
-- [ ] T008 [P] Create EF Core `BenchDbContext` + `Product` mapping (`ToTable("Product")`, `HasKey(p => p.Id)`, no `EnsureCreated`) in `tests/Dormant.Benchmarks/Model/BenchDbContext.cs`
-- [ ] T009 Build the project to generate the Dormant `Product` entity + `ProductsByCategory`/`CreateProduct`/`UpdateProductQuantity`/`DeleteProduct` members; resolve any generator/grammar errors (depends T002, T005, T006)
-- [ ] T010 Implement `tests/Dormant.Benchmarks/Infrastructure/SqliteBenchHarness.cs`: shared conn string `Data Source=bench;Mode=Memory;Cache=Shared`, Dormant `SqliteDataSource` keep-alive, `DormantSqlite.EnsureCreatedAsync`, deterministic seed (~1000 `Product` rows / ~10 categories, fixed RNG seed), and reserved per-library scratch ids for update/delete (depends T009, T007, T008)
-- [ ] T011 Spike to de-risk R3: validate an Insight.Database one-row round-trip against the shared DB via inline-SQL APIs; only if the generic path fails, register a minimal provider in `tests/Dormant.Benchmarks/Infrastructure/InsightSqliteProvider.cs` (depends T010)
+- [X] T005 [P] Author `tests/Dormant.Benchmarks/schema/bench.dqls`: `module bench;` + `entity Product { id: uuid primary; name: string; category: string; price: decimal; quantity: int; }`
+- [X] T006 [P] Author `tests/Dormant.Benchmarks/schema/bench.dql`: query `products_by_category(category: string)` and mutations `create_product(...)`, `update_product_quantity(id, quantity)`, `delete_product(id)` (validate against the 003 LINQ/DQL grammar)
+- [X] T007 [P] Create plain `Product` POCO (no Dormant types) for Dapper + Insight in `tests/Dormant.Benchmarks/Model/Product.cs`
+- [X] T008 [P] Create EF Core `BenchDbContext` + `Product` mapping (`ToTable("Product")`, `HasKey(p => p.Id)`, no `EnsureCreated`) in `tests/Dormant.Benchmarks/Model/BenchDbContext.cs`
+- [X] T009 Build the project to generate the Dormant `Product` entity + `ProductsByCategory`/`CreateProduct`/`UpdateProductQuantity`/`DeleteProduct` members; resolve any generator/grammar errors (depends T002, T005, T006)
+- [X] T010 Implement `tests/Dormant.Benchmarks/Infrastructure/SqliteBenchHarness.cs`: shared conn string `Data Source=bench;Mode=Memory;Cache=Shared`, Dormant `SqliteDataSource` keep-alive, `DormantSqlite.EnsureCreatedAsync`, deterministic seed (~1000 `Product` rows / ~10 categories, fixed RNG seed), and reserved per-library scratch ids for update/delete (depends T009, T007, T008)
+- [X] T011 Spike to de-risk R3: validate an Insight.Database one-row round-trip against the shared DB via inline-SQL APIs; only if the generic path fails, register a minimal provider in `tests/Dormant.Benchmarks/Infrastructure/InsightSqliteProvider.cs` (depends T010)
 
 **Checkpoint**: Generated Dormant code compiles, the shared in-memory DB seeds, and all three peers can open a connection to it — operation benchmarks can now be written.
 
@@ -60,9 +60,9 @@ Single existing project reused: `tests/Dormant.Benchmarks/` at repo root. Centra
 
 **Independent Test**: `dotnet run -c Release --project tests/Dormant.Benchmarks -- --filter '*ReadByKey*'` prints a table listing Dormant, Dapper, EF Core, Insight with Mean and Allocated per op.
 
-- [ ] T012 [US1] Create `tests/Dormant.Benchmarks/Benchmarks/ReadByKeyBenchmarks.cs` with `[Config(typeof(BenchmarkConfig))]`, `[GlobalSetup]` building `SqliteBenchHarness`, and the Dormant `[Benchmark(Baseline = true)]` method (`session.GetAsync<Product>(seededId)`) (depends T010)
-- [ ] T013 [US1] Add the Dapper (`QueryFirstOrDefaultAsync<Product>`), EF Core (`AsNoTracking().FirstOrDefaultAsync`/`FindAsync`), and Insight (`SingleAsync<Product>`) read-by-key methods to `ReadByKeyBenchmarks.cs` (same file; depends T012, T011)
-- [ ] T014 [US1] Run `--filter '*ReadByKey*'`; confirm the summary lists all four libraries with Mean + Allocated + ratio column (FR-004, SC-002, SC-004)
+- [X] T012 [US1] Create `tests/Dormant.Benchmarks/Benchmarks/ReadByKeyBenchmarks.cs` with `[Config(typeof(BenchmarkConfig))]`, `[GlobalSetup]` building `SqliteBenchHarness`, and the Dormant `[Benchmark(Baseline = true)]` method (`session.GetAsync<Product>(seededId)`) (depends T010)
+- [X] T013 [US1] Add the Dapper (`QueryFirstOrDefaultAsync<Product>`), EF Core (`AsNoTracking().FirstOrDefaultAsync`/`FindAsync`), and Insight (`SingleAsync<Product>`) read-by-key methods to `ReadByKeyBenchmarks.cs` (same file; depends T012, T011)
+- [X] T014 [US1] Run `--filter '*ReadByKey*'`; confirm the summary lists all four libraries with Mean + Allocated + ratio column (FR-004, SC-002, SC-004)
 
 **Checkpoint**: MVP — the four-way comparison works for one operation and reports time + memory.
 
@@ -74,11 +74,11 @@ Single existing project reused: `tests/Dormant.Benchmarks/` at repo root. Centra
 
 **Independent Test**: Full run reports all five operations × four libraries; write benchmarks don't contaminate each other.
 
-- [ ] T015 [P] [US2] `tests/Dormant.Benchmarks/Benchmarks/FilteredReadBenchmarks.cs` — 4 libs by `category`; EF `AsNoTracking().ToListAsync`; fully drain Dormant `ProductsByCategory` `IAsyncEnumerable`; Dormant baseline (depends T010, T011)
-- [ ] T016 [P] [US2] `tests/Dormant.Benchmarks/Benchmarks/InsertBenchmarks.cs` — 4 libs insert one row with a fresh `Guid` PK per invocation; Dormant `CreateProduct`; Dormant baseline (depends T010, T011)
-- [ ] T017 [P] [US2] `tests/Dormant.Benchmarks/Benchmarks/UpdateBenchmarks.cs` — 4 libs set `quantity` on a per-library scratch id (idempotent); Dormant `UpdateProductQuantity`; EF load-track-save; Dormant baseline (depends T010, T011)
-- [ ] T018 [P] [US2] `tests/Dormant.Benchmarks/Benchmarks/DeleteBenchmarks.cs` — 4 libs delete a per-library scratch row (re)created in `[IterationSetup]` (excluded from measurement); Dormant `DeleteProduct`; Dormant baseline (depends T010, T011)
-- [ ] T019 [US2] Run the full suite; confirm all five operations × four libraries report Mean + Allocated, and writes stay isolated (FR-003, FR-007, SC-005)
+- [X] T015 [P] [US2] `tests/Dormant.Benchmarks/Benchmarks/FilteredReadBenchmarks.cs` — 4 libs by `category`; EF `AsNoTracking().ToListAsync`; fully drain Dormant `ProductsByCategory` `IAsyncEnumerable`; Dormant baseline (depends T010, T011)
+- [X] T016 [P] [US2] `tests/Dormant.Benchmarks/Benchmarks/InsertBenchmarks.cs` — 4 libs insert one row with a fresh `Guid` PK per invocation; Dormant `CreateProduct`; Dormant baseline (depends T010, T011)
+- [X] T017 [P] [US2] `tests/Dormant.Benchmarks/Benchmarks/UpdateBenchmarks.cs` — 4 libs set `quantity` on a per-library scratch id (idempotent); Dormant `UpdateProductQuantity`; EF load-track-save; Dormant baseline (depends T010, T011)
+- [X] T018 [P] [US2] `tests/Dormant.Benchmarks/Benchmarks/DeleteBenchmarks.cs` — 4 libs delete a per-library scratch row (re)created in `[IterationSetup]` (excluded from measurement); Dormant `DeleteProduct`; Dormant baseline (depends T010, T011)
+- [X] T019 [US2] Run the full suite; confirm all five operations × four libraries report Mean + Allocated, and writes stay isolated (FR-003, FR-007, SC-005)
 
 **Checkpoint**: Complete operation set; the comparison is trustworthy across realistic operations.
 
@@ -90,8 +90,8 @@ Single existing project reused: `tests/Dormant.Benchmarks/` at repo root. Centra
 
 **Independent Test**: Add a throwaway op class; it appears for all four libraries in the summary with no other changes.
 
-- [ ] T020 [US3] Extract a shared benchmark base (common `[GlobalSetup]`, harness/connection access, baseline conventions) and refactor the five operation classes onto it in `tests/Dormant.Benchmarks/Benchmarks/` (depends T015–T018)
-- [ ] T021 [US3] Add a "How to add an operation" section to `tests/Dormant.Benchmarks/README.md` and verify a new op class auto-appears for all four libraries (FR-011) (depends T020)
+- [X] T020 [US3] Extract a shared benchmark base (common `[GlobalSetup]`, harness/connection access, baseline conventions) and refactor the five operation classes onto it in `tests/Dormant.Benchmarks/Benchmarks/` (depends T015–T018)
+- [X] T021 [US3] Add a "How to add an operation" section to `tests/Dormant.Benchmarks/README.md` and verify a new op class auto-appears for all four libraries (FR-011) (depends T020)
 
 **Checkpoint**: The suite is extensible without restructuring.
 
@@ -101,11 +101,11 @@ Single existing project reused: `tests/Dormant.Benchmarks/` at repo root. Centra
 
 **Purpose**: Documentation, CI integration, reproducibility, and hygiene across the suite.
 
-- [ ] T022 Append the measurement-policy notes (async-everywhere, EF `AsNoTracking` on reads, write isolation, relative-not-absolute / not networked-DB) to `tests/Dormant.Benchmarks/README.md` (FR-010) (depends T021)
-- [ ] T023 Add a CI smoke job to `.github/workflows/ci.yml` running `dotnet run -c Release --project tests/Dormant.Benchmarks -- --job dry --filter '*'` (Constitution IV/VI)
+- [X] T022 Append the measurement-policy notes (async-everywhere, EF `AsNoTracking` on reads, write isolation, relative-not-absolute / not networked-DB) to `tests/Dormant.Benchmarks/README.md` (FR-010) (depends T021)
+- [X] T023 Add a CI smoke job to `.github/workflows/ci.yml` running `dotnet run -c Release --project tests/Dormant.Benchmarks -- --job dry --filter '*'` (Constitution IV/VI)
 - [ ] T024 [P] Reproducibility check: run the suite 3× on the same machine; confirm stable per-operation ranking (SC-003, FR-009)
-- [ ] T025 Walk through `quickstart.md` end to end and confirm every validation step passes
-- [ ] T026 `dotnet build Dormant.slnx` (0 warnings) and `dotnet format Dormant.slnx --verify-no-changes` clean for the benchmark project
+- [X] T025 Walk through `quickstart.md` end to end and confirm every validation step passes
+- [X] T026 `dotnet build Dormant.slnx` (0 warnings) and `dotnet format Dormant.slnx --verify-no-changes` clean for the benchmark project
 
 ---
 

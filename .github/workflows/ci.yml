@@ -74,6 +74,12 @@ jobs:
       - name: Run AOT Smoke Tests
         run: ./publish-aot/Dormant.Aot.SmokeTests
 
+      - name: Benchmark smoke (BenchmarkDotNet Dry job)
+        # Exercises the comparative ORM benchmark suite (Dormant vs Dapper, EF Core, Insight.Database over
+        # in-memory SQLite) end to end without the multi-minute full measurement (Constitution IV/VI).
+        # The Dry job runs each benchmark once; this is a "does it run" smoke, not a performance gate.
+        run: dotnet run -c Release --project tests/Dormant.Benchmarks -- --filter '*' --job dry
+
       - name: Upload Test Results
         if: always()
         uses: actions/upload-artifact@v4

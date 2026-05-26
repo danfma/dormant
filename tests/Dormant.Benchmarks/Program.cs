@@ -1,4 +1,9 @@
-// BenchmarkDotNet entry point. Per-release perf budgets (throughput, alloc/op, no boxing) land here
-// in the Polish phase (SC-004/SC-007).
-System.Console.WriteLine("Dormant benchmarks (not yet implemented)");
+// BenchmarkDotNet entry point for the comparative ORM suite (feature 008): Dormant vs Dapper, EF Core,
+// and Insight.Database over one shared in-memory SQLite database. BenchmarkSwitcher discovers every
+// [Benchmark] class in this assembly, so `dotnet run -c Release --project tests/Dormant.Benchmarks` runs
+// the lot and `-- --filter '<glob>'` selects a subset. The CI smoke uses `-- --job dry --filter '*'`.
+using BenchmarkDotNet.Running;
+using Dormant.Benchmarks;
+
+BenchmarkSwitcher.FromAssembly(typeof(Program).Assembly).Run(args, BenchmarkConfig.Create());
 return 0;

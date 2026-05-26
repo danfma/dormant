@@ -1,0 +1,9 @@
+module bench;
+
+entity Product {
+  id: uuid primary;
+  name: string;
+  category: string;
+  price: decimal;
+  quantity: int;
+}

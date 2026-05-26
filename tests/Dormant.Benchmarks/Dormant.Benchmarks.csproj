@@ -9,9 +9,22 @@
 
   <ItemGroup>
     <PackageReference Include="BenchmarkDotNet" />
+    <PackageReference Include="Dapper" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" />
+    <PackageReference Include="Insight.Database.Core" />
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="../../src/Dormant.Provider.PostgreSql/Dormant.Provider.PostgreSql.csproj" />
+    <ProjectReference Include="../../src/Dormant.Provider.Sqlite/Dormant.Provider.Sqlite.csproj" />
+    <ProjectReference
+      Include="../../src/Dormant.SourceGeneration/Dormant.SourceGeneration.csproj"
+      OutputItemType="Analyzer"
+      ReferenceOutputAssembly="false"
+    />
+  </ItemGroup>
+
+  <ItemGroup>
+    <AdditionalFiles Include="schema/*.dqls" />
+    <AdditionalFiles Include="schema/*.dql" />
   </ItemGroup>
 </Project>
