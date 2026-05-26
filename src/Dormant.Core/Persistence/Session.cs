@@ -61,6 +61,10 @@ internal sealed class Session(IDbSession db) : ISession
         throw new InvalidOperationException("The command returned no row.");
     }
 
+    // Authored update/delete: returns the affected-row count (0 on a stale concurrency token).
+    public ValueTask<int> ExecuteWriteAsync(PreparedStatement statement, CancellationToken cancellationToken = default)
+        => db.ExecuteAsync(statement, cancellationToken);
+
     public ValueTask CommitAsync(CancellationToken cancellationToken = default) => db.CommitAsync(cancellationToken);
 
     public ValueTask RollbackAsync(CancellationToken cancellationToken = default) => db.RollbackAsync(cancellationToken);

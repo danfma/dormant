@@ -99,9 +99,9 @@ commands; removes the mutable session + change-tracking). Paths below are reused
 **Goal**: `update`/`delete` match a concurrency token; stale token → 0 rows → surfaced conflict.
 **Independent Test**: two callers, stale-token second update affects 0 rows and surfaces a conflict; first writer's value persists.
 
-- [ ] T031 [P] [US6] Integration: stale-token `update` → 0 rows → `ConcurrencyConflictException`; first write persists in `tests/Dormant.Provider.PostgreSql.Tests/CommandConcurrencyTests.cs`
-- [ ] T032 [US6] Parse `update Entity filter … set { … }` and `delete Entity filter …` (incl. token match + bump) in `CommandParser.cs` (FR-002/FR-011)
-- [ ] T033 [US6] Build `UpdateStatement`/`DeleteStatement` (WHERE incl. token, optional `Returning`) in `CommandSqlBuilder.cs`; surface zero-rows as a conflict in the executor (FR-011)
+- [X] T031 [P] [US6] Integration: stale-token `update` → 0 rows → `ConcurrencyConflictException`; first write persists in `tests/Dormant.Provider.PostgreSql.Tests/CommandConcurrencyTests.cs`
+- [X] T032 [US6] Parse `update Entity filter … set { … }` and `delete Entity filter …` (incl. token match + bump) in `CommandParser.cs` (FR-002/FR-011)
+- [X] T033 [US6] Build `UpdateStatement`/`DeleteStatement` (WHERE incl. token, optional `Returning`) in `CommandSqlBuilder.cs`; surface zero-rows as a conflict in the executor (FR-011)
 
 **Checkpoint**: authored update/delete + optimistic concurrency work end-to-end.
 

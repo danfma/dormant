@@ -114,18 +114,30 @@ internal sealed class CommandParser
             return null;
         }
 
-        // v1 MVP: only `insert` is implemented; update/delete are a later slice.
-        if (!IsKeyword("insert"))
+        CommandKind kind;
+        if (IsKeyword("insert"))
         {
-            Error($"expected 'insert' (update/delete commands are a later slice) but found '{Describe(Current)}'");
+            kind = CommandKind.Insert;
+        }
+        else if (IsKeyword("update"))
+        {
+            kind = CommandKind.Update;
+        }
+        else if (IsKeyword("delete"))
+        {
+            kind = CommandKind.Delete;
+        }
+        else
+        {
+            Error($"expected 'insert', 'update', or 'delete' but found '{Describe(Current)}'");
             RecoverToStatementEnd();
             return null;
         }
 
-        _pos++; // 'insert'
+        _pos++; // kind keyword
         if (Current.Kind != TokenKind.Identifier)
         {
-            Error("expected an entity name after 'insert'");
+            Error("expected an entity name");
             RecoverToStatementEnd();
             return null;
         }
@@ -133,15 +145,31 @@ internal sealed class CommandParser
         var entity = Current.Text;
         _pos++;
 
-        var assignments = ParseAssignments();
+        var assignments = new List<Assignment>();
+        var filters = new List<FilterCondition>();
+        if (kind == CommandKind.Insert)
+        {
+            assignments = ParseAssignments();
+        }
+        else
+        {
+            filters = ParseFilters();
+            if (kind == CommandKind.Update)
+            {
+                ExpectKeyword("set");
+                assignments = ParseAssignments();
+            }
+        }
+
         Expect(TokenKind.Semicolon, "';' to close the command");
 
         return new CommandModel(
             name,
-            CommandKind.Insert,
+            kind,
             entity,
             new EquatableArray<QueryParameter>([.. parameters]),
-            new EquatableArray<Assignment>([.. assignments]));
+            new EquatableArray<Assignment>([.. assignments]),
+            new EquatableArray<FilterCondition>([.. filters]));
     }
 
     private List<QueryParameter> ParseParameters()
@@ -267,6 +295,89 @@ internal sealed class CommandParser
                 Error($"expected a value (parameter, literal, or native call) but found '{Describe(Current)}'");
                 return null;
         }
+    }
+
+    // filter := 'filter' cond ('and' cond)* ; cond := '.' IDENT op IDENT
+    private List<FilterCondition> ParseFilters()
+    {
+        var conditions = new List<FilterCondition>();
+        if (!IsKeyword("filter"))
+        {
+            return conditions;
+        }
+
+        _pos++; // 'filter'
+        while (true)
+        {
+            if (!Expect(TokenKind.Dot, "'.' before a column reference"))
+            {
+                break;
+            }
+
+            if (Current.Kind != TokenKind.Identifier)
+            {
+                Error("expected a column name after '.'");
+                break;
+            }
+
+            var column = Current.Text;
+            _pos++;
+
+            var op = ParseOperator();
+            if (op is null)
+            {
+                break;
+            }
+
+            if (Current.Kind != TokenKind.Identifier)
+            {
+                Error("expected a parameter on the right side of the comparison");
+                break;
+            }
+
+            var param = Current.Text;
+            _pos++;
+            conditions.Add(new FilterCondition(column, op.Value, param));
+
+            if (IsKeyword("and"))
+            {
+                _pos++;
+                continue;
+            }
+
+            break;
+        }
+
+        return conditions;
+    }
+
+    private CompareOp? ParseOperator()
+    {
+        switch (Current.Kind)
+        {
+            case TokenKind.Equals: _pos++; return CompareOp.Eq;
+            case TokenKind.LeftAngle: _pos++; return CompareOp.Lt;
+            case TokenKind.RightAngle: _pos++; return CompareOp.Gt;
+            case TokenKind.LessEqual: _pos++; return CompareOp.Le;
+            case TokenKind.GreaterEqual: _pos++; return CompareOp.Ge;
+            case TokenKind.Identifier when Current.Text == "like": _pos++; return CompareOp.Like;
+            case TokenKind.Identifier when Current.Text == "ilike": _pos++; return CompareOp.ILike;
+            default:
+                Error($"expected a comparison operator but found '{Describe(Current)}'");
+                return null;
+        }
+    }
+
+    private bool ExpectKeyword(string keyword)
+    {
+        if (IsKeyword(keyword))
+        {
+            _pos++;
+            return true;
+        }
+
+        Error($"expected '{keyword}' but found '{Describe(Current)}'");
+        return false;
     }
 
     private Token Peek() => _tokens[System.Math.Min(_pos + 1, _tokens.Count - 1)];

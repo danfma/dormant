@@ -35,13 +35,15 @@ internal enum CommandKind
 /// <param name="Kind">The command kind.</param>
 /// <param name="RootEntity">The target entity.</param>
 /// <param name="Parameters">Declared parameters, in source order.</param>
-/// <param name="Assignments">Column assignments (<c>col := expr</c>), in source order.</param>
+/// <param name="Assignments">Column assignments (<c>col := expr</c>), in source order (insert/update).</param>
+/// <param name="Filters">WHERE conditions for <c>update</c>/<c>delete</c> (incl. concurrency-token match).</param>
 internal sealed record CommandModel(
     string Name,
     CommandKind Kind,
     string RootEntity,
     EquatableArray<QueryParameter> Parameters,
-    EquatableArray<Assignment> Assignments);
+    EquatableArray<Assignment> Assignments,
+    EquatableArray<FilterCondition> Filters = default);
 
 /// <summary>A column assignment in a command body: <c>column := value</c>.</summary>
 /// <param name="Column">The target column (DSL member name).</param>

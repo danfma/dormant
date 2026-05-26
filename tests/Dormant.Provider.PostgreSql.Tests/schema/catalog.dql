@@ -13,6 +13,14 @@ command CreateStockItem(id: uuid, itemName: str) =
 command CreateDocument(id: uuid, data: json) =
   insert Document { id := id, data := data };
 
+# update with optimistic concurrency: matches the expected version; stale → 0 rows affected.
+command BumpAccountBalance(id: uuid, balance: int, expectedVersion: int, newVersion: int) =
+  update Account filter .id = id and .version = expectedVersion
+  set { balance := balance, version := newVersion };
+
+command DeleteWidget(id: uuid) =
+  delete Widget filter .id = id;
+
 # Full-entity query: returns Widget with all mapped columns (FR-006).
 query WidgetsByMinQuantity(min: int) =
   select Widget

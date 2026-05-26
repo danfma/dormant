@@ -49,6 +49,18 @@ public interface ISession : IAsyncDisposable
         CompiledCommand<TResult> command,
         CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Executes a write command that returns an affected-row count (authored <c>update</c>/<c>delete</c>)
+    /// within the session transaction (FR-002/FR-011). A zero count on a concurrency-token-matched command
+    /// signals a conflict to the caller.
+    /// </summary>
+    /// <param name="statement">The prebuilt, parameter-bound statement.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The number of affected rows.</returns>
+    ValueTask<int> ExecuteWriteAsync(
+        PreparedStatement statement,
+        CancellationToken cancellationToken = default);
+
     /// <summary>Commits the transaction.</summary>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>A task that completes when committed.</returns>

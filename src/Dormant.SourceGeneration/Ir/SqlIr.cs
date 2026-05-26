@@ -37,6 +37,15 @@ internal sealed record SelectStatement(
 /// <summary>A DELETE with a WHERE clause.</summary>
 internal sealed record DeleteStatement(TableRef Table, IReadOnlyList<SqlCondition> Where) : SqlStatement;
 
+/// <summary>A SET assignment in an UPDATE: <c>"column" = &lt;valueToken&gt;</c> (token already rendered, e.g. <c>$1</c>).</summary>
+internal sealed record SqlAssignment(string Column, string ValueToken);
+
+/// <summary>An UPDATE with SET assignments and a WHERE clause.</summary>
+internal sealed record UpdateStatement(
+    TableRef Table,
+    IReadOnlyList<SqlAssignment> Assignments,
+    IReadOnlyList<SqlCondition> Where) : SqlStatement;
+
 /// <summary>A <c>CREATE SCHEMA IF NOT EXISTS</c> for a module's database schema (FR-045).</summary>
 internal sealed record CreateSchemaStatement(string Schema) : SqlStatement;
 
@@ -60,6 +69,7 @@ internal static class SqlRenderer
         InsertStatement insert => RenderInsert(insert),
         SelectStatement select => RenderSelect(select),
         DeleteStatement delete => RenderDelete(delete),
+        UpdateStatement update => RenderUpdate(update),
         CreateSchemaStatement createSchema => $"CREATE SCHEMA IF NOT EXISTS {Quote(createSchema.Schema)}",
         CreateTableStatement createTable => RenderCreateTable(createTable),
         _ => throw new System.NotSupportedException($"Unknown statement: {statement.GetType().Name}"),
@@ -125,6 +135,15 @@ internal static class SqlRenderer
         var sb = new System.Text.StringBuilder();
         sb.Append("DELETE FROM ").Append(RenderTable(delete.Table));
         AppendWhere(sb, delete.Where);
+        return sb.ToString();
+    }
+
+    private static string RenderUpdate(UpdateStatement update)
+    {
+        var sb = new System.Text.StringBuilder();
+        sb.Append("UPDATE ").Append(RenderTable(update.Table)).Append(" SET ");
+        sb.Append(string.Join(", ", update.Assignments.Select(a => Quote(a.Column) + " = " + a.ValueToken)));
+        AppendWhere(sb, update.Where);
         return sb.ToString();
     }
 

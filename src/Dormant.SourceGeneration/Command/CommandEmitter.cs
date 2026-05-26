@@ -3,6 +3,7 @@ using System.Globalization;
 using System.Linq;
 using Dormant.SourceGeneration.Diagnostics;
 using Dormant.SourceGeneration.Emit;
+using Dormant.SourceGeneration.Ir;
 using Dormant.SourceGeneration.Parsing;
 
 namespace Dormant.SourceGeneration.Command;
@@ -93,77 +94,173 @@ internal static class CommandEmitter
             }
         }
 
-        return ok;
-    }
-
-    private static string EmitMethod(CommandModel command, EntityModel entity, string schema, NamingConvention convention)
-    {
-        var table = "\"" + schema + "\".\"" + NamingConventions.Resolve(entity.Name, entity.NameOverride, convention) + "\"";
-
-        // Build the assigned-columns + value tokens; param/literal → $n (bound), native → inline SQL.
-        var assignedColumns = new List<string>();
-        var valueTokens = new List<string>();
-        var binds = new List<string>(); // generated bind statements, in $n order
-        var p = 0;
-        foreach (var assignment in command.Assignments)
+        foreach (var filter in command.Filters)
         {
-            var property = entity.Properties.First(x => x.Name == assignment.Column);
-            assignedColumns.Add("\"" + NamingConventions.Resolve(property.Name, property.NameOverride, convention) + "\"");
-
-            // PostgreSQL won't coerce text→jsonb, so a json column's bound value needs a `::jsonb` cast.
-            var cast = property.DslType == "json" ? "::jsonb" : string.Empty;
-
-            switch (assignment.Value.Kind)
+            if (!columns.Contains(filter.Column))
             {
-                case CommandValueKind.Parameter:
-                    p++;
-                    valueTokens.Add("$" + p.ToString(CultureInfo.InvariantCulture) + cast);
-                    binds.Add($"writer.Write({p}, {assignment.Value.Text});");
-                    break;
-                case CommandValueKind.StringLiteral:
-                    p++;
-                    valueTokens.Add("$" + p.ToString(CultureInfo.InvariantCulture) + cast);
-                    binds.Add($"writer.Write({p}, {Quote(assignment.Value.Text)});");
-                    break;
-                case CommandValueKind.NumberLiteral:
-                    p++;
-                    valueTokens.Add("$" + p.ToString(CultureInfo.InvariantCulture) + cast);
-                    binds.Add($"writer.Write({p}, {assignment.Value.Text});");
-                    break;
-                case CommandValueKind.NativeCall:
-                    valueTokens.Add(NativeSql(assignment.Value.Text));
-                    break;
+                diagnostics.Add(Diag(DiagnosticDescriptors.UnknownQueryColumn, filePath, command.Name, filter.Column, entity.Name));
+                ok = false;
+            }
+
+            if (!parameters.Contains(filter.ParameterName))
+            {
+                diagnostics.Add(Diag(DiagnosticDescriptors.UnknownQueryParameter, filePath, command.Name, filter.ParameterName));
+                ok = false;
             }
         }
 
-        var returning = string.Join(
-            ", ",
-            entity.Properties.Select(x => "\"" + NamingConventions.Resolve(x.Name, x.NameOverride, convention) + "\""));
-        var sql = $"INSERT INTO {table} ({string.Join(", ", assignedColumns)}) VALUES ({string.Join(", ", valueTokens)}) RETURNING {returning}";
+        return ok;
+    }
 
+    private static string EmitMethod(CommandModel command, EntityModel entity, string schema, NamingConvention convention) =>
+        command.Kind switch
+        {
+            CommandKind.Insert => EmitInsert(command, entity, schema, convention),
+            CommandKind.Update => EmitUpdate(command, entity, schema, convention),
+            CommandKind.Delete => EmitDelete(command, entity, schema, convention),
+            _ => throw new System.NotSupportedException($"Unknown command kind: {command.Kind}"),
+        };
+
+    private static string EmitInsert(CommandModel command, EntityModel entity, string schema, NamingConvention convention)
+    {
+        var table = new TableRef(schema, Col(entity.Name, entity.NameOverride, convention));
+        var binds = new List<string>();
+        var p = 0;
+        var assignedColumns = new List<InsertColumn>();
+        var valueTokens = new List<string>();
+        foreach (var assignment in command.Assignments)
+        {
+            var property = entity.Properties.First(x => x.Name == assignment.Column);
+            assignedColumns.Add(new InsertColumn(Col(property.Name, property.NameOverride, convention), null));
+            valueTokens.Add(ValueToken(assignment.Value, property, ref p, binds));
+        }
+
+        var columns = string.Join(", ", assignedColumns.Select(c => "\"" + c.Name + "\""));
+        var returning = string.Join(", ", entity.Properties.Select(x => "\"" + Col(x.Name, x.NameOverride, convention) + "\""));
+        var sql = $"INSERT INTO {QualifiedTable(table)} ({columns}) VALUES ({string.Join(", ", valueTokens)}) RETURNING {returning}";
+
+        var w = OpenMethod(command, $"global::System.Threading.Tasks.ValueTask<{entity.Name}>");
+        EmitStatement(w, sql, binds);
+        w
+            .Line($"var command = new {Abs}.Querying.CompiledCommand<{entity.Name}>(statement, static reader => new {entity.Name}(reader));")
+            .Line("return await session.ExecuteCommandAsync(command, cancellationToken).ConfigureAwait(false);")
+            .Close();
+        return w.ToString().TrimEnd('\n');
+    }
+
+    private static string EmitUpdate(CommandModel command, EntityModel entity, string schema, NamingConvention convention)
+    {
+        var table = new TableRef(schema, Col(entity.Name, entity.NameOverride, convention));
+        var binds = new List<string>();
+        var p = 0;
+        var assignments = new List<SqlAssignment>();
+        foreach (var assignment in command.Assignments)
+        {
+            var property = entity.Properties.First(x => x.Name == assignment.Column);
+            assignments.Add(new SqlAssignment(Col(property.Name, property.NameOverride, convention), ValueToken(assignment.Value, property, ref p, binds)));
+        }
+
+        var where = BuildWhere(command, entity, convention, ref p, binds);
+        var sql = SqlRenderer.Render(new UpdateStatement(table, assignments, where));
+        return EmitWriteMethod(command, sql, binds);
+    }
+
+    private static string EmitDelete(CommandModel command, EntityModel entity, string schema, NamingConvention convention)
+    {
+        var table = new TableRef(schema, Col(entity.Name, entity.NameOverride, convention));
+        var binds = new List<string>();
+        var p = 0;
+        var where = BuildWhere(command, entity, convention, ref p, binds);
+        var sql = SqlRenderer.Render(new DeleteStatement(table, where));
+        return EmitWriteMethod(command, sql, binds);
+    }
+
+    // A value token for an assignment: param/literal → $n (bound, +`::jsonb` for json), native → inline SQL.
+    private static string ValueToken(CommandValue value, PropertyModel property, ref int p, List<string> binds)
+    {
+        var cast = property.DslType == "json" ? "::jsonb" : string.Empty;
+        switch (value.Kind)
+        {
+            case CommandValueKind.Parameter:
+                p++;
+                binds.Add($"writer.Write({p}, {value.Text});");
+                return "$" + p.ToString(CultureInfo.InvariantCulture) + cast;
+            case CommandValueKind.StringLiteral:
+                p++;
+                binds.Add($"writer.Write({p}, {Quote(value.Text)});");
+                return "$" + p.ToString(CultureInfo.InvariantCulture) + cast;
+            case CommandValueKind.NumberLiteral:
+                p++;
+                binds.Add($"writer.Write({p}, {value.Text});");
+                return "$" + p.ToString(CultureInfo.InvariantCulture) + cast;
+            default: // NativeCall
+                return NativeSql(value.Text);
+        }
+    }
+
+    private static List<SqlCondition> BuildWhere(CommandModel command, EntityModel entity, NamingConvention convention, ref int p, List<string> binds)
+    {
+        var where = new List<SqlCondition>(command.Filters.Count);
+        foreach (var filter in command.Filters)
+        {
+            var property = entity.Properties.First(x => x.Name == filter.Column);
+            p++;
+            where.Add(new SqlCondition(Col(property.Name, property.NameOverride, convention), OperatorSql(filter.Op), p));
+            binds.Add($"writer.Write({p}, {filter.ParameterName});");
+        }
+
+        return where;
+    }
+
+    private static SourceWriter OpenMethod(CommandModel command, string returnType)
+    {
         var declared = string.Join(", ", command.Parameters.Select(x => $"{x.ClrType} {x.Name}"));
         var parameterList = declared.Length > 0 ? declared + ", " : string.Empty;
+        return new SourceWriter()
+            .Open($"public async {returnType} {command.Name}({parameterList}global::System.Threading.CancellationToken cancellationToken = default)");
+    }
 
-        var w = new SourceWriter()
-            .Open($"public async global::System.Threading.Tasks.ValueTask<{entity.Name}> {command.Name}({parameterList}global::System.Threading.CancellationToken cancellationToken = default)")
+    private static void EmitStatement(SourceWriter w, string sql, List<string> binds)
+    {
+        w
             .Line($"var statement = new {Abs}.Querying.PreparedStatement(")
             .Line($"    {Quote(sql)},")
             .Line("    writer =>")
             .Line("    {");
-
         foreach (var bind in binds)
         {
             w.Line("        " + bind);
         }
 
-        w
-            .Line("    });")
-            .Line($"var command = new {Abs}.Querying.CompiledCommand<{entity.Name}>(statement, static reader => new {entity.Name}(reader));")
-            .Line("return await session.ExecuteCommandAsync(command, cancellationToken).ConfigureAwait(false);")
-            .Close();
+        w.Line("    });");
+    }
 
+    // update/delete return the affected-row count (0 on a stale concurrency token → caller's conflict).
+    private static string EmitWriteMethod(CommandModel command, string sql, List<string> binds)
+    {
+        var w = OpenMethod(command, "global::System.Threading.Tasks.ValueTask<int>");
+        EmitStatement(w, sql, binds);
+        w.Line("return await session.ExecuteWriteAsync(statement, cancellationToken).ConfigureAwait(false);").Close();
         return w.ToString().TrimEnd('\n');
     }
+
+    private static string QualifiedTable(TableRef table) =>
+        table.Schema is null ? "\"" + table.Name + "\"" : "\"" + table.Schema + "\".\"" + table.Name + "\"";
+
+    private static string Col(string name, string? nameOverride, NamingConvention convention) =>
+        NamingConventions.Resolve(name, nameOverride, convention);
+
+    private static string OperatorSql(CompareOp op) => op switch
+    {
+        CompareOp.Eq => "=",
+        CompareOp.Lt => "<",
+        CompareOp.Gt => ">",
+        CompareOp.Le => "<=",
+        CompareOp.Ge => ">=",
+        CompareOp.Like => "LIKE",
+        CompareOp.ILike => "ILIKE",
+        _ => "=",
+    };
 
     // Maps a v1 native function to its PostgreSQL SQL. Minimal: datetime::now() → now().
     private static string NativeSql(string func) => func switch
