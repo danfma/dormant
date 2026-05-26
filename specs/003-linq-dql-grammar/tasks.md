@@ -42,7 +42,7 @@ unchanged.
 - [ ] T015 [US2] CommandEmitter: `returning <expr>` shaping mirroring `select` — `returning a` (entity via binding Materialize), `returning { … }` (distinct projection), `returning a.f` (scalar) — in src/Dormant.SourceGeneration/Command/CommandEmitter.cs
 - [ ] T016 [US2] CommandParser + CommandEmitter: multi-command sequence + `with x = expr` bindings compiled to C# locals threaded into later commands; the trailing read/`returning` determines the unit result, in src/Dormant.SourceGeneration/Parsing/CommandParser.cs and src/Dormant.SourceGeneration/Command/CommandEmitter.cs
 - [X] T017 [P] [US2] Generator tests: insert→id default; `returning` entity/projection/scalar shapes; missing-required-member diagnostic; multi-command trailing-read result type, in tests/Dormant.SourceGeneration.Tests/CommandEmitTests.cs
-- [ ] T018 [US2] Provider tests (real Docker PostgreSQL): insert returns id; `insert … returning u` materializes the row; multi-command `with`-bound id flows to a dependent command, in tests/Dormant.Provider.PostgreSql.Tests/CommandInsertTests.cs
+- [X] T018 [US2] Provider tests (real Docker PostgreSQL): insert returns id; `insert … returning u` materializes the row; multi-command `with`-bound id flows to a dependent command, in tests/Dormant.Provider.PostgreSql.Tests/CommandInsertTests.cs
 
 ## Phase 5: User Story 3 — Update/delete with where + affected-count (P2)
 
@@ -52,7 +52,7 @@ unchanged.
 - [X] T019 [US3] CommandParser: `update E a where pred set { a.f = expr }` and `delete E a where pred`, canonical clause order enforced, in src/Dormant.SourceGeneration/Parsing/CommandParser.cs
 - [X] T020 [US3] CommandEmitter: update → UpdateStatement, delete → DeleteStatement; predicate logical operators → AND/OR/NOT; default result = affected count (`ValueTask<int>`) unless `returning`; concurrency = `where` match on the version field, in src/Dormant.SourceGeneration/Command/CommandEmitter.cs
 - [X] T021 [P] [US3] Generator tests: update emits correct UPDATE (SET + WHERE); delete emits DELETE; operator mapping; count result type, in tests/Dormant.SourceGeneration.Tests/CommandEmitTests.cs
-- [ ] T022 [US3] Provider tests: update affects 1 on match / 0 on stale version; delete returns count — migrate the existing concurrency/delete tests to the new grammar, in tests/Dormant.Provider.PostgreSql.Tests/CommandConcurrencyTests.cs
+- [X] T022 [US3] Provider tests: update affects 1 on match / 0 on stale version; delete returns count — migrate the existing concurrency/delete tests to the new grammar, in tests/Dormant.Provider.PostgreSql.Tests/CommandConcurrencyTests.cs
 
 ## Phase 6: User Story 4 — Projection select block (P2)
 
@@ -69,10 +69,10 @@ unchanged.
 
 - [X] T025 [US5] Emit located migration diagnostics for the removed `002` forms (`command …`, `… = …;`, leading-dot `.field`, `:=`, `and`/`or`) instead of generic parse errors, in src/Dormant.SourceGeneration/Parsing/QueryParser.cs and src/Dormant.SourceGeneration/Parsing/CommandParser.cs
 - [X] T026 [P] [US5] Generator tests: each removed form produces its specific migration diagnostic, in tests/Dormant.SourceGeneration.Tests/GrammarDiagnosticsTests.cs
-- [ ] T027 [US5] Migrate the sample units to the new grammar and rename samples/Dormant.Sample.Quickstart/schema/app.query → app.dql; update the sample Program.cs to call the PascalCase generated methods, in samples/Dormant.Sample.Quickstart/
-- [ ] T028 [US5] Migrate the provider test `.dql` units (e.g. schema/catalog.dql) to `query`/`mutation` grammar, in tests/Dormant.Provider.PostgreSql.Tests/schema/
-- [ ] T029 [US5] Migrate the AOT smoke `.dql` + Program.cs to the new grammar and re-verify a zero-warning publish, in tests/Dormant.Aot.SmokeTests/
-- [ ] T030 [US5] Verification gate: build `Dormant.slnx` and run generator + core + provider (Docker) suites + AOT publish — all green on the new grammar (no `002`-syntax remaining)
+- [X] T027 [US5] Migrate the sample units to the new grammar and rename samples/Dormant.Sample.Quickstart/schema/app.query → app.dql; update the sample Program.cs to call the PascalCase generated methods, in samples/Dormant.Sample.Quickstart/
+- [X] T028 [US5] Migrate the provider test `.dql` units (e.g. schema/catalog.dql) to `query`/`mutation` grammar, in tests/Dormant.Provider.PostgreSql.Tests/schema/
+- [X] T029 [US5] Migrate the AOT smoke `.dql` + Program.cs to the new grammar and re-verify a zero-warning publish, in tests/Dormant.Aot.SmokeTests/
+- [X] T030 [US5] Verification gate: build `Dormant.slnx` and run generator + core + provider (Docker) suites + AOT publish — all green on the new grammar (no `002`-syntax remaining)
 
 ## Phase 8: Polish & Cross-Cutting
 
