@@ -27,7 +27,7 @@ rendered at build time, so the runtime no longer renders them).
 |--------|------|---------|
 | `Id` | `DialectId` | The runtime variant key. |
 | `QuoteIdentifier(string)` | `string` | Identifier quoting for the dynamic-filter `StringBuilder` path. |
-| `Placeholder(int)` | `string` | Placeholder text for the dynamic-filter path (`$n` vs `?`). |
+| `Placeholder(int)` | `string` | Placeholder text for the dynamic-filter path (`$n` vs `@pN`). |
 | `Supports(string providerScope)` | `bool` | Native provider-scope capability check (existing). |
 
 - **Implementations**: `PostgreSqlDialect` (existing, gains `Id`), `SqliteDialect` (new).
@@ -66,35 +66,47 @@ dialect-neutral (positional add-order).
 
 ## Build-time model elements (Dormant.SourceGeneration)
 
-### SqlIr nodes (kept neutral; one change)
+### SqlIr nodes (kept neutral)
 
 `SqlStatement` and its records (`InsertStatement`, `SelectStatement`, `UpdateStatement`,
 `DeleteStatement`, `CreateSchemaStatement`, `CreateTableStatement`, `SqlCondition`, `SqlOrder`,
-`SqlLimit`, `TableRef`, `ColumnDef`) stay provider-neutral.
+`SqlLimit`, `TableRef`, `ColumnDef`) stay provider-neutral. As built, the values and DDL types carry no
+dialect lexical choice:
 
-| Node | Change |
-|------|--------|
-| `InsertColumn` | `ParamCast` (PG-literal, e.g. `"jsonb"`) → a **neutral type tag** (DSL type / `needs-json` flag); the renderer maps it (D8). |
-| `ColumnDef.SqlType` | No longer pre-resolved to a PG type at IR-build; the **renderer** maps the DSL type per dialect via `DialectTypeMap` (D6). (Or `SqlType` holds the DSL type and the renderer maps — implementation detail for tasks.) |
+| Node | Neutral shape (as implemented) |
+|------|--------------------------------|
+| `SqlValue` (new) | Abstract value: `ParamValue(int Index, bool Json)` (a bound positional parameter; `Json` marks a JSON value) or `NativeValue(string Func)` (an inline native call). The renderer turns it into dialect text — `$1::jsonb` / `@p1` / `now()` / `CURRENT_TIMESTAMP` — so no cast or placeholder literal lives in the IR (D8/D10). Replaced the former `InsertColumn.ParamCast`. |
+| `InsertStatement` | Carries `Columns` + parallel `Values` (`SqlValue`) + optional `Returning`. |
+| `SqlAssignment` | `(string Column, SqlValue Value)` — value rendered per dialect. |
+| `ColumnDef` | Carries `DslType` (the DormantQL type), not a pre-resolved SQL type; the **renderer** maps it per dialect via its `TypeName` (D6). |
+| `SqlCondition.Operator` | The canonical SQL keyword (e.g. `ILIKE`); the renderer remaps where a dialect differs (`ILIKE` → `LIKE`, D9). |
 
 ### ISqlDialectRenderer — NEW (replaces static SqlRenderer)
 
 | Member | Type | Purpose |
 |--------|------|---------|
-| `Id` | `DialectId` | Tags the variant this renderer produces. |
+| `EnumMember` | `string` | The `DialectId` member name (e.g. `PostgreSql`) emitted into the generated variant switch. |
+| `RendersCreateSchema` | `bool` | Whether the dialect emits a real `CREATE SCHEMA` (false ⇒ folded away). |
+| `Quote` / `QualifyTable` | `string` | Identifier quoting and (schema-qualified) table rendering. |
+| `TypeName(dslType)` | `string` | Maps a DormantQL value type to this dialect's SQL column type (the per-dialect type map lives here). |
 | `Render(SqlStatement)` | `string` | IR → dialect SQL text (the single string boundary, per dialect). |
+| `DynamicPlaceholderExpr(indexExpr)` | `string` | C# expression that builds the runtime placeholder for the dynamic optional-filter path. |
+
+Shared statement walking lives in `SqlDialectRendererBase`; concrete dialects override only their lexical
+primitives.
 
 - **Implementations**:
-  - `PostgreSqlRenderer` — current `SqlRenderer` behavior verbatim (`"`-quoting, `$n`, `::cast`,
-    `schema.table`, `RETURNING`). **Output byte-identical to today** (snapshot-verified).
-  - `SqliteRenderer` — `"`-quoted single identifier `"schema_table"` (D5), `?` placeholders, no `::`
-    cast, `TEXT/INTEGER/REAL/BLOB` types (D6), `LIKE` for case-insensitive (D9), `RETURNING` kept (D7),
-    `CREATE SCHEMA` → empty/skip (D5).
+  - `PostgreSqlRenderer` — pre-005 `SqlRenderer` behavior (`"`-quoting, `$n`, `::jsonb`, `schema.table`,
+    `RETURNING`). **Output byte-identical to today** (snapshot-verified).
+  - `SqliteRenderer` — `"`-quoted single identifier `"schema_table"` (D5), named `@pN` placeholders, no
+    `::` cast, `TEXT/INTEGER/REAL/BLOB` types (D6), `LIKE` for case-insensitive (D9), `RETURNING` kept (D7),
+    `CREATE SCHEMA` → empty (D5).
 
-### DialectTypeMap — NEW
+### Per-dialect type map
 
-Per-dialect `DSL value type → SQL column type`. PostgreSQL map = today's `TypeMap.SqlMap`. SQLite map =
-affinity table (D6). `TypeMap.Map` (DSL → CLR) stays shared/neutral.
+`DSL value type → SQL column type` is owned by each renderer's `TypeName` (PostgreSQL: `text/jsonb/uuid/…`;
+SQLite affinities: `TEXT/INTEGER/REAL/BLOB`, D6) — not a separate shared component. `TypeMap.Map`
+(DSL → CLR) stays shared/neutral in `EmitHelpers`.
 
 ## Generated-code shape (the contract delta)
 

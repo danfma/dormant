@@ -103,10 +103,31 @@ public interface IEntityBinding<TEntity> : IEntityBinding where TEntity : class
 ## Invariants (must hold for every dialect)
 
 1. **No runtime SQL compilation**: variant selection is a branch over compile-time-constant strings.
-2. **Neutral binder**: positional add-order parameter binding serves every dialect (`$n` and `?` both
-   bind by add order).
+2. **Neutral binder**: the bind callback writes values by index once for all dialects. PostgreSQL binds
+   positionally (`$n`, add order); SQLite binds named `@pN` parameters the writer names from the same index
+   (order-independent). The placeholder *text* is the renderer's choice; the bind sequence is dialect-neutral.
 3. **Result-type independence**: the selected dialect never changes a query/command result type.
 4. **Core-change-free dialect addition**: adding a `DialectId` member + renderer + adapter requires **0**
    changes to `Session`, `SchemaInitializer` logic shape, or the public method signatures consumers call.
 5. **Open to non-SQL**: the IR carries no dialect-specific literal, so a future non-SQL strategy can
    consume the same IR at build time (SC-004) — not implemented in v1.
+
+## US2 verification (SC-003 / SC-004 / SC-006)
+
+**SC-003 / SC-006 — adding the SQLite dialect required 0 core changes.** Once the Phase-2 framework seam
+landed, introducing the SQLite *dialect* touched only:
+
+- `src/Dormant.SourceGeneration/Ir/Dialects/SqliteRenderer.cs` — new renderer (build-time).
+- `src/Dormant.SourceGeneration/Ir/Dialects/DialectRenderers.cs` — one line registering the renderer.
+- `src/Dormant.Provider.Sqlite/**` — the new adapter package (data source, session, dialect identity, IO).
+- `tests/**` — the conformance + SQLite tests.
+
+**Zero** edits to `Dormant.Abstractions` runtime types, `Dormant.Core` (`Session`, `SessionFactory`,
+`SchemaInitializer`), the DSL, or any consumer-facing generated method *signature*. The variant `switch`
+arms for SQLite appeared automatically from the renderer registration — no per-unit emitter change.
+
+**SC-004 — the boundary admits a non-SQL strategy.** The neutral `SqlStatement` IR is the shared seam: a
+future non-SQL execution strategy consumes the same IR at build time without a SQL-text assumption blocking
+it. `DialectBoundaryTests` proves neutrality empirically — one authored unit renders a PostgreSQL variant
+(`"catalog"."doc"`, `$2::jsonb`) and a SQLite variant (`"catalog_doc"`, `@p2`, no cast) from the *same*
+IR, so the JSON cast / placeholder form / schema qualification are renderer decisions, not IR literals.

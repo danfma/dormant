@@ -1,0 +1,23 @@
+module catalog;
+
+entity Widget {
+  id: uuid primary;
+  name: str;
+  quantity: int;
+}
+
+entity Author {
+  id: uuid primary;
+  name: str;
+}
+
+entity Article {
+  id: uuid primary;
+  title: str;
+  writer: Author;
+}
+
+entity Document {
+  id: uuid primary;
+  data: json;
+}

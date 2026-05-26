@@ -152,8 +152,8 @@ public sealed class CommandEmitTests
 
         // The ref `p.author = author` writes the `author_id` FK column (raw-string INSERT, real quotes).
         await Assert.That(generated).Contains("INSERT INTO \"app\".\"post\" (\"id\", \"title\", \"author_id\") VALUES ($1, $2, $3)");
-        // CREATE TABLE (escaped string literal) carries the FK column too.
-        await Assert.That(generated).Contains("\\\"author_id\\\" uuid");
+        // CREATE TABLE (raw-string DDL, real quotes) carries the FK column too.
+        await Assert.That(generated).Contains("\"author_id\" uuid");
     }
 
     // 003 T040/T041/T042/FR-021/FR-022: a `with name = (command)` block runs each binding as its own

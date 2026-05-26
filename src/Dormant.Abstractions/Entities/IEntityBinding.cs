@@ -1,3 +1,4 @@
+using Dormant.Abstractions.Providers;
 using Dormant.Abstractions.Querying;
 
 namespace Dormant.Abstractions.Entities;
@@ -12,8 +13,18 @@ public interface IEntityBinding
     /// <summary>The database schema this entity's table lives in (the module's schema, FR-045).</summary>
     string Schema { get; }
 
-    /// <summary>The prebuilt <c>CREATE TABLE IF NOT EXISTS</c> DDL for this entity (schema-qualified, FR-020/FR-045).</summary>
-    string CreateTableSql { get; }
+    /// <summary>
+    /// The prebuilt <c>CREATE SCHEMA</c> DDL for this entity's module schema in <paramref name="dialect"/>,
+    /// or an empty string when the dialect has no schema concept (e.g. SQLite folds it into table names, 005 D5).
+    /// </summary>
+    /// <param name="dialect">The target dialect.</param>
+    /// <returns>The schema DDL, or empty when not applicable.</returns>
+    string CreateSchemaSql(DialectId dialect);
+
+    /// <summary>The prebuilt <c>CREATE TABLE IF NOT EXISTS</c> DDL for this entity in the given dialect (FR-020/FR-045).</summary>
+    /// <param name="dialect">The target dialect.</param>
+    /// <returns>The table DDL rendered for <paramref name="dialect"/>.</returns>
+    string CreateTableSql(DialectId dialect);
 }
 
 /// <summary>
@@ -31,8 +42,9 @@ public interface IEntityBinding<TEntity> : IEntityBinding
     /// <returns>The materialized (immutable) entity.</returns>
     TEntity Materialize(IFieldReader reader);
 
-    /// <summary>Builds the prebuilt SELECT-by-primary-key statement (read identity map).</summary>
+    /// <summary>Builds the prebuilt SELECT-by-primary-key statement for the given dialect (read identity map).</summary>
+    /// <param name="dialect">The target dialect (selects the SQL variant).</param>
     /// <param name="key">The primary-key value.</param>
     /// <returns>The parameterized statement.</returns>
-    PreparedStatement SelectByKey(object key);
+    PreparedStatement SelectByKey(DialectId dialect, object key);
 }

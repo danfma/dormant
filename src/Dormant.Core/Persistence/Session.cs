@@ -16,6 +16,8 @@ internal sealed class Session(IDbSession db) : ISession
 {
     private readonly Dictionary<(Type, object), object> _identityMap = [];
 
+    public DialectId Dialect => db.Dialect;
+
     public async ValueTask<TEntity?> GetAsync<TEntity>(object key, CancellationToken cancellationToken = default)
         where TEntity : class
     {
@@ -25,7 +27,7 @@ internal sealed class Session(IDbSession db) : ISession
         }
 
         var binding = EntityBindings.Get<TEntity>();
-        await foreach (var entity in db.QueryAsync(binding.SelectByKey(key), binding.Materialize, cancellationToken)
+        await foreach (var entity in db.QueryAsync(binding.SelectByKey(db.Dialect, key), binding.Materialize, cancellationToken)
                            .ConfigureAwait(false))
         {
             _identityMap[(typeof(TEntity), key)] = entity;

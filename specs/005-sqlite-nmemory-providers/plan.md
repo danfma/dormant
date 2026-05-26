@@ -129,7 +129,7 @@ src/
 │   │   └── Dialects/               # NEW: per-dialect renderers over the IR
 │   │       ├── ISqlDialectRenderer.cs
 │   │       ├── PostgreSqlRenderer.cs   # current SqlRenderer behavior (byte-identical output)
-│   │       ├── SqliteRenderer.cs       # ?-placeholders, schema-prefix tables, TEXT/INTEGER/REAL/BLOB, LIKE, no ::cast
+│   │       ├── SqliteRenderer.cs       # @pN named placeholders, schema-prefix tables, TEXT/INTEGER/REAL/BLOB, LIKE, no ::cast
 │   │       └── DialectTypeMap.cs       # per-dialect DSL→SQL type maps (PG map moves here)
 │   ├── Query/QueryEmitter.cs       # emit per-dialect variants + a session.Dialect switch (static + dynamic paths)
 │   ├── Command/CommandEmitter.cs   # same: variant switch for insert/update/delete/returning/with

@@ -3,6 +3,7 @@ using System.Linq;
 using Dormant.SourceGeneration.Diagnostics;
 using Dormant.SourceGeneration.Emit;
 using Dormant.SourceGeneration.Ir;
+using Dormant.SourceGeneration.Ir.Dialects;
 using Dormant.SourceGeneration.Parsing;
 
 namespace Dormant.SourceGeneration.Query;
@@ -201,15 +202,16 @@ internal static class QueryEmitter
         return writer.ToString().TrimEnd('\n');
     }
 
-    // No optional filters: the SQL is fully known at build time (IR-rendered) with a fixed bind order.
+    // No optional filters: the SQL is fully known at build time (one IR-rendered variant per dialect,
+    // selected by session.Dialect) with a fixed bind order.
     private static void EmitStaticStatement(
         SourceWriter writer, QueryModel query, EntityModel entity, string schema, NamingConvention convention)
     {
         var parameterOrder = new List<string>();
-        var sql = BuildSql(query, entity, schema, convention, parameterOrder);
+        var select = BuildSelect(query, entity, schema, convention, parameterOrder);
 
         writer.Line($"var statement = new {Abs}.Querying.PreparedStatement(");
-        writer.RawArg("    ", sql, ",");
+        DialectSwitch.WriteStatementArg(writer, "    ", "session.Dialect", select, ",");
         writer
             .Line("    writer =>")
             .Line("    {");
@@ -233,21 +235,31 @@ internal static class QueryEmitter
         NamingConvention convention,
         HashSet<string> optionalNames)
     {
-        var cols = (query.IsProjection
+        var colNames = (query.IsProjection
             ? query.ProjectionFields.Select(f => ColByName(entity, f, convention))
             : entity.Properties.Select(p => NamingConventions.Resolve(p.Name, p.NameOverride, convention)))
-            .Select(Lit);
-        var tableLit = Lit(schema) + "." + Lit(NamingConventions.Resolve(entity.Name, entity.NameOverride, convention));
+            .ToList();
+        var tableName = NamingConventions.Resolve(entity.Name, entity.NameOverride, convention);
 
+        // The static seed (SELECT cols FROM table) varies by dialect (table qualification); the dynamic WHERE
+        // fragments below append per-dialect placeholders via the Ph local (fragment selection, FR-031 — NOT
+        // SQL compilation). Column quoting is identical across v1 dialects, so fragments use build-time literals.
+        writer.Line("var sql = new global::System.Text.StringBuilder(");
+        DialectSwitch.WriteSwitchArg(
+            writer,
+            "    ",
+            "session.Dialect",
+            r => "SELECT " + string.Join(", ", colNames.Select(r.Quote)) + " FROM " + r.QualifyTable(schema, tableName),
+            ");");
         writer
-            .Line($"var sql = new global::System.Text.StringBuilder(\"SELECT {string.Join(", ", cols)} FROM {tableLit}\");")
             .Line("int p = 0;")
             .Line("var conds = new global::System.Collections.Generic.List<string>();");
+        EmitPlaceholderLocal(writer);
 
         // Required filters always contribute; optional filters only when their parameter is non-null.
         foreach (var filter in query.Filters)
         {
-            var fragment = $"\"{Lit(ColByName(entity, filter.Column, convention))} {OperatorSql(filter.Op)} $\" + (++p)";
+            var fragment = $"\"{Lit(ColByName(entity, filter.Column, convention))} {OperatorSql(filter.Op)} \" + Ph(++p)";
             if (optionalNames.Contains(filter.ParameterName))
             {
                 writer.Line($"if ({filter.ParameterName} != null) {{ conds.Add({fragment}); }}");
@@ -267,8 +279,8 @@ internal static class QueryEmitter
             writer.Line($"sql.Append(\" ORDER BY {orderLit}\");");
         }
 
-        EmitDynamicLimit(writer, "LIMIT", query.Limit, optionalNames);
-        EmitDynamicLimit(writer, "OFFSET", query.Offset, optionalNames);
+        EmitDynamicLimit(writer, "LIMIT", query.Limit);
+        EmitDynamicLimit(writer, "OFFSET", query.Offset);
 
         writer
             .Line($"var statement = new {Abs}.Querying.PreparedStatement(sql.ToString(), writer =>")
@@ -293,7 +305,22 @@ internal static class QueryEmitter
         writer.Line("});");
     }
 
-    private static void EmitDynamicLimit(SourceWriter writer, string keyword, LimitValue? limit, HashSet<string> optionalNames)
+    // The runtime positional-placeholder builder for the dynamic path: one arm per registered dialect
+    // (PostgreSQL ⇒ "$" + n, SQLite ⇒ "?"). A local function so each fragment reads naturally as `Ph(++p)`.
+    private static void EmitPlaceholderLocal(SourceWriter writer)
+    {
+        writer.Line("string Ph(int n) => session.Dialect switch");
+        writer.Line("{");
+        foreach (var renderer in Ir.Dialects.DialectRenderers.All)
+        {
+            writer.Line($"    global::Dormant.Abstractions.Providers.DialectId.{renderer.EnumMember} => {renderer.DynamicPlaceholderExpr("n")},");
+        }
+
+        writer.Line("    _ => throw new global::System.NotSupportedException(\"Dormant: no SQL variant for dialect \" + session.Dialect + \".\"),");
+        writer.Line("};");
+    }
+
+    private static void EmitDynamicLimit(SourceWriter writer, string keyword, LimitValue? limit)
     {
         if (limit is null)
         {
@@ -303,7 +330,7 @@ internal static class QueryEmitter
         // Optional LIMIT/OFFSET parameters are a later slice; here they are literals or required params.
         if (limit.IsParameter)
         {
-            writer.Line($"sql.Append(\" {keyword} $\").Append(++p);");
+            writer.Line($"sql.Append(\" {keyword} \").Append(Ph(++p));");
         }
         else
         {
@@ -341,7 +368,7 @@ internal static class QueryEmitter
     // Builds the SELECT as a structured IR node (FR-059) and renders it; populates parameterOrder (the
     // bind-callback order) as positional parameters are assigned. Database names resolved via the active
     // convention / per-unit overrides (FR-052/FR-054/FR-055).
-    private static string BuildSql(QueryModel query, EntityModel entity, string schema, NamingConvention convention, List<string> parameterOrder)
+    private static SelectStatement BuildSelect(QueryModel query, EntityModel entity, string schema, NamingConvention convention, List<string> parameterOrder)
     {
         var columns = query.IsProjection
             ? query.ProjectionFields.Select(f => ColByName(entity, f, convention)).ToList()
@@ -359,15 +386,13 @@ internal static class QueryEmitter
             .Select(t => new SqlOrder(ColByName(entity, t.Column, convention), t.Descending))
             .ToList();
 
-        var statement = new SelectStatement(
+        return new SelectStatement(
             new TableRef(schema, NamingConventions.Resolve(entity.Name, entity.NameOverride, convention)),
             columns,
             where,
             orderBy,
             ToLimit(query.Limit, parameterOrder),
             ToLimit(query.Offset, parameterOrder));
-
-        return SqlRenderer.Render(statement);
     }
 
     private static SqlLimit? ToLimit(LimitValue? value, List<string> parameterOrder)

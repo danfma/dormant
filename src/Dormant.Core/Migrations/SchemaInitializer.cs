@@ -1,4 +1,4 @@
-using System.Linq;
+using System.Collections.Generic;
 using Dormant.Abstractions.Entities;
 using Dormant.Abstractions.Providers;
 using Dormant.Abstractions.Querying;
@@ -23,16 +23,26 @@ public static class SchemaInitializer
 
         await db.BeginAsync(cancellationToken).ConfigureAwait(false);
 
-        foreach (var schema in bindings.Select(b => b.Schema).Distinct(System.StringComparer.Ordinal))
+        // One CREATE SCHEMA per distinct module schema, rendered for the session's dialect by generated code
+        // (empty when the dialect has no schema concept, e.g. SQLite — 005 D5). No dialect SQL lives here.
+        var seenSchemas = new HashSet<string>(System.StringComparer.Ordinal);
+        foreach (var binding in bindings)
         {
-            await db.ExecuteAsync(
-                new PreparedStatement($"CREATE SCHEMA IF NOT EXISTS \"{schema}\""), cancellationToken)
-                .ConfigureAwait(false);
+            if (!seenSchemas.Add(binding.Schema))
+            {
+                continue;
+            }
+
+            var schemaSql = binding.CreateSchemaSql(db.Dialect);
+            if (!string.IsNullOrEmpty(schemaSql))
+            {
+                await db.ExecuteAsync(new PreparedStatement(schemaSql), cancellationToken).ConfigureAwait(false);
+            }
         }
 
         foreach (var binding in bindings)
         {
-            await db.ExecuteAsync(new PreparedStatement(binding.CreateTableSql), cancellationToken)
+            await db.ExecuteAsync(new PreparedStatement(binding.CreateTableSql(db.Dialect)), cancellationToken)
                 .ConfigureAwait(false);
         }
 

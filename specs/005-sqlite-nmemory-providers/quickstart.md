@@ -84,7 +84,7 @@ exercises the SQLite path under Native AOT. A non-zero warning count blocks the 
 | Aspect | PostgreSQL | SQLite |
 |--------|-----------|--------|
 | Identifier / table | `"app"."widget"` | `"app_widget"` (schema folded into a prefix) |
-| Placeholder | `$1, $2` | `?, ?` |
+| Placeholder | `$1, $2` | `@p1, @p2` (named; bound order-independently) |
 | `CREATE SCHEMA` | emitted | skipped (no-op) |
 | Column types | `text / jsonb / uuid / timestamptz / bigint / bytea` | `TEXT / TEXT / TEXT / TEXT / INTEGER / BLOB` |
 | JSON param | `$1::jsonb` | `?` (JSON stored as TEXT) |

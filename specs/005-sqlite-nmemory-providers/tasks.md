@@ -49,37 +49,37 @@ This is the riskiest core work and blocks every story.
 
 ### Runtime contract (Dormant.Abstractions / Dormant.Core)
 
-- [ ] T004 [P] Add `enum DialectId { PostgreSql, Sqlite }` in `src/Dormant.Abstractions/Providers/DialectId.cs`
-- [ ] T005 [P] Reshape `ISqlDialect`: add `DialectId Id { get; }` in `src/Dormant.Abstractions/Providers/ISqlDialect.cs`
-- [ ] T006 [P] Add `DialectId Dialect { get; }` to `IDbSession` in `src/Dormant.Abstractions/Providers/IDbSession.cs`
-- [ ] T007 [P] Add `DialectId Dialect { get; }` to `ISession` in `src/Dormant.Abstractions/Sessions/ISession.cs`
-- [ ] T008 [P] Reshape `IEntityBinding`: `string CreateTableSql(DialectId)` + `IEntityBinding<T>.SelectByKey(DialectId, object)` in `src/Dormant.Abstractions/Entities/IEntityBinding.cs`
+- [X] T004 [P] Add `enum DialectId { PostgreSql, Sqlite }` in `src/Dormant.Abstractions/Providers/DialectId.cs`
+- [X] T005 [P] Reshape `ISqlDialect`: add `DialectId Id { get; }` in `src/Dormant.Abstractions/Providers/ISqlDialect.cs`
+- [X] T006 [P] Add `DialectId Dialect { get; }` to `IDbSession` in `src/Dormant.Abstractions/Providers/IDbSession.cs`
+- [X] T007 [P] Add `DialectId Dialect { get; }` to `ISession` in `src/Dormant.Abstractions/Sessions/ISession.cs`
+- [X] T008 [P] Reshape `IEntityBinding`: `string CreateTableSql(DialectId)` + `IEntityBinding<T>.SelectByKey(DialectId, object)` in `src/Dormant.Abstractions/Entities/IEntityBinding.cs`
 
 ### Build-time renderer abstraction (Dormant.SourceGeneration)
 
-- [ ] T009 Create `ISqlDialectRenderer` (`DialectId Id`; `string Render(SqlStatement)`) in `src/Dormant.SourceGeneration/Ir/Dialects/ISqlDialectRenderer.cs`
-- [ ] T010 Extract the current `SqlRenderer` body verbatim into `PostgreSqlRenderer : ISqlDialectRenderer` in `src/Dormant.SourceGeneration/Ir/Dialects/PostgreSqlRenderer.cs` (output MUST be byte-identical)
-- [ ] T011 Create `DialectTypeMap` and move the PostgreSQL `SqlMap` out of `TypeMap` (`src/Dormant.SourceGeneration/Ir/Dialects/DialectTypeMap.cs` + edit `src/Dormant.SourceGeneration/Emit/EmitHelpers.cs`)
-- [ ] T012 Generalize the IR: `InsertColumn.ParamCast` → a neutral type tag; let the renderer resolve `ColumnDef.SqlType` per dialect, in `src/Dormant.SourceGeneration/Ir/SqlIr.cs` (remove the static `SqlRenderer`)
-- [ ] T013 Add a renderer registry to the generator that drives per-dialect emission; register `PostgreSqlRenderer` only for now (Sqlite added in US1) — in `src/Dormant.SourceGeneration/Ir/Dialects/DialectRenderers.cs`
+- [X] T009 Create `ISqlDialectRenderer` (`DialectId Id`; `string Render(SqlStatement)`) in `src/Dormant.SourceGeneration/Ir/Dialects/ISqlDialectRenderer.cs`
+- [X] T010 Extract the current `SqlRenderer` body verbatim into `PostgreSqlRenderer : ISqlDialectRenderer` in `src/Dormant.SourceGeneration/Ir/Dialects/PostgreSqlRenderer.cs` (output MUST be byte-identical)
+- [X] T011 Create `DialectTypeMap` and move the PostgreSQL `SqlMap` out of `TypeMap` (`src/Dormant.SourceGeneration/Ir/Dialects/DialectTypeMap.cs` + edit `src/Dormant.SourceGeneration/Emit/EmitHelpers.cs`)
+- [X] T012 Generalize the IR: `InsertColumn.ParamCast` → a neutral type tag; let the renderer resolve `ColumnDef.SqlType` per dialect, in `src/Dormant.SourceGeneration/Ir/SqlIr.cs` (remove the static `SqlRenderer`)
+- [X] T013 Add a renderer registry to the generator that drives per-dialect emission; register `PostgreSqlRenderer` only for now (Sqlite added in US1) — in `src/Dormant.SourceGeneration/Ir/Dialects/DialectRenderers.cs`
 
 ### Per-dialect emission (generated code now selects by `session.Dialect`)
 
-- [ ] T014 Update `QueryEmitter` static path to emit `var sql = session.Dialect switch { … };` over each registered renderer's output in `src/Dormant.SourceGeneration/Query/QueryEmitter.cs`
-- [ ] T015 Update `QueryEmitter` dynamic-filter path (`EmitDynamicStatement`) to branch placeholder/quote/table tokens by `session.Dialect` — no runtime SQL compilation — same file (depends on T014)
-- [ ] T016 Update `CommandEmitter` to emit the dialect switch for insert/update/delete/`returning`/`with`, routing `ValueToken`/casts/`ILIKE`/native funcs through the renderer, in `src/Dormant.SourceGeneration/Command/CommandEmitter.cs`
-- [ ] T017 Update `EntityBindingEmitter` to emit `CreateTableSql(DialectId)` + `SelectByKey(DialectId, key)` switches in `src/Dormant.SourceGeneration/Schema/EntityBindingEmitter.cs`
+- [X] T014 Update `QueryEmitter` static path to emit `var sql = session.Dialect switch { … };` over each registered renderer's output in `src/Dormant.SourceGeneration/Query/QueryEmitter.cs`
+- [X] T015 Update `QueryEmitter` dynamic-filter path (`EmitDynamicStatement`) to branch placeholder/quote/table tokens by `session.Dialect` — no runtime SQL compilation — same file (depends on T014)
+- [X] T016 Update `CommandEmitter` to emit the dialect switch for insert/update/delete/`returning`/`with`, routing `ValueToken`/casts/`ILIKE`/native funcs through the renderer, in `src/Dormant.SourceGeneration/Command/CommandEmitter.cs`
+- [X] T017 Update `EntityBindingEmitter` to emit `CreateTableSql(DialectId)` + `SelectByKey(DialectId, key)` switches in `src/Dormant.SourceGeneration/Schema/EntityBindingEmitter.cs`
 
 ### Runtime plumbing
 
-- [ ] T018 Update `Session` to expose `Dialect` (from `IDbSession`) and pass it to `binding.SelectByKey` in `GetAsync` — `src/Dormant.Core/Persistence/Session.cs`
-- [ ] T019 Update `SchemaInitializer` to skip `CREATE SCHEMA` for `DialectId.Sqlite` and call `binding.CreateTableSql(db.Dialect)` — `src/Dormant.Core/Migrations/SchemaInitializer.cs`
-- [ ] T020 Update PostgreSQL provider for the reshaped contract: `PostgreSqlDialect.Id => DialectId.PostgreSql`; `PostgreSqlSession.Dialect => DialectId.PostgreSql` — `src/Dormant.Provider.PostgreSql/PostgreSqlDialect.cs` + `PostgreSqlSession.cs`
+- [X] T018 Update `Session` to expose `Dialect` (from `IDbSession`) and pass it to `binding.SelectByKey` in `GetAsync` — `src/Dormant.Core/Persistence/Session.cs`
+- [X] T019 Update `SchemaInitializer` to skip `CREATE SCHEMA` for `DialectId.Sqlite` and call `binding.CreateTableSql(db.Dialect)` — `src/Dormant.Core/Migrations/SchemaInitializer.cs`
+- [X] T020 Update PostgreSQL provider for the reshaped contract: `PostgreSqlDialect.Id => DialectId.PostgreSql`; `PostgreSqlSession.Dialect => DialectId.PostgreSql` — `src/Dormant.Provider.PostgreSql/PostgreSqlDialect.cs` + `PostgreSqlSession.cs`
 
 ### Foundational verification (PostgreSQL must stay green)
 
-- [ ] T021 Update generator snapshot/assertion tests for the new switch shape; assert the PostgreSQL variant is byte-identical and cacheability still holds, in `tests/Dormant.SourceGeneration.Tests/*` (CommandEmitTests, ProjectionEmitTests, SchemaEmitTests, *CacheabilityTests)
-- [ ] T022 Run `tests/Dormant.Provider.PostgreSql.Tests` (Testcontainers) — all green (regression guard: PG behavior unchanged)
+- [X] T021 Update generator snapshot/assertion tests for the new switch shape; assert the PostgreSQL variant is byte-identical and cacheability still holds, in `tests/Dormant.SourceGeneration.Tests/*` (CommandEmitTests, ProjectionEmitTests, SchemaEmitTests, *CacheabilityTests)
+- [X] T022 Run `tests/Dormant.Provider.PostgreSql.Tests` (Testcontainers) — all green (regression guard: PG behavior unchanged)
 
 **Checkpoint**: PostgreSQL is re-expressed as a dialect over the framework, output byte-identical, all
 tests green. The boundary exists; SQLite can now plug in additively.
@@ -96,22 +96,22 @@ units, confirm reads/writes/`returning`/`with`-block match PostgreSQL — no Doc
 
 ### Tests for User Story 1 (write first; they fail until the provider lands)
 
-- [ ] T023 [P] [US1] Create `tests/Dormant.Providers.ConformanceTests` (project + `Dormant.slnx` entry); add **shared** `schema/catalog.dqls` + `catalog.dql` (single source of truth, FR-007) and a provider-parameterized fixture (`[Arguments("postgres")]`/`[Arguments("sqlite")]`) opening the matching session factory
-- [ ] T024 [P] [US1] Create `tests/Dormant.Provider.Sqlite.Tests` for SQLite-specific behavior: `:memory:` clean-store-per-case lifetime + affinity round-trips (Guid/DateTime/JSON as TEXT, bytes as BLOB)
+- [X] T023 [P] [US1] Create `tests/Dormant.Providers.ConformanceTests` (project + `Dormant.slnx` entry); add **shared** `schema/catalog.dqls` + `catalog.dql` (single source of truth, FR-007) and a provider-parameterized fixture (`[Arguments("postgres")]`/`[Arguments("sqlite")]`) opening the matching session factory
+- [X] T024 [P] [US1] Create `tests/Dormant.Provider.Sqlite.Tests` for SQLite-specific behavior: `:memory:` clean-store-per-case lifetime + affinity round-trips (Guid/DateTime/JSON as TEXT, bytes as BLOB)
 
 ### Implementation for User Story 1
 
-- [ ] T025 [US1] Implement `SqliteRenderer : ISqlDialectRenderer` in `src/Dormant.SourceGeneration/Ir/Dialects/SqliteRenderer.cs`: `?` placeholders, `"schema_table"` prefix (D5), no `::` cast (D8), `LIKE` (D9), `RETURNING` kept (D7), `CREATE SCHEMA` → empty
-- [ ] T026 [US1] Add the SQLite affinity table to `DialectTypeMap` (TEXT/INTEGER/REAL/BLOB per D6) in `src/Dormant.SourceGeneration/Ir/Dialects/DialectTypeMap.cs` (depends on T011)
-- [ ] T027 [US1] Register `SqliteRenderer` in `DialectRenderers` so the generator emits the `DialectId.Sqlite` switch arms — `src/Dormant.SourceGeneration/Ir/Dialects/DialectRenderers.cs` (depends on T013, T025)
-- [ ] T028 [P] [US1] Implement `SqliteDialect : ISqlDialect` (`Id => Sqlite`, `QuoteIdentifier`, `Placeholder => "?"`, `Supports("sqlite")`) in `src/Dormant.Provider.Sqlite/SqliteDialect.cs`
-- [ ] T029 [P] [US1] Implement `SqliteFieldReader : IFieldReader` (TEXT→Guid/DateTime affinity reads) in `src/Dormant.Provider.Sqlite/Io/SqliteFieldReader.cs`
-- [ ] T030 [P] [US1] Implement `SqliteParameterWriter : IParameterWriter` (positional add-order; Guid/DateTime→TEXT, byte[]→BLOB) in `src/Dormant.Provider.Sqlite/Io/SqliteParameterWriter.cs`
-- [ ] T031 [US1] Implement `SqliteSession : IDbSession` (`Dialect => Sqlite`; connection + transaction; `QueryAsync`/`ExecuteAsync` via the IO writers/readers) in `src/Dormant.Provider.Sqlite/SqliteSession.cs` (depends on T029, T030)
-- [ ] T032 [US1] Implement `SqliteDataSource : IDataSource` with connection-lifetime ownership incl. `:memory:` keep-alive in `src/Dormant.Provider.Sqlite/SqliteDataSource.cs` (depends on T031)
-- [ ] T033 [US1] Implement `DormantSqlite` entry point (`CreateSessionFactory`/`CreateDataSource`/`EnsureCreatedAsync`/`Dialect`) and call `SQLitePCL.Batteries_V2.Init()` once at init in `src/Dormant.Provider.Sqlite/DormantSqlite.cs` (depends on T032)
-- [ ] T034 [US1] Wire the conformance fixture's sqlite path to `DormantSqlite`; run CRUD + `returning` + optional-filter + `with`-block parameterized over both providers → parity green (depends on T033, T023, T027)
-- [ ] T035 [US1] Make `tests/Dormant.Provider.Sqlite.Tests` green: clean store per case + affinity round-trips (depends on T033, T024)
+- [X] T025 [US1] Implement `SqliteRenderer : ISqlDialectRenderer` in `src/Dormant.SourceGeneration/Ir/Dialects/SqliteRenderer.cs`: `?` placeholders, `"schema_table"` prefix (D5), no `::` cast (D8), `LIKE` (D9), `RETURNING` kept (D7), `CREATE SCHEMA` → empty
+- [X] T026 [US1] Add the SQLite affinity table to `DialectTypeMap` (TEXT/INTEGER/REAL/BLOB per D6) in `src/Dormant.SourceGeneration/Ir/Dialects/DialectTypeMap.cs` (depends on T011)
+- [X] T027 [US1] Register `SqliteRenderer` in `DialectRenderers` so the generator emits the `DialectId.Sqlite` switch arms — `src/Dormant.SourceGeneration/Ir/Dialects/DialectRenderers.cs` (depends on T013, T025)
+- [X] T028 [P] [US1] Implement `SqliteDialect : ISqlDialect` (`Id => Sqlite`, `QuoteIdentifier`, `Placeholder => "?"`, `Supports("sqlite")`) in `src/Dormant.Provider.Sqlite/SqliteDialect.cs`
+- [X] T029 [P] [US1] Implement `SqliteFieldReader : IFieldReader` (TEXT→Guid/DateTime affinity reads) in `src/Dormant.Provider.Sqlite/Io/SqliteFieldReader.cs`
+- [X] T030 [P] [US1] Implement `SqliteParameterWriter : IParameterWriter` (positional add-order; Guid/DateTime→TEXT, byte[]→BLOB) in `src/Dormant.Provider.Sqlite/Io/SqliteParameterWriter.cs`
+- [X] T031 [US1] Implement `SqliteSession : IDbSession` (`Dialect => Sqlite`; connection + transaction; `QueryAsync`/`ExecuteAsync` via the IO writers/readers) in `src/Dormant.Provider.Sqlite/SqliteSession.cs` (depends on T029, T030)
+- [X] T032 [US1] Implement `SqliteDataSource : IDataSource` with connection-lifetime ownership incl. `:memory:` keep-alive in `src/Dormant.Provider.Sqlite/SqliteDataSource.cs` (depends on T031)
+- [X] T033 [US1] Implement `DormantSqlite` entry point (`CreateSessionFactory`/`CreateDataSource`/`EnsureCreatedAsync`/`Dialect`) and call `SQLitePCL.Batteries_V2.Init()` once at init in `src/Dormant.Provider.Sqlite/DormantSqlite.cs` (depends on T032)
+- [X] T034 [US1] Wire the conformance fixture's sqlite path to `DormantSqlite`; run CRUD + `returning` + optional-filter + `with`-block parameterized over both providers → parity green (depends on T033, T023, T027)
+- [X] T035 [US1] Make `tests/Dormant.Provider.Sqlite.Tests` green: clean store per case + affinity round-trips (depends on T033, T024)
 
 **Checkpoint**: SQLite runs the full authored-DQL surface with PostgreSQL parity, no Docker (SC-001, SC-005).
 
@@ -125,9 +125,9 @@ changes**, and no SQL-text assumption blocks a future non-SQL strategy.
 **Independent Test**: Inspect the boundary contract + the changed-files set; confirm the IR is neutral
 and the non-SQL extension point is open.
 
-- [ ] T036 [US2] Add a boundary-neutrality guard test asserting `src/Dormant.SourceGeneration/Ir/SqlIr.cs` carries no dialect-specific literal (`jsonb`, `$`, `::`, `ILIKE`) — in `tests/Dormant.SourceGeneration.Tests/DialectBoundaryTests.cs`
-- [ ] T037 [US2] Verify & record SC-003/SC-006: adding SQLite changed only the generator dialect set + the new adapter package (no `Session`/`SchemaInitializer`/Abstractions runtime *logic* changes beyond the Phase-2 seam) — capture the changed-files note in `specs/005-sqlite-nmemory-providers/contracts/dialect-boundary.md`
-- [ ] T038 [US2] Document the non-SQL extension point (a future strategy consuming the IR at build time) in `contracts/dialect-boundary.md`; add a marker/architecture test asserting `ISqlDialectRenderer` + IR shape admit it (SC-004)
+- [X] T036 [US2] Add a boundary-neutrality guard test asserting `src/Dormant.SourceGeneration/Ir/SqlIr.cs` carries no dialect-specific literal (`jsonb`, `$`, `::`, `ILIKE`) — in `tests/Dormant.SourceGeneration.Tests/DialectBoundaryTests.cs`
+- [X] T037 [US2] Verify & record SC-003/SC-006: adding SQLite changed only the generator dialect set + the new adapter package (no `Session`/`SchemaInitializer`/Abstractions runtime *logic* changes beyond the Phase-2 seam) — capture the changed-files note in `specs/005-sqlite-nmemory-providers/contracts/dialect-boundary.md`
+- [X] T038 [US2] Document the non-SQL extension point (a future strategy consuming the IR at build time) in `contracts/dialect-boundary.md`; add a marker/architecture test asserting `ISqlDialectRenderer` + IR shape admit it (SC-004)
 
 **Checkpoint**: The boundary is provably general; PostgreSQL + SQLite coexist with zero core rework.
 
@@ -140,9 +140,9 @@ library-originated warnings, no first-call warm-up.
 
 **Independent Test**: The AOT smoke publish (core + PostgreSQL + SQLite) passes with 0 warnings.
 
-- [ ] T039 [US3] Extend `tests/Dormant.Aot.SmokeTests` to reference `Dormant.Provider.Sqlite` and run a SQLite `:memory:` CRUD round-trip in `tests/Dormant.Aot.SmokeTests/Program.cs`
-- [ ] T040 [US3] Run the AOT gate: `dotnet publish tests/Dormant.Aot.SmokeTests -c Release -r <rid> -p:PublishAot=true -p:TrimMode=full` MUST report 0 library-originated AOT/trim warnings; if any appear, apply the research-D11 fallback (explicit-init audit → suppress-with-justification → `bundle_green`) and re-run
-- [ ] T041 [US3] Document AOT-friendliness + minimum SQLite version (3.35 for `RETURNING`) in `src/Dormant.Provider.Sqlite/README.md`
+- [X] T039 [US3] Extend `tests/Dormant.Aot.SmokeTests` to reference `Dormant.Provider.Sqlite` and run a SQLite `:memory:` CRUD round-trip in `tests/Dormant.Aot.SmokeTests/Program.cs`
+- [X] T040 [US3] Run the AOT gate: `dotnet publish tests/Dormant.Aot.SmokeTests -c Release -r <rid> -p:PublishAot=true -p:TrimMode=full` MUST report 0 library-originated AOT/trim warnings; if any appear, apply the research-D11 fallback (explicit-init audit → suppress-with-justification → `bundle_green`) and re-run
+- [X] T041 [US3] Document AOT-friendliness + minimum SQLite version (3.35 for `RETURNING`) in `src/Dormant.Provider.Sqlite/README.md`
 
 **Checkpoint**: SQLite stays inside the AOT gate (FR-006, SC-002). "O importante é termos o nosso core AOT" upheld.
 
@@ -150,11 +150,11 @@ library-originated warnings, no first-call warm-up.
 
 ## Phase 6: Polish & Cross-Cutting Concerns
 
-- [ ] T042 [P] Update the generated-code compatibility baseline for the new `session.Dialect` switch shape + the `IEntityBinding` signature change (Constitution II / Compatibility Standards)
-- [ ] T043 [P] README/docs: SQLite provider usage + the dialect-differences table + the "core AOT, non-AOT providers are opt-in" framing
-- [ ] T044 Update the quickstart sample to optionally run on SQLite in `samples/Dormant.Sample.Quickstart`
-- [ ] T045 Run `specs/005-sqlite-nmemory-providers/quickstart.md` end-to-end against both PostgreSQL and SQLite
-- [ ] T046 [P] Add XML doc comments + at least one runnable example to every new public symbol (`DormantSqlite`, `DialectId`, reshaped interfaces) — Constitution I
+- [X] T042 [P] Update the generated-code compatibility baseline for the new `session.Dialect` switch shape + the `IEntityBinding` signature change (Constitution II / Compatibility Standards)
+- [X] T043 [P] README/docs: SQLite provider usage + the dialect-differences table + the "core AOT, non-AOT providers are opt-in" framing
+- [X] T044 Update the quickstart sample to optionally run on SQLite in `samples/Dormant.Sample.Quickstart`
+- [X] T045 Run `specs/005-sqlite-nmemory-providers/quickstart.md` end-to-end against both PostgreSQL and SQLite
+- [X] T046 [P] Add XML doc comments + at least one runnable example to every new public symbol (`DormantSqlite`, `DialectId`, reshaped interfaces) — Constitution I
 
 ---
 

@@ -1,3 +1,4 @@
+using Dormant.Abstractions.Providers;
 using Dormant.Abstractions.Querying;
 
 namespace Dormant.Abstractions.Sessions;
@@ -10,6 +11,9 @@ namespace Dormant.Abstractions.Sessions;
 /// </summary>
 public interface ISession : IAsyncDisposable
 {
+    /// <summary>The dialect this session executes against — generated unit methods select their SQL variant by this (005 FR-003).</summary>
+    DialectId Dialect { get; }
+
     /// <summary>Loads an immutable entity by primary key; one instance per key within the session (FR-010).</summary>
     /// <typeparam name="TEntity">The entity type.</typeparam>
     /// <param name="key">The primary-key value.</param>

@@ -30,7 +30,7 @@ public sealed class NamingOverrideTests
             driver.GetRunResult().Results.SelectMany(r => r.GeneratedSources).Select(s => s.SourceText.ToString()));
 
         // Table override "posts" and column override "created" win; "title" still follows snake_case.
-        await Assert.That(generated).Contains("CREATE TABLE IF NOT EXISTS \\\"shop\\\".\\\"posts\\\"");
-        await Assert.That(generated).Contains("\\\"created\\\"");
+        await Assert.That(generated).Contains("CREATE TABLE IF NOT EXISTS \"shop\".\"posts\"");
+        await Assert.That(generated).Contains("\"created\"");
     }
 }

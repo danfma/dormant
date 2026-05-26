@@ -65,14 +65,15 @@ public sealed class DormantGenerator : IIncrementalGenerator
             var schemaName = NamingConventions.Resolve(schema.ModuleName, null, generatorConfig.Naming);
 
             // FR-020: a single ref → a `<ref>_id` FK column typed as the target entity's primary key. Map
-            // each entity name to its PK SQL type so the binding emitter can type those columns.
-            var refPkSqlTypes = new Dictionary<string, string>(StringComparer.Ordinal);
+            // each entity name to its PK DormantQL type so the binding emitter can type those columns; the
+            // per-dialect renderer maps the DormantQL type to the engine's SQL type (005 D6).
+            var refPkDslTypes = new Dictionary<string, string>(StringComparer.Ordinal);
             foreach (var e in schema.Entities)
             {
                 var pk = System.Linq.Enumerable.FirstOrDefault(e.Properties, p => p.IsPrimary);
                 if (pk is not null)
                 {
-                    refPkSqlTypes[e.Name] = TypeMap.ToSqlType(pk.DslType);
+                    refPkDslTypes[e.Name] = pk.DslType;
                 }
             }
 
@@ -89,7 +90,7 @@ public sealed class DormantGenerator : IIncrementalGenerator
 
                 productionContext.AddSource(
                     Naming.HintName(@namespace, entity.Name + ".Binding"),
-                    EntityBindingEmitter.Emit(@namespace, entity, schemaName, generatorConfig.Naming, refPkSqlTypes));
+                    EntityBindingEmitter.Emit(@namespace, entity, schemaName, generatorConfig.Naming, refPkDslTypes));
             }
         });
 

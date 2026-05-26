@@ -1,8 +1,11 @@
 namespace Dormant.Abstractions.Providers;
 
-/// <summary>Provider SQL dialect: identifier quoting, placeholders, and capability checks.</summary>
+/// <summary>Provider SQL dialect: identity, identifier quoting, placeholders, and capability checks.</summary>
 public interface ISqlDialect
 {
+    /// <summary>The dialect this provider renders/executes (the runtime variant-selection key, 005 FR-003).</summary>
+    DialectId Id { get; }
+
     /// <summary>Quotes an identifier (table/column) for this provider.</summary>
     /// <param name="name">The unquoted identifier.</param>
     /// <returns>The quoted identifier.</returns>

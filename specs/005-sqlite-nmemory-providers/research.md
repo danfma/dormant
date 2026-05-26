@@ -46,13 +46,15 @@ building the statement:
 var sql = session.Dialect switch
 {
     DialectId.PostgreSql => """INSERT INTO "catalog"."widget" (...) VALUES ($1, $2) RETURNING ...""",
-    DialectId.Sqlite     => """INSERT INTO "catalog_widget" (...) VALUES (?, ?) RETURNING ...""",
+    DialectId.Sqlite     => """INSERT INTO "catalog_widget" (...) VALUES (@p1, @p2) RETURNING ...""",
     _ => throw Unsupported(session.Dialect),
 };
 var statement = new PreparedStatement(sql, writer => { writer.Write(1, a); writer.Write(2, b); });
 ```
-The **parameter binder is dialect-neutral**: both Npgsql (`$n`) and Microsoft.Data.Sqlite (`?`) bind by
-**add order**, so the same `writer.Write(i, …)` sequence serves every variant. The materializer is
+The **parameter binder is dialect-neutral**: the bind callback writes values by index once for all
+dialects. Npgsql binds positionally (`$n`, by add order); Microsoft.Data.Sqlite binds **named `@pN`**
+parameters the writer names from the same index (order-independent — chosen for reliable binding). The
+placeholder *text* is the renderer's choice; the bind sequence serves every variant. The materializer is
 likewise dialect-neutral.
 **Rationale**: One branch over `const` strings — no runtime compilation, no warm-up. Consumer-facing
 method *signatures* are unchanged (only bodies change), so Constitution II compatibility holds. The
@@ -164,6 +166,6 @@ or a held-open connection) so cases don't bleed (Edge Case in spec).
 2. **Dynamic-filter path** (`QueryEmitter.EmitDynamicStatement`) must become dialect-aware without
    runtime compilation: emit the `StringBuilder` assembly under a `session.Dialect` branch (dialect tokens
    = placeholder form + quote char + table identifier), or render the dynamic block per dialect. Placeholder
-   shape differs structurally (`$` + index vs. bare `?`) — the branch selects the right fragment builder.
+   shape differs (`$` + index vs. `@p` + index) — the branch selects the right fragment builder.
 3. **Generator snapshot churn** — `Dormant.SourceGeneration.Tests` assertions/snapshots now contain
    per-dialect variants; cacheability checks must still pass (variants are deterministic).

@@ -5,6 +5,9 @@ namespace Dormant.Abstractions.Providers;
 /// <summary>Driver port: a connection bound to a transaction, executing prebuilt statements.</summary>
 public interface IDbSession : IAsyncDisposable
 {
+    /// <summary>The dialect this session executes — generated code selects its SQL variant by this (005 FR-003).</summary>
+    DialectId Dialect { get; }
+
     /// <summary>Begins the transaction.</summary>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>A task that completes when the transaction has begun.</returns>

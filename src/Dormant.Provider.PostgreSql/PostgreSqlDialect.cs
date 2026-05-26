@@ -7,6 +7,8 @@ internal sealed class PostgreSqlDialect : ISqlDialect
 {
     public static readonly PostgreSqlDialect Instance = new();
 
+    public DialectId Id => DialectId.PostgreSql;
+
     public string QuoteIdentifier(string name) => "\"" + name.Replace("\"", "\"\"") + "\"";
 
     public string Placeholder(int index) => "$" + index.ToString(System.Globalization.CultureInfo.InvariantCulture);
