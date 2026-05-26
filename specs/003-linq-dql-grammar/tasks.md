@@ -99,3 +99,22 @@ unchanged.
 
 US1 + US2 (both P1): a read query and an insert mutation authored in the new grammar, round-tripping against
 real PostgreSQL. US3/US4 complete the write/read surface; US5 makes the replacement total.
+
+## Phase 9: FK columns + `with`-block (FR-020/021/022) — supersedes the blocked T016
+
+Per the 2026-05-26 clarification (plan.md "Post-clarify design"): T016's "multi-command sequence" is replaced
+by a **`with name = (expr)` block + single terminal `select`**, and its prerequisite is the FK column
+(FR-020). Everything in Phases 1–8 (cutover + `returning`) is done and green. Implement FR-020 first
+(standalone, independently valuable), then the `with`-block.
+
+- [ ] T036 [US2] FR-020: in `EntityBindingEmitter`, add a `<ref>_id` column (typed as the target entity's primary-key type, nullable iff the ref is optional) to the `CREATE TABLE` for each single `ReferenceKind.Ref` member; value-column SELECT/materialize unchanged — in src/Dormant.SourceGeneration/Schema/EntityBindingEmitter.cs
+- [ ] T037 [US2] FR-020: allow `alias.ref = <expr>` assignment in a command — parse the ref member (resolve to its `<ref>_id` column) and validate it against the entity's references — in src/Dormant.SourceGeneration/Parsing/UnitParser.cs and src/Dormant.SourceGeneration/Parsing/CommandModel.cs
+- [ ] T038 [US2] FR-020: in `CommandEmitter`, write the `<ref>_id` column from a ref-assignment value (parameter or literal), with the target PK type — in src/Dormant.SourceGeneration/Command/CommandEmitter.cs
+- [ ] T039 [P] [US2] FR-020 tests: generator asserts the `<ref>_id` column appears in `CREATE TABLE` and that an `insert` assigning the ref writes it; provider test inserts an entity with a ref and confirms the FK column is persisted — in tests/Dormant.SourceGeneration.Tests/ and tests/Dormant.Provider.PostgreSql.Tests/
+- [ ] T040 [US2] FR-022: parse a `with name = ( insert|update|delete|select … )` block (zero or more) followed by a single terminal `select` (entity/projection) — extend the unit model with the bindings + terminal shape — in src/Dormant.SourceGeneration/Parsing/UnitParser.cs and src/Dormant.SourceGeneration/Parsing/CommandModel.cs
+- [ ] T041 [US2] FR-022: emit each binding as its own SQL statement executed in declaration order within the session transaction (`with`-bound results → C# locals), then the terminal `select` composes the unit result — provider-portable, no CTE — in src/Dormant.SourceGeneration/Command/CommandEmitter.cs
+- [ ] T042 [US2] FR-021: a `with`-bound name carries the expression's result object — `name.field` projects, and a reference/FK context (`alias.ref = name`) resolves it to the target's primary key (id) — in src/Dormant.SourceGeneration/Parsing/UnitParser.cs and src/Dormant.SourceGeneration/Command/CommandEmitter.cs
+- [ ] T043 [P] [US2] tests: generator asserts the `with`-block emits an ordered statement sequence + terminal projection; provider test proves the parent→child id flow (`with u = (insert User …); insert Post p { p.author = u } returning p`) sets `post.author_id = u.id` — in tests/Dormant.SourceGeneration.Tests/ and tests/Dormant.Provider.PostgreSql.Tests/
+- [ ] T044 [US2] Verification gate: build `Dormant.slnx` 0/0, generator + provider (Docker) suites green, AOT smoke 0-warning, and cacheability holds for the `with`-block pipeline
+
+**Dependencies**: T036 → T037 → T038 → T039 (FR-020 FK column, shippable on its own); then T040 → T041 → T042 → T043 (`with`-block, depends on FR-020 for the FK-flow); T044 gates the phase. **MVP of this phase**: T036–T039 (FK column) — independently valuable even before the `with`-block.
