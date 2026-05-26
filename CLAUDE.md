@@ -1,12 +1,16 @@
 <!-- SPECKIT START -->
 For additional context about technologies, project structure, conventions, and
 important decisions for the active feature, read the current plan:
-`specs/004-raw-string-sql/plan.md` — a small **generated-code-quality** layer: the
-generator emits build-time SQL as C# multi-line **raw string literals** (`"""…"""`)
-instead of `\"`-escaped strings (SQL value byte-identical; only the emitters'
-SQL-literal emission + snapshot tests change). The deeper active grammar context is
 `specs/003-linq-dql-grammar/plan.md` (with `research.md`, `data-model.md`,
-`contracts/`, and `quickstart.md`). 003 is a **front-end
+`contracts/`, `quickstart.md`). Done + green: the cutover (LINQ grammar) and
+`returning` for insert/update/delete. **Remaining (post-2026-05-26 clarify, see
+plan.md "Post-clarify design" + FR-020/021/022)**: ref → `<ref>_id` FK column +
+`alias.ref = expr` (FR-020); a **`with name = (expr)` block + single terminal
+`select`** that binds each expression's result object (ref/FK context → target PK)
+and executes each binding as its own SQL statement in the transaction — portable,
+**not** CTE-bound (FR-021/022); this supersedes the old "multi-command" framing.
+Sibling `specs/004-raw-string-sql/plan.md` (done): generated SQL emitted as C#
+multi-line **raw string literals** (`"""…"""`) — value byte-identical. 003 is a **front-end
 grammar replacement** built on `specs/002-immutable-command-dml/` (the immutable,
 command-driven direction — its runtime semantics are preserved unchanged): the DQL
 unit surface becomes a **LINQ-/SQL-hybrid, brace-delimited grammar** with explicit

@@ -164,3 +164,45 @@ codebase shielded.
   → cacheability/AOT/Verify baselines.
 - **Out of scope / deferred**: single-statement nested-CTE writes (`002` US2 form), dynamic/runtime DQL
   (future "macros"), joins/advanced EdgeQL, richer mutation return beyond `returning`/trailing read.
+
+## Post-clarify design — FK columns + `with`-block (2026-05-26; FR-020/021/022, supersedes ex-T016)
+
+The 2026-05-26 clarification replaced the "multi-command sequence" framing with a **`with` block + single
+terminal `select`** and added the prerequisite FK-column work. This is the remaining 003 implementation
+(everything before it — cutover + `returning` for insert/update/delete — is done and green).
+
+**Design (decided):**
+- **FR-020 — ref → FK column.** For each single reference `ref: Target`, `EntityBindingEmitter` includes a
+  `<ref>_id` column (typed as the target's PK) in `CREATE TABLE`; commands write it via `alias.ref = <expr>`.
+  The entity keeps its read-side `Ref<T>` nav (no shadow id property). This is `002` FR-019, now built here.
+- **FR-021 — `with` binds the result object.** `with name = (expr)` carries the expression's object (`name.*`),
+  projectable (`name.field`) and composable into the terminal `select`; in a ref/FK context (`alias.ref =
+  name`) it is semantically resolved to the target's PK (id).
+- **FR-022 — portable per-statement execution.** A unit = zero+ `with name = (insert|update|delete|select …)`
+  bindings + one terminal `select`. Each binding executes as its **own SQL statement, in order, in the session
+  transaction** (the generated method emits a sequence of awaits; `with`-bound objects are C# locals). **No
+  CTE dependency** → future non-PostgreSQL providers run N statements. Single-round-trip CTE stays deferred.
+
+**Files this remaining work touches:**
+
+```text
+src/Dormant.SourceGeneration/
+├── Schema/EntityBindingEmitter.cs   # FR-020: add <ref>_id columns (target PK type) to CREATE TABLE; SELECT/materialize unchanged for value cols
+├── Parsing/SchemaModel.cs|SchemaParser.cs # (ref PK type already known via ReferenceModel + target entity's primary property)
+├── Parsing/CommandModel.cs          # represent: WithBinding[] (name + bound expr) + a terminal select/return; ref-assignment value kind
+├── Parsing/UnitParser.cs            # parse `with name = ( … )`* + terminal `select`; parse `alias.ref = expr`; member access on with-bound names
+├── Command/CommandEmitter.cs        # emit the statement sequence (with-bound → locals), ref→<ref>_id write, id-coercion (alias.ref = name → name's PK), terminal select composition
+└── Ir/SqlIr.cs                      # (RETURNING already added; ensure insert RETURNS the binding's columns so the object/id is available)
+# Runtime/session UNCHANGED: the generated method orchestrates existing per-statement ExecuteCommandAsync/ExecuteWriteAsync within the transaction.
+```
+
+**Implementation order (for /speckit-tasks regen):**
+1. **FR-020 FK column** (bounded, standalone): `<ref>_id` in `CREATE TABLE` + `alias.ref = expr` assignment in parser/emitter + a generator test + a provider test (insert with a ref → row has the FK). Ship this first — it is independently valuable and unblocks the rest.
+2. **`with`-block parse** (FR-022 authoring): `with name = ( … )`* + single terminal `select`; member access `name.field`.
+3. **Sequence emit** (FR-022 execution): generated method runs each binding as its own statement (locals), then the terminal select; verify transaction-scoped + portable (no CTE).
+4. **`with` object + id-coercion** (FR-021): `alias.ref = name` writes `<ref>_id` from `name`'s PK; `name.field` projects.
+5. Generator tests + provider integration (parent→child id flow) + AOT 0-warning + cacheability.
+
+**Constitution re-check (post-clarify):** no new violations. FR-020/021/022 are additive DSL/generated-code
+capabilities; runtime is unchanged (the generated method composes existing per-statement execution); build-time
+SQL + AOT + determinism preserved. The MAJOR-DSL-change justification (pre-1.0) already recorded covers these.

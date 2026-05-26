@@ -123,7 +123,9 @@ This contract is the DSL compatibility baseline. As of the 003 cutover the imple
 | snake_case unit name → PascalCase method; alias-qualified members; located diagnostics | **Implemented** |
 | Removed-`002`-form diagnostics (ORM020) | **Implemented** |
 | Logical `\|\|` and `!` in `where` | **Deferred** (parser reports "not supported yet"; only `&&` conjunction) |
-| Multi-command `mutation` bodies + `with` bindings + trailing read | **Deferred** (T016) |
+| Single ref → `<ref>_id` FK column + `alias.ref = expr` write | **Planned next** (FR-020 — prerequisite for `with` value-flow) |
+| `with name = (expr)` block + single terminal `select` (binds result object; ref/FK context → PK; per-statement portable execution) | **Planned next** (FR-021/FR-022; supersedes the old "multi-command" framing) |
+| Single-round-trip data-modifying CTE | **Deferred** (PostgreSQL-only optimization, `002` US2) |
 | Unit-file extension | `.dql` (queries + mutations); `.dqls` for schema |
 
 Deferred items are additive over this baseline and do not change the implemented surface.
