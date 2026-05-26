@@ -138,9 +138,9 @@ call the generated `CreateUser` method, and confirm it inserts the row and retur
 4. **Given** an `insert` mutation ending in `returning u` (or `returning { u.id, u.email }`), **When** the
    project builds, **Then** the generated method's result is the entity (or projection) shape — not the bare
    id — and the runtime returns the inserted row materialized to that shape.
-5. **Given** a multi-command mutation (e.g. two writes followed by a trailing `from … select …`) with a
-   `with`-bound id flowing from an earlier command, **When** it executes, **Then** the method returns the
-   trailing read's shape and the bound id resolves correctly downstream.
+5. **Given** a `with`-block mutation (one or more `with name = (command)` bindings then a terminal command)
+   with a `with`-bound id flowing into a later command, **When** it executes, **Then** each binding runs as
+   its own statement in the transaction and the bound id resolves correctly downstream (e.g. into a child FK).
 
 ---
 
@@ -225,8 +225,8 @@ addition, and that all `002` semantics still pass on the new front-end. Depends 
   order is enforced).
 - A `mutation` with a `returning <expr>` → its result type is the `returning` shape (entity/projection/
   scalar), overriding the default id/count inference.
-- A multi-command `mutation` (e.g. two `insert`s then a trailing `select`/`returning`) → the result type is
-  the trailing statement's shape; `with`-bound ids from earlier commands are referable downstream.
+- A `with`-block `mutation` (`with name = (command)` bindings + a terminal command) → the result type is the
+  terminal statement's shape; `with`-bound ids from earlier bindings are referable downstream (e.g. a child FK).
 - A `returning` clause referencing a member not produced by its expression → fails to compile (same fixed-
   shape guarantee as `select`).
 
@@ -307,9 +307,9 @@ addition, and that all `002` semantics still pass on the new front-end. Depends 
 - **Query (DQL)**: A named, brace-delimited read unit (`query Name(params) { from … where … order by …
   select … }`) compiled to a typed method + build-time SQL.
 - **Mutation (DQL)**: A named, brace-delimited write unit (`mutation Name(params) { insert|update|delete … }`)
-  compiled to a typed method. Result is the trailing statement's shape — a `returning <expr>` (mirrors
-  `select`) or a trailing read — else the default (id for insert, affected count for update/delete). May be
-  multi-command, with `with`-bindings flowing between commands.
+  compiled to a typed method. Result is the terminal statement's shape — a `returning <expr>` (mirrors
+  `select`) or a trailing read — else the default (id for insert, affected count for update/delete). May be a
+  `with`-block (`with name = (command)` bindings + a terminal command), bindings flowing values downstream.
 - **`with` Binding**: A named value/reference/sub-expression introduced in a unit and reused by later
   commands/clauses; the mechanism that flows a write's id into a subsequent command or `returning`.
 - **Alias**: An explicit, required range variable bound to a subject entity (`from User u`); the sole way to
@@ -353,10 +353,10 @@ addition, and that all `002` semantics still pass on the new front-end. Depends 
 - **Default mutation return**: `insert` → the entity's primary key (id); `update`/`delete` → affected count.
   This default applies only when no `returning`/trailing read is authored. (Nuance: because primary keys are
   app-assigned per `002` FR-018, the caller already knows the inserted id — the default returned id is a
-  confirmation handle and EdgeQL-parity default; richer shapes are opt-in via `returning`/multi-command.)
+  confirmation handle and EdgeQL-parity default; richer shapes are opt-in via `returning`/the `with`-block.)
 - A mutation's richer result (`returning`/trailing read) is shaped by the **same projection machinery as
-  `select`** (FR-006), reused rather than re-invented; multi-command value flow reuses the **`with`-binding**
-  mechanism (carried conceptually from `002` FR-006).
+  `select`** (FR-006), reused rather than re-invented; `with`-block value flow uses C# locals (one per
+  binding) threaded into later commands' statements (FR-021/FR-022).
 - Statements are one per line (newline-significant within a block); a trailing `;` is tolerated but never
   required; `#` begins a line comment — consistent with the corrected base file.
 - Logical connectives are the symbolic C#/TypeScript forms (`&&`, `||`, `!`), not the SQL/EdgeQL keyword
