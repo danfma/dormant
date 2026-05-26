@@ -10,6 +10,24 @@ mutation create_user(id: uuid, email: string, created_at: datetime, version: int
   }
 }
 
+# 003 with-block (FR-021/FR-022): bind an inserted User, then insert a Post whose `author` FK flows from the
+# bound user id; each binding runs as its own statement in the session transaction. Terminal returns the post id.
+mutation create_user_with_post(
+  uid: uuid, email: string, created_at: datetime, version: int, pid: uuid, title: string) {
+  with u = (insert User x {
+    x.id = uid
+    x.email = email
+    x.created_at = created_at
+    x.version = version
+  })
+  insert Post p {
+    p.id = pid
+    p.title = title
+    p.author = u
+  }
+  returning p.id
+}
+
 # Full-entity query → IAsyncEnumerable<User> with build-time SQL.
 query users_by_email(email: string) {
   from User u

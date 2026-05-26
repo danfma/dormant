@@ -33,6 +33,7 @@ internal sealed class UnitParser
     private readonly string _filePath;
     private readonly List<Token> _tokens;
     private readonly List<DiagnosticInfo> _diagnostics = [];
+    private readonly HashSet<string> _bindingNames = new(System.StringComparer.Ordinal);
     private int _pos;
 
     private UnitParser(string filePath, List<Token> tokens)
@@ -289,6 +290,70 @@ internal sealed class UnitParser
             return null;
         }
 
+        // 003 (FR-021/FR-022): zero or more `with name = ( command )` bindings, then the terminal command.
+        // Each binding runs as its own statement; its result is referable downstream by name (WithRef value).
+        _bindingNames.Clear();
+        var bindings = new List<WithBinding>();
+        while (IsKeyword("with"))
+        {
+            _pos++; // 'with'
+            if (Current.Kind != TokenKind.Identifier || IsReserved(Current.Text))
+            {
+                Error($"expected a binding name after 'with' but found '{Describe(Current)}'");
+                RecoverToUnitEnd();
+                return null;
+            }
+
+            var bindingName = Current.Text;
+            _pos++;
+            if (!Expect(TokenKind.Equals, "'=' after the with-binding name") ||
+                !Expect(TokenKind.LeftParen, "'(' to open the bound command"))
+            {
+                RecoverToUnitEnd();
+                return null;
+            }
+
+            var bound = ParseCommandCore(bindingName, parameters);
+            if (bound is null || !Expect(TokenKind.RightParen, "')' to close the bound command"))
+            {
+                RecoverToUnitEnd();
+                return null;
+            }
+
+            bindings.Add(new WithBinding(bindingName, bound));
+            _bindingNames.Add(bindingName);
+        }
+
+        var terminal = ParseCommandCore(name, parameters);
+        if (terminal is null)
+        {
+            RecoverToUnitEnd();
+            return null;
+        }
+
+        while (Current.Kind != TokenKind.RightBrace && Current.Kind != TokenKind.EndOfFile)
+        {
+            if (Current.Kind == TokenKind.Semicolon)
+            {
+                _pos++;
+                continue;
+            }
+
+            Error($"unexpected '{Describe(Current)}' after the mutation's terminal command");
+            RecoverToUnitEnd();
+            return null;
+        }
+
+        Expect(TokenKind.RightBrace, "'}' to close the mutation");
+
+        return terminal with { Bindings = new EquatableArray<WithBinding>([.. bindings]) };
+    }
+
+    // Parses one command core — `insert|update|delete Entity alias <body> [returning]` — without the
+    // enclosing mutation braces or binding parens. Shared by `with` bindings and the terminal command.
+    // Returns null on error WITHOUT recovering (the caller — ParseMutation — recovers the unit once).
+    private CommandModel? ParseCommandCore(string name, List<QueryParameter> parameters)
+    {
         CommandKind kind;
         if (IsKeyword("insert"))
         {
@@ -305,7 +370,6 @@ internal sealed class UnitParser
         else
         {
             Error($"expected 'insert', 'update', or 'delete' but found '{Describe(Current)}'");
-            RecoverToUnitEnd();
             return null;
         }
 
@@ -313,7 +377,6 @@ internal sealed class UnitParser
         if (Current.Kind != TokenKind.Identifier)
         {
             Error("expected an entity name");
-            RecoverToUnitEnd();
             return null;
         }
 
@@ -323,7 +386,6 @@ internal sealed class UnitParser
         var alias = ParseAlias(entity);
         if (alias is null)
         {
-            RecoverToUnitEnd();
             return null;
         }
 
@@ -339,7 +401,6 @@ internal sealed class UnitParser
             // update/delete: 'where' predicate is required, then 'set { … }' for update.
             if (!ExpectKeyword("where"))
             {
-                RecoverToUnitEnd();
                 return null;
             }
 
@@ -349,7 +410,6 @@ internal sealed class UnitParser
             {
                 if (!ExpectKeyword("set"))
                 {
-                    RecoverToUnitEnd();
                     return null;
                 }
 
@@ -357,8 +417,7 @@ internal sealed class UnitParser
             }
         }
 
-        // 003 (T015/FR-017): an optional `returning` clause shapes the result of insert/update/delete
-        // (mirrors `select`). Multi-command sequences and `with` bindings remain deferred (T016).
+        // Optional `returning` clause shapes the result (FR-017).
         ReturningShape? returning = null;
         if (IsKeyword("returning"))
         {
@@ -366,33 +425,9 @@ internal sealed class UnitParser
             returning = ParseReturning(alias);
             if (returning is null)
             {
-                RecoverToUnitEnd();
                 return null;
             }
         }
-
-        while (Current.Kind != TokenKind.RightBrace && Current.Kind != TokenKind.EndOfFile)
-        {
-            if (Current.Kind == TokenKind.Semicolon)
-            {
-                _pos++;
-                continue;
-            }
-
-            if (IsKeyword("with") || IsKeyword("insert") || IsKeyword("update") ||
-                IsKeyword("delete") || IsKeyword("from") || IsKeyword("returning"))
-            {
-                Error($"'{Current.Text}' is not supported yet in a mutation body (deferred: multi-command/with; at most one returning per command)");
-                RecoverToUnitEnd();
-                return null;
-            }
-
-            Error($"unexpected '{Describe(Current)}' in the mutation body");
-            RecoverToUnitEnd();
-            return null;
-        }
-
-        Expect(TokenKind.RightBrace, "'}' to close the mutation");
 
         return new CommandModel(
             name,
@@ -818,7 +853,9 @@ internal sealed class UnitParser
             case TokenKind.Identifier:
                 var param = Current.Text;
                 _pos++;
-                return new CommandValue(CommandValueKind.Parameter, param);
+                // A bare identifier naming a `with` binding is a WithRef (FR-021); otherwise a parameter.
+                return new CommandValue(
+                    _bindingNames.Contains(param) ? CommandValueKind.WithRef : CommandValueKind.Parameter, param);
             default:
                 Error($"expected a value (parameter, literal, or native call) but found '{Describe(Current)}'");
                 return null;

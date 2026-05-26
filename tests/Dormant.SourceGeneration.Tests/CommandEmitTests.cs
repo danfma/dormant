@@ -155,4 +155,37 @@ public sealed class CommandEmitTests
         // CREATE TABLE (escaped string literal) carries the FK column too.
         await Assert.That(generated).Contains("\\\"author_id\\\" uuid");
     }
+
+    // 003 T040/T041/T042/FR-021/FR-022: a `with name = (command)` block runs each binding as its own
+    // statement (result → C# local), then the terminal command; a `with`-bound id flows into a child FK.
+    [Test]
+    public async Task With_block_flows_bound_id_into_child_fk()
+    {
+        const string refSchema = """
+            module app;
+
+            entity User { id: uuid primary; name: str; }
+            entity Post { id: uuid primary; title: str; author: User; }
+            """;
+        const string commands =
+            "module app;\nmutation create_user_with_post(uid: uuid, name: string, pid: uuid, title: string) { with u = (insert User x { x.id = uid x.name = name }) insert Post p { p.id = pid p.title = title p.author = u } returning p.id }";
+
+        var driver = GeneratorTestHarness.CreateDriver(
+            new TestAdditionalText("schema/app.dqls", refSchema),
+            new TestAdditionalText("schema/app.dql", commands));
+        driver = driver.RunGenerators(CSharpCompilation.Create("Tests"));
+        var generated = string.Join(
+            "\n",
+            driver.GetRunResult().Results.SelectMany(r => r.GeneratedSources).Select(s => s.SourceText.ToString()));
+
+        // Terminal `returning p.id` → ValueTask<Guid>.
+        await Assert.That(generated).Contains("global::System.Threading.Tasks.ValueTask<global::System.Guid> CreateUserWithPost(");
+        // Binding `with u = (insert User …)` → its own statement + a local `u` materialized as the inserted PK.
+        await Assert.That(generated).Contains("INSERT INTO \"app\".\"user\" (\"id\", \"name\") VALUES ($1, $2) RETURNING \"id\"");
+        await Assert.That(generated).Contains("var u = await session.ExecuteCommandAsync(");
+        await Assert.That(generated).Contains("global::Dormant.Abstractions.Querying.CompiledCommand<global::System.Guid>(statement_u");
+        // Terminal writes the FK column; the `p.author = u` value binds the local `u`.
+        await Assert.That(generated).Contains("INSERT INTO \"app\".\"post\" (\"id\", \"title\", \"author_id\") VALUES ($1, $2, $3) RETURNING \"id\"");
+        await Assert.That(generated).Contains("writer.Write(3, u);");
+    }
 }

@@ -44,7 +44,29 @@ internal static class CommandEmitter
                 continue;
             }
 
-            bodies.Add(EmitMethod(command, entry.Entity, entry.Schema, convention, out var projection));
+            // Validate each `with` binding's command against its (possibly different) entity (FR-021/FR-022).
+            var bindingsOk = true;
+            foreach (var binding in command.Bindings)
+            {
+                if (!entities.TryGetValue(binding.Command.RootEntity, out var bentry))
+                {
+                    diagnostics.Add(Diag(DiagnosticDescriptors.UnknownQueryEntity, file.FilePath, command.Name, binding.Command.RootEntity));
+                    bindingsOk = false;
+                    continue;
+                }
+
+                if (!Validate(binding.Command, bentry.Entity, file.FilePath, diagnostics))
+                {
+                    bindingsOk = false;
+                }
+            }
+
+            if (!bindingsOk)
+            {
+                continue;
+            }
+
+            bodies.Add(EmitMethod(command, entry.Entity, entry.Schema, convention, entities, out var projection));
             if (projection is not null)
             {
                 projections.Add(projection);
@@ -139,8 +161,21 @@ internal static class CommandEmitter
         return ok;
     }
 
-    private static string EmitMethod(CommandModel command, EntityModel entity, string schema, NamingConvention convention, out string? projection)
+    private static string EmitMethod(
+        CommandModel command,
+        EntityModel entity,
+        string schema,
+        NamingConvention convention,
+        IReadOnlyDictionary<string, (EntityModel Entity, string Schema)> entities,
+        out string? projection)
     {
+        // 003 (FR-021/FR-022): a `with`-block mutation runs each binding as its own statement (locals) then
+        // the terminal command, all within the session transaction.
+        if (command.Bindings.Count > 0)
+        {
+            return EmitWithBlock(command, entities, convention, out projection);
+        }
+
         projection = null;
         return command.Kind switch
         {
@@ -149,6 +184,191 @@ internal static class CommandEmitter
             CommandKind.Delete => EmitDelete(command, entity, schema, convention, out projection),
             _ => throw new System.NotSupportedException($"Unknown command kind: {command.Kind}"),
         };
+    }
+
+    // Result shape → (CLR type, materializer expression, optional projection record source). Shared by the
+    // with-block emitter (and mirrors EmitShapedMethod's single-command shaping).
+    private static (string Clr, string Materializer, string? Projection) ShapeResult(
+        ReturningShape shape, EntityModel entity, string methodName)
+    {
+        if (shape.Kind == ReturningKind.Scalar)
+        {
+            var prop = entity.Properties.First(x => x.Name == shape.Members[0]);
+            var clr = prop.IsNullable ? prop.ClrType + "?" : prop.ClrType;
+            var read = prop.IsNullable
+                ? $"reader.IsNull(0) ? null : reader.GetValue<{prop.ClrType}>(0)"
+                : $"reader.GetValue<{prop.ClrType}>(0)";
+            return (clr, $"static reader => {read}", null);
+        }
+
+        if (shape.Kind == ReturningKind.Projection)
+        {
+            var resultType = methodName + "Result";
+            var members = shape.Members.ToArray();
+            var fields = members.Select(m =>
+            {
+                var prop = entity.Properties.First(x => x.Name == m);
+                var clr = prop.IsNullable ? prop.ClrType + "?" : prop.ClrType;
+                return $"{clr} {Naming.ToPascalCase(m)}";
+            });
+            var args = members.Select((m, i) =>
+            {
+                var prop = entity.Properties.First(x => x.Name == m);
+                var read = $"reader.GetValue<{prop.ClrType}>({i})";
+                return prop.IsNullable ? $"reader.IsNull({i}) ? null : {read}" : read;
+            });
+            return (
+                resultType,
+                $"static reader => new {resultType}({string.Join(", ", args)})",
+                $"public sealed record {resultType}({string.Join(", ", fields)});");
+        }
+
+        return (entity.Name, $"static reader => new {entity.Name}(reader)", null);
+    }
+
+    // Builds the SQL + bind statements for one command under a result shape (null shape on update/delete ⇒
+    // affected-count, no RETURNING). Reuses the single-command building blocks.
+    private static string BuildSqlForCommand(
+        CommandModel cmd, EntityModel entity, string schema, NamingConvention convention, ReturningShape? shape, out List<string> binds)
+    {
+        binds = new List<string>();
+        var p = 0;
+        var table = new TableRef(schema, Col(entity.Name, entity.NameOverride, convention));
+
+        if (cmd.Kind == CommandKind.Insert)
+        {
+            var cols = new List<string>();
+            var tokens = new List<string>();
+            foreach (var assignment in cmd.Assignments)
+            {
+                var (col, token) = ResolveAssignment(assignment, entity, convention, ref p, binds);
+                cols.Add("\"" + col + "\"");
+                tokens.Add(token);
+            }
+
+            var insertShape = shape ?? new ReturningShape(ReturningKind.Entity, new EquatableArray<string>([]));
+            var retCols = ReturningColumns(insertShape, entity, convention).Select(c => "\"" + c + "\"");
+            return $"INSERT INTO {QualifiedTable(table)} ({string.Join(", ", cols)}) VALUES ({string.Join(", ", tokens)}) RETURNING {string.Join(", ", retCols)}";
+        }
+
+        if (cmd.Kind == CommandKind.Update)
+        {
+            var assigns = new List<SqlAssignment>();
+            foreach (var assignment in cmd.Assignments)
+            {
+                var (col, token) = ResolveAssignment(assignment, entity, convention, ref p, binds);
+                assigns.Add(new SqlAssignment(col, token));
+            }
+
+            var where = BuildWhere(cmd, entity, convention, ref p, binds);
+            return SqlRenderer.Render(new UpdateStatement(table, assigns, where, shape is null ? null : ReturningColumns(shape, entity, convention)));
+        }
+
+        var deleteWhere = BuildWhere(cmd, entity, convention, ref p, binds);
+        return SqlRenderer.Render(new DeleteStatement(table, deleteWhere, shape is null ? null : ReturningColumns(shape, entity, convention)));
+    }
+
+    // Emits, inside an already-open method, one command as a uniquely-named PreparedStatement + its execution,
+    // either to a local (`with` binding) or as the method's `return` (terminal). FR-022 sequence step.
+    private static void EmitCommandStep(
+        SourceWriter w, string suffix, string sql, List<string> binds, string clr, string? materializer, bool isCount, string? local)
+    {
+        var stmtVar = "statement" + suffix;
+        w.Line($"var {stmtVar} = new {Abs}.Querying.PreparedStatement(");
+        w.RawArg("    ", sql, ",");
+        w.Line("    writer =>").Line("    {");
+        foreach (var bind in binds)
+        {
+            w.Line("        " + bind);
+        }
+
+        w.Line("    });");
+
+        string call;
+        if (isCount)
+        {
+            call = $"await session.ExecuteWriteAsync({stmtVar}, cancellationToken).ConfigureAwait(false)";
+        }
+        else
+        {
+            var cmdVar = "command" + suffix;
+            w.Line($"var {cmdVar} = new {Abs}.Querying.CompiledCommand<{clr}>({stmtVar}, {materializer});");
+            call = $"await session.ExecuteCommandAsync({cmdVar}, cancellationToken).ConfigureAwait(false)";
+        }
+
+        w.Line(local is null ? $"return {call};" : $"var {local} = {call};");
+    }
+
+    // 003 FR-021/FR-022: a `with`-block mutation — each binding runs as its own statement (result → C# local),
+    // then the terminal command produces the unit result; all in the session transaction (provider-portable,
+    // no CTE). `with`-bound names flow into later commands as locals (e.g. a parent id into a child FK).
+    private static string EmitWithBlock(
+        CommandModel terminal, IReadOnlyDictionary<string, (EntityModel Entity, string Schema)> entities, NamingConvention convention, out string? projection)
+    {
+        projection = null;
+        var methodName = Naming.ToPascalCase(terminal.Name);
+
+        var terminalIsCount = terminal.Kind != CommandKind.Insert && terminal.Returning is null;
+        ReturningShape? terminalShape = terminalIsCount
+            ? null
+            : terminal.Returning ?? new ReturningShape(ReturningKind.Entity, new EquatableArray<string>([]));
+
+        var terminalEntry = entities[terminal.RootEntity];
+        string terminalClr = "int";
+        string? terminalMat = null;
+        if (!terminalIsCount)
+        {
+            var (clr, mat, proj) = ShapeResult(terminalShape!, terminalEntry.Entity, methodName);
+            terminalClr = clr;
+            terminalMat = mat;
+            projection = proj;
+        }
+
+        var w = OpenMethod(terminal, $"global::System.Threading.Tasks.ValueTask<{terminalClr}>");
+
+        var i = 0;
+        foreach (var binding in terminal.Bindings)
+        {
+            var bcmd = binding.Command;
+            var bentry = entities[bcmd.RootEntity];
+            var bIsCount = bcmd.Kind != CommandKind.Insert && bcmd.Returning is null;
+
+            // A binding's default shape is the inserted PK (a scalar) so the local is usable as a FK; an
+            // explicit `returning` overrides; update/delete without returning yields the affected count.
+            ReturningShape? bshape;
+            if (bIsCount)
+            {
+                bshape = null;
+            }
+            else if (bcmd.Returning is not null)
+            {
+                bshape = bcmd.Returning;
+            }
+            else
+            {
+                var pk = bentry.Entity.Properties.First(x => x.IsPrimary);
+                bshape = new ReturningShape(ReturningKind.Scalar, new EquatableArray<string>([pk.Name]));
+            }
+
+            var bsql = BuildSqlForCommand(bcmd, bentry.Entity, bentry.Schema, convention, bshape, out var bbinds);
+            string bclr = "int";
+            string? bmat = null;
+            if (!bIsCount)
+            {
+                var (clr, mat, _) = ShapeResult(bshape!, bentry.Entity, methodName + "_" + binding.Name);
+                bclr = clr;
+                bmat = mat;
+            }
+
+            EmitCommandStep(w, "_" + binding.Name, bsql, bbinds, bclr, bmat, bIsCount, binding.Name);
+            i++;
+        }
+
+        var tsql = BuildSqlForCommand(terminal, terminalEntry.Entity, terminalEntry.Schema, convention, terminalShape, out var tbinds);
+        EmitCommandStep(w, string.Empty, tsql, tbinds, terminalClr, terminalMat, terminalIsCount, local: null);
+
+        w.Close();
+        return w.ToString().TrimEnd('\n');
     }
 
     private static string EmitInsert(CommandModel command, EntityModel entity, string schema, NamingConvention convention, out string? projection)
@@ -314,7 +534,10 @@ internal static class CommandEmitter
         var cast = jsonCast ? "::jsonb" : string.Empty;
         switch (value.Kind)
         {
+            // A `with`-bound name (WithRef) is a method-level C# local with exactly that name, so it binds
+            // just like a parameter (FR-021).
             case CommandValueKind.Parameter:
+            case CommandValueKind.WithRef:
                 p++;
                 binds.Add($"writer.Write({p}, {value.Text});");
                 return "$" + p.ToString(CultureInfo.InvariantCulture) + cast;

@@ -39,6 +39,8 @@ internal enum CommandKind
 /// <param name="Assignments">Column assignments (<c>alias.col = expr</c>), in source order (insert/update).</param>
 /// <param name="Filters">WHERE conditions for <c>update</c>/<c>delete</c> (incl. concurrency-token match).</param>
 /// <param name="Returning">Optional explicit result shape (003 FR-017); <see langword="null"/> ⇒ default inference.</param>
+/// <param name="Bindings">Preceding <c>with name = (command)</c> bindings (003 FR-021/FR-022); this model is
+/// the terminal command. Empty for a plain single-command mutation.</param>
 internal sealed record CommandModel(
     string Name,
     CommandKind Kind,
@@ -47,7 +49,14 @@ internal sealed record CommandModel(
     EquatableArray<QueryParameter> Parameters,
     EquatableArray<Assignment> Assignments,
     EquatableArray<FilterCondition> Filters = default,
-    ReturningShape? Returning = null);
+    ReturningShape? Returning = null,
+    EquatableArray<WithBinding> Bindings = default);
+
+/// <summary>A <c>with name = (command)</c> binding: the bound command runs as its own SQL statement and its
+/// result (default: the inserted PK) becomes a C# local referable downstream (003 FR-021/FR-022).</summary>
+/// <param name="Name">The binding name (a C# local in the generated method).</param>
+/// <param name="Command">The bound write command (insert/update/delete).</param>
+internal sealed record WithBinding(string Name, CommandModel Command);
 
 /// <summary>The shape of an explicit <c>returning</c> clause (003 FR-017) — mirrors <c>select</c>.</summary>
 internal enum ReturningKind
@@ -86,6 +95,9 @@ internal enum CommandValueKind
 
     /// <summary>A native function call (e.g. <c>datetime::now()</c>).</summary>
     NativeCall,
+
+    /// <summary>A reference to a <c>with</c>-bound name (003 FR-021); in a ref/FK context it is the target PK.</summary>
+    WithRef,
 }
 
 /// <summary>An assigned value: a parameter reference, a literal, or a native call (FR-008).</summary>
