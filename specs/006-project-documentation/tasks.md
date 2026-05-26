@@ -18,9 +18,9 @@
 
 **Purpose**: Create the documentation surface and empty page targets so all planned links have destinations.
 
-- [ ] T001 Create the documentation directory structure at `docs/` and `docs/guides/`
-- [ ] T002 Create empty documentation page targets in `docs/index.md`, `docs/getting-started.md`, `docs/status.md`, `docs/architecture.md`, `docs/design-decisions.md`, and `docs/speckit-sources.md`
-- [ ] T003 Create empty guide page targets in `docs/guides/dormantql-schema.md`, `docs/guides/queries-and-mutations.md`, and `docs/guides/naming-and-generated-code.md`
+- [x] T001 Create the documentation directory structure at `docs/` and `docs/guides/`
+- [x] T002 Create empty documentation page targets in `docs/index.md`, `docs/getting-started.md`, `docs/status.md`, `docs/architecture.md`, `docs/design-decisions.md`, and `docs/speckit-sources.md`
+- [x] T003 Create empty guide page targets in `docs/guides/dormantql-schema.md`, `docs/guides/queries-and-mutations.md`, and `docs/guides/naming-and-generated-code.md`
 
 ---
 
@@ -30,10 +30,10 @@
 
 **CRITICAL**: Complete this phase before writing story-specific documentation so public claims stay consistent.
 
-- [ ] T004 Draft the SpecKit source inventory table in `docs/speckit-sources.md` from `.specify/memory/constitution.md`, `specs/001-orm-aot-sourcegen/`, `specs/002-immutable-command-dml/`, `specs/003-linq-dql-grammar/`, `specs/004-raw-string-sql/`, `specs/005-sqlite-nmemory-providers/spec.md`, `samples/Dormant.Sample.Quickstart/schema/app.dqls`, and `samples/Dormant.Sample.Quickstart/schema/app.dql`
-- [ ] T005 Define the shared capability status vocabulary in `docs/status.md` using Implemented, Planned, Deferred, and Illustrative labels from `specs/006-project-documentation/contracts/documentation-set.md`
-- [ ] T006 Record current implementation status for PostgreSQL, SQLite, NMemory, raw string SQL literals, `with` value-flow, and deferred `||`/`!` operators in `docs/status.md`
-- [ ] T007 Add the reader-path table of contents skeleton in `docs/index.md` linking to `docs/getting-started.md`, `docs/status.md`, `docs/guides/dormantql-schema.md`, `docs/guides/queries-and-mutations.md`, `docs/guides/naming-and-generated-code.md`, `docs/architecture.md`, `docs/design-decisions.md`, and `docs/speckit-sources.md`
+- [x] T004 Draft the SpecKit source inventory table in `docs/speckit-sources.md` from `.specify/memory/constitution.md`, `AGENTS.md`, `CLAUDE.md`, `specs/001-orm-aot-sourcegen/`, `specs/002-immutable-command-dml/`, `specs/003-linq-dql-grammar/`, `specs/004-raw-string-sql/`, `specs/005-sqlite-nmemory-providers/spec.md`, `samples/Dormant.Sample.Quickstart/schema/app.dqls`, and `samples/Dormant.Sample.Quickstart/schema/app.dql`
+- [x] T005 Define the shared capability status vocabulary in `docs/status.md` using Implemented, Planned, Deferred, and Illustrative labels from `specs/006-project-documentation/contracts/documentation-set.md`
+- [x] T006 Record current implementation status for PostgreSQL, SQLite, NMemory, raw string SQL literals, `with` value-flow, and deferred `||`/`!` operators in `docs/status.md`
+- [x] T007 Add the reader-path table of contents skeleton in `docs/index.md` linking to `docs/getting-started.md`, `docs/status.md`, `docs/guides/dormantql-schema.md`, `docs/guides/queries-and-mutations.md`, `docs/guides/naming-and-generated-code.md`, `docs/architecture.md`, `docs/design-decisions.md`, and `docs/speckit-sources.md`
 
 **Checkpoint**: Documentation targets, source map, status vocabulary, and docs navigation skeleton exist.
 
@@ -47,13 +47,13 @@
 
 ### Implementation for User Story 1
 
-- [ ] T008 [US1] Write the root overview, value proposition, and maturity/status summary in `README.md`
-- [ ] T009 [US1] Add the differentiators section covering AOT-first design, build-time SQL, no hot-path runtime reflection/query compilation, statically-known result types, DormantQL, immutable command-driven writes, explicit `Ref*` load state, and PostgreSQL-primary provider in `README.md`
-- [ ] T010 [US1] Add a minimal illustrative DormantQL schema/query/mutation snippet consistent with `samples/Dormant.Sample.Quickstart/schema/app.dqls` and `samples/Dormant.Sample.Quickstart/schema/app.dql` in `README.md`
-- [ ] T011 [US1] Add prerequisites and local workflow notes for .NET 10 SDK, `./build.sh`, and Docker-required PostgreSQL provider tests in `README.md`
-- [ ] T012 [US1] Add next-step links from `README.md` to `docs/index.md`, `docs/getting-started.md`, `docs/status.md`, `docs/architecture.md`, `docs/guides/dormantql-schema.md`, `docs/guides/queries-and-mutations.md`, and `docs/guides/naming-and-generated-code.md`
-- [ ] T013 [US1] Add README source traceability entries for overview, differentiators, status, prerequisites, and examples in `docs/speckit-sources.md`
-- [ ] T014 [US1] Validate the README-only evaluator test from `specs/006-project-documentation/spec.md` against `README.md`
+- [x] T008 [US1] Write the root overview, value proposition, and maturity/status summary in `README.md`
+- [x] T009 [US1] Add the differentiators section covering AOT-first design, build-time SQL, no hot-path runtime reflection/query compilation, statically-known result types, DormantQL, immutable command-driven writes, explicit `Ref*` load state, and PostgreSQL-primary provider in `README.md`
+- [x] T010 [US1] Add a minimal illustrative DormantQL schema/query/mutation snippet consistent with `samples/Dormant.Sample.Quickstart/schema/app.dqls` and `samples/Dormant.Sample.Quickstart/schema/app.dql` in `README.md`
+- [x] T011 [US1] Add prerequisites and local workflow notes for .NET 10 SDK, `./build.sh`, and Docker-required PostgreSQL provider tests in `README.md`
+- [x] T012 [US1] Add next-step links from `README.md` to `docs/index.md`, `docs/getting-started.md`, `docs/status.md`, `docs/architecture.md`, `docs/guides/dormantql-schema.md`, `docs/guides/queries-and-mutations.md`, and `docs/guides/naming-and-generated-code.md`
+- [x] T013 [US1] Add README source traceability entries for overview, differentiators, status, prerequisites, and examples in `docs/speckit-sources.md`
+- [x] T014 [US1] Validate the README-only evaluator test from `specs/006-project-documentation/spec.md` against `README.md`
 
 **Checkpoint**: User Story 1 is independently reviewable as the MVP documentation increment.
 
@@ -67,14 +67,14 @@
 
 ### Implementation for User Story 2
 
-- [ ] T015 [P] [US2] Write the ordered first-success path in `docs/getting-started.md` covering prerequisites, local project reference approach, schema definition, authored units, build/generation, and run/check expectations
-- [ ] T016 [P] [US2] Write the DormantQL schema guide in `docs/guides/dormantql-schema.md` covering modules, entities, `name: TypeExpr[?]`, scalar values, single refs, `Set/List/Bag/Map` collections, primary keys, concurrency members, required-by-default behavior, and optionality
-- [ ] T017 [P] [US2] Write the query and mutation guide in `docs/guides/queries-and-mutations.md` covering `query`, `mutation`, aliases, alias-qualified members, clause order, lowercase parameter types, supported operators, `returning`, result inference, removed `002` forms, and status caveats for planned/deferred constructs
-- [ ] T018 [P] [US2] Write the naming and generated-code guide in `docs/guides/naming-and-generated-code.md` covering snake_case unit names to PascalCase methods, PascalCase entities, namespace derivation, mutation result inference, projection types, and raw string SQL literal readability
-- [ ] T019 [US2] Add cross-links from `docs/getting-started.md` to `docs/guides/dormantql-schema.md`, `docs/guides/queries-and-mutations.md`, `docs/guides/naming-and-generated-code.md`, `docs/status.md`, and `docs/speckit-sources.md`
-- [ ] T020 [US2] Add source traceability entries for getting started, schema grammar, query/mutation grammar, naming, and generated-code examples in `docs/speckit-sources.md`
-- [ ] T021 [US2] Validate every `.dqls`, `.dql`, and C# snippet in `docs/getting-started.md`, `docs/guides/dormantql-schema.md`, `docs/guides/queries-and-mutations.md`, and `docs/guides/naming-and-generated-code.md` against `specs/003-linq-dql-grammar/contracts/dql-grammar.md` and the sample files
-- [ ] T022 [US2] Validate the first-success independent test from `specs/006-project-documentation/spec.md` against `docs/getting-started.md`
+- [x] T015 [P] [US2] Write the ordered first-success path in `docs/getting-started.md` covering prerequisites, local project reference approach, schema definition, authored units, build/generation, and run/check expectations
+- [x] T016 [P] [US2] Write the DormantQL schema guide in `docs/guides/dormantql-schema.md` covering modules, entities, `name: TypeExpr[?]`, scalar values, single refs, `Set/List/Bag/Map` collections, primary keys, concurrency members, required-by-default behavior, and optionality
+- [x] T017 [P] [US2] Write the query and mutation guide in `docs/guides/queries-and-mutations.md` covering `query`, `mutation`, aliases, alias-qualified members, clause order, lowercase parameter types, supported operators, `returning`, result inference, removed `002` forms, and status caveats for planned/deferred constructs
+- [x] T018 [P] [US2] Write the naming and generated-code guide in `docs/guides/naming-and-generated-code.md` covering snake_case unit names to PascalCase methods, PascalCase entities, namespace derivation, mutation result inference, projection types, and raw string SQL literal readability
+- [x] T019 [US2] Add cross-links from `docs/getting-started.md` to `docs/guides/dormantql-schema.md`, `docs/guides/queries-and-mutations.md`, `docs/guides/naming-and-generated-code.md`, `docs/status.md`, and `docs/speckit-sources.md`
+- [x] T020 [US2] Add source traceability entries for getting started, schema grammar, query/mutation grammar, naming, and generated-code examples in `docs/speckit-sources.md`
+- [x] T021 [US2] Validate every `.dqls`, `.dql`, and C# snippet in `README.md`, `docs/getting-started.md`, `docs/guides/dormantql-schema.md`, `docs/guides/queries-and-mutations.md`, and `docs/guides/naming-and-generated-code.md` against `specs/003-linq-dql-grammar/contracts/dql-grammar.md` and the sample files
+- [x] T022 [US2] Validate the first-success independent test from `specs/006-project-documentation/spec.md` against `docs/getting-started.md`
 
 **Checkpoint**: User Story 2 can be reviewed by following the getting-started guide and linked usage guides without source-code lookup.
 
@@ -88,12 +88,12 @@
 
 ### Implementation for User Story 3
 
-- [ ] T023 [P] [US3] Write the component map and package/layer overview in `docs/architecture.md` covering `src/Dormant.Abstractions/`, `src/Dormant.Core/`, `src/Dormant.SourceGeneration/`, `src/Dormant.Provider.PostgreSql/`, `src/Dormant.Spatial.PostgreSql/`, `src/Dormant.Tool/`, `samples/Dormant.Sample.Quickstart/`, and `tests/`
-- [ ] T024 [P] [US3] Write the design rationale page in `docs/design-decisions.md` covering AOT-first design, build-time SQL, no runtime reflection/query compilation on hot paths, immutable command-driven writes, the `003` grammar replacement, raw string SQL literals, and the `005` SQLite/dialect direction with deferred NMemory
-- [ ] T025 [US3] Add generator pipeline and provider-boundary sections to `docs/architecture.md` covering `.dqls`/`.dql` parsing, structured IR, per-dialect rendering direction, generated C# method surfaces, and runtime provider execution
-- [ ] T026 [US3] Add constitution principle summaries to `docs/design-decisions.md` covering Developer Experience First, Interface & Compatibility Stability, Statically-Known Safe Data Access, First-Class Tooling, Performance by Default, and Quality & Testing Discipline
-- [ ] T027 [US3] Add architecture and design-decision source traceability entries in `docs/speckit-sources.md`
-- [ ] T028 [US3] Validate the architecture independent test from `specs/006-project-documentation/spec.md` against `docs/architecture.md` and `docs/design-decisions.md`
+- [x] T023 [P] [US3] Write the component map and package/layer overview in `docs/architecture.md` covering `src/Dormant.Abstractions/`, `src/Dormant.Core/`, `src/Dormant.SourceGeneration/`, `src/Dormant.Provider.PostgreSql/`, `src/Dormant.Spatial.PostgreSql/`, `src/Dormant.Tool/`, `samples/Dormant.Sample.Quickstart/`, and `tests/`
+- [x] T024 [P] [US3] Write the design rationale page in `docs/design-decisions.md` covering AOT-first design, build-time SQL, no runtime reflection/query compilation on hot paths, immutable command-driven writes, the `003` grammar replacement, raw string SQL literals, and the `005` SQLite/dialect direction with deferred NMemory
+- [x] T025 [US3] Add generator pipeline and provider-boundary sections to `docs/architecture.md` covering `.dqls`/`.dql` parsing, structured IR, per-dialect rendering direction, generated C# method surfaces, and runtime provider execution
+- [x] T026 [US3] Add constitution principle summaries to `docs/design-decisions.md` covering Developer Experience First, Interface & Compatibility Stability, Statically-Known Safe Data Access, First-Class Tooling, Performance by Default, and Quality & Testing Discipline
+- [x] T027 [US3] Add architecture and design-decision source traceability entries in `docs/speckit-sources.md`
+- [x] T028 [US3] Validate the architecture independent test from `specs/006-project-documentation/spec.md` against `docs/architecture.md` and `docs/design-decisions.md`
 
 **Checkpoint**: User Story 3 can be reviewed independently by a contributor using the architecture and design-decision pages.
 
@@ -103,13 +103,13 @@
 
 **Purpose**: Verify the complete documentation set against feature success criteria and clean up reader experience.
 
-- [ ] T029 [P] Normalize headings, page introductions, and final navigation links across `README.md`, `docs/index.md`, `docs/getting-started.md`, `docs/status.md`, `docs/guides/dormantql-schema.md`, `docs/guides/queries-and-mutations.md`, `docs/guides/naming-and-generated-code.md`, `docs/architecture.md`, `docs/design-decisions.md`, and `docs/speckit-sources.md`
-- [ ] T030 [P] Review all documentation for English-only wording and remove Portuguese phrases from `README.md` and `docs/`
-- [ ] T031 Validate all internal Markdown links in `README.md` and `docs/` using the `rg` command from `specs/006-project-documentation/quickstart.md`
-- [ ] T032 Validate capability labels and shipped/planned/deferred claims across `README.md`, `docs/status.md`, `docs/getting-started.md`, `docs/guides/queries-and-mutations.md`, `docs/architecture.md`, and `docs/design-decisions.md`
-- [ ] T033 Validate traceability coverage for every major claim in `docs/speckit-sources.md` against `README.md` and `docs/`
-- [ ] T034 Run `./build.sh build` from the repository root and record any documentation-relevant build caveats in `docs/getting-started.md`
-- [ ] T035 Perform the final success-criteria review from `specs/006-project-documentation/spec.md` for SC-001 through SC-006 against `README.md` and `docs/`
+- [x] T029 [P] Normalize headings, page introductions, and final navigation links across `README.md`, `docs/index.md`, `docs/getting-started.md`, `docs/status.md`, `docs/guides/dormantql-schema.md`, `docs/guides/queries-and-mutations.md`, `docs/guides/naming-and-generated-code.md`, `docs/architecture.md`, `docs/design-decisions.md`, and `docs/speckit-sources.md`
+- [x] T030 [P] Review all documentation for English-only wording and remove Portuguese phrases from `README.md` and `docs/`
+- [x] T031 Validate all internal Markdown links in `README.md` and `docs/` using the `rg` command from `specs/006-project-documentation/quickstart.md`
+- [x] T032 Validate capability labels and shipped/planned/deferred claims across `README.md`, `docs/status.md`, `docs/getting-started.md`, `docs/guides/queries-and-mutations.md`, `docs/architecture.md`, and `docs/design-decisions.md`
+- [x] T033 Validate traceability coverage for every major claim in `docs/speckit-sources.md` against `README.md` and `docs/`
+- [x] T034 Run `./build.sh build` from the repository root and record any documentation-relevant build caveats in `docs/getting-started.md`
+- [x] T035 Perform the final success-criteria review from `specs/006-project-documentation/spec.md` for SC-001 through SC-006 against `README.md` and `docs/`
 
 ---
 
