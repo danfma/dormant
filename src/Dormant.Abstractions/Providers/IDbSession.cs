@@ -29,11 +29,15 @@ public interface IDbSession : IAsyncDisposable
     IAsyncEnumerable<TRow> QueryAsync<TRow>(
         PreparedStatement statement,
         RowMaterializer<TRow> materialize,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default
+    );
 
     /// <summary>Executes a non-query statement (insert/update/delete) and returns affected rows.</summary>
     /// <param name="statement">The prebuilt, parameterized statement.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The number of affected rows.</returns>
-    ValueTask<int> ExecuteAsync(PreparedStatement statement, CancellationToken cancellationToken = default);
+    ValueTask<int> ExecuteAsync(
+        PreparedStatement statement,
+        CancellationToken cancellationToken = default
+    );
 }

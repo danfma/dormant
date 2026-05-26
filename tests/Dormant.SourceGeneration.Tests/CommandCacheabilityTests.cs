@@ -11,8 +11,10 @@ namespace Dormant.SourceGeneration.Tests;
 // leaks) — Constitution VI. Mirrors the schema/query cacheability checks.
 public sealed class CommandCacheabilityTests
 {
-    private const string Schema = "module catalog;\nentity Widget { id: uuid primary; name: str; quantity: int; }";
-    private const string Commands = "module catalog;\nmutation create_widget(id: uuid, name: string, quantity: int) { insert Widget w { w.id = id w.name = name w.quantity = quantity } }";
+    private const string Schema =
+        "module catalog;\nentity Widget { id: uuid primary; name: str; quantity: int; }";
+    private const string Commands =
+        "module catalog;\nmutation create_widget(id: uuid, name: string, quantity: int) { insert Widget w { w.id = id w.name = name w.quantity = quantity } }";
 
     [Test]
     public async Task Command_pipeline_steps_are_cached_on_unchanged_rerun()
@@ -20,7 +22,8 @@ public sealed class CommandCacheabilityTests
         var compilation = CSharpCompilation.Create("Tests");
         var driver = GeneratorTestHarness.CreateDriver(
             new TestAdditionalText("schema/catalog.dqls", Schema),
-            new TestAdditionalText("schema/catalog.dql", Commands));
+            new TestAdditionalText("schema/catalog.dql", Commands)
+        );
 
         driver = driver.RunGenerators(compilation);
         driver = driver.RunGenerators(compilation.Clone());
@@ -30,7 +33,11 @@ public sealed class CommandCacheabilityTests
         {
             var allCached = trackedSteps[stepName]
                 .SelectMany(step => step.Outputs)
-                .All(output => output.Reason is IncrementalStepRunReason.Cached or IncrementalStepRunReason.Unchanged);
+                .All(output =>
+                    output.Reason
+                        is IncrementalStepRunReason.Cached
+                            or IncrementalStepRunReason.Unchanged
+                );
 
             await Assert.That(allCached).IsTrue();
         }
@@ -43,11 +50,16 @@ public sealed class CommandCacheabilityTests
         {
             var driver = GeneratorTestHarness.CreateDriver(
                 new TestAdditionalText("schema/catalog.dqls", Schema),
-                new TestAdditionalText("schema/catalog.dql", Commands));
+                new TestAdditionalText("schema/catalog.dql", Commands)
+            );
             driver = driver.RunGenerators(CSharpCompilation.Create("Tests"));
             return string.Join(
                 "\n",
-                driver.GetRunResult().Results.SelectMany(r => r.GeneratedSources).Select(s => s.SourceText.ToString()));
+                driver
+                    .GetRunResult()
+                    .Results.SelectMany(r => r.GeneratedSources)
+                    .Select(s => s.SourceText.ToString())
+            );
         }
 
         await Assert.That(Run()).IsEqualTo(Run());

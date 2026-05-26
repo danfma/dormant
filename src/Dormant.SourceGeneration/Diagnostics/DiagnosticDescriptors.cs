@@ -1,6 +1,6 @@
+using Dormant.SourceGeneration.Parsing;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Text;
-using Dormant.SourceGeneration.Parsing;
 
 namespace Dormant.SourceGeneration.Diagnostics;
 
@@ -16,7 +16,8 @@ internal static class DiagnosticDescriptors
         messageFormat: "DormantQL syntax error: {0}",
         category: Category,
         defaultSeverity: DiagnosticSeverity.Error,
-        isEnabledByDefault: true);
+        isEnabledByDefault: true
+    );
 
     /// <summary>A link targets an entity that is not defined in the schema.</summary>
     public static readonly DiagnosticDescriptor UndefinedLinkTarget = new(
@@ -25,7 +26,8 @@ internal static class DiagnosticDescriptors
         messageFormat: "Link '{0}' targets entity '{1}', which is not defined in the schema",
         category: Category,
         defaultSeverity: DiagnosticSeverity.Error,
-        isEnabledByDefault: true);
+        isEnabledByDefault: true
+    );
 
     /// <summary>A property declares a value type that is not a known DormantQL v1 type.</summary>
     public static readonly DiagnosticDescriptor UnknownPropertyType = new(
@@ -35,7 +37,8 @@ internal static class DiagnosticDescriptors
         category: Category,
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true,
-        description: "Use a v1 DormantQL value type such as str, bool, int32, int64, float64, decimal, uuid, datetime, bytes, or json.");
+        description: "Use a v1 DormantQL value type such as str, bool, int32, int64, float64, decimal, uuid, datetime, bytes, or json."
+    );
 
     /// <summary>A query selects an entity that is not defined in any schema of the same module.</summary>
     public static readonly DiagnosticDescriptor UnknownQueryEntity = new(
@@ -44,7 +47,8 @@ internal static class DiagnosticDescriptors
         messageFormat: "Query '{0}' selects entity '{1}', which is not defined in the schema",
         category: Category,
         defaultSeverity: DiagnosticSeverity.Error,
-        isEnabledByDefault: true);
+        isEnabledByDefault: true
+    );
 
     /// <summary>A query references a column that does not exist on the selected entity.</summary>
     public static readonly DiagnosticDescriptor UnknownQueryColumn = new(
@@ -53,7 +57,8 @@ internal static class DiagnosticDescriptors
         messageFormat: "Query '{0}' references column '{1}', which is not a value property of entity '{2}'",
         category: Category,
         defaultSeverity: DiagnosticSeverity.Error,
-        isEnabledByDefault: true);
+        isEnabledByDefault: true
+    );
 
     /// <summary>A query references a parameter that was not declared in its parameter list.</summary>
     public static readonly DiagnosticDescriptor UnknownQueryParameter = new(
@@ -62,7 +67,8 @@ internal static class DiagnosticDescriptors
         messageFormat: "Query '{0}' references parameter '{1}', which is not declared",
         category: Category,
         defaultSeverity: DiagnosticSeverity.Error,
-        isEnabledByDefault: true);
+        isEnabledByDefault: true
+    );
 
     /// <summary>Two members of the same entity resolve to the same database column name.</summary>
     public static readonly DiagnosticDescriptor NameCollision = new(
@@ -72,7 +78,8 @@ internal static class DiagnosticDescriptors
         category: Category,
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true,
-        description: "Apply a db(\"…\") override to one of the members, or rename it, so each column has a distinct database name.");
+        description: "Apply a db(\"…\") override to one of the members, or rename it, so each column has a distinct database name."
+    );
 
     // --- 003 LINQ-style grammar diagnostics (FR-009/FR-015) ---
 
@@ -84,7 +91,8 @@ internal static class DiagnosticDescriptors
         category: Category,
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true,
-        description: "The prior DormantQL grammar was replaced by the LINQ-style query/mutation grammar. Use brace blocks, alias-qualified members, '=' assignment, and C#/TypeScript operators.");
+        description: "The prior DormantQL grammar was replaced by the LINQ-style query/mutation grammar. Use brace blocks, alias-qualified members, '=' assignment, and C#/TypeScript operators."
+    );
 
     /// <summary>A subject (from/insert/update/delete) was declared without an explicit alias.</summary>
     public static readonly DiagnosticDescriptor MissingAlias = new(
@@ -93,7 +101,8 @@ internal static class DiagnosticDescriptors
         messageFormat: "Subject '{0}' must declare an explicit alias such as '{0} u'",
         category: Category,
         defaultSeverity: DiagnosticSeverity.Error,
-        isEnabledByDefault: true);
+        isEnabledByDefault: true
+    );
 
     /// <summary>A member reference uses an alias that was not declared in the unit.</summary>
     public static readonly DiagnosticDescriptor UndeclaredAlias = new(
@@ -102,7 +111,8 @@ internal static class DiagnosticDescriptors
         messageFormat: "Alias '{0}' is not declared in this unit",
         category: Category,
         defaultSeverity: DiagnosticSeverity.Error,
-        isEnabledByDefault: true);
+        isEnabledByDefault: true
+    );
 
     /// <summary>An alias name was declared more than once in the same unit.</summary>
     public static readonly DiagnosticDescriptor DuplicateAlias = new(
@@ -111,7 +121,8 @@ internal static class DiagnosticDescriptors
         messageFormat: "Alias '{0}' is declared more than once in this unit",
         category: Category,
         defaultSeverity: DiagnosticSeverity.Error,
-        isEnabledByDefault: true);
+        isEnabledByDefault: true
+    );
 
     /// <summary>A member reference was written without an alias qualifier.</summary>
     public static readonly DiagnosticDescriptor UnqualifiedMember = new(
@@ -120,7 +131,8 @@ internal static class DiagnosticDescriptors
         messageFormat: "Member '{0}' must be alias-qualified such as 'u.{0}'",
         category: Category,
         defaultSeverity: DiagnosticSeverity.Error,
-        isEnabledByDefault: true);
+        isEnabledByDefault: true
+    );
 
     /// <summary>Clauses were authored outside the canonical order.</summary>
     public static readonly DiagnosticDescriptor WrongClauseOrder = new(
@@ -129,7 +141,8 @@ internal static class DiagnosticDescriptors
         messageFormat: "Clause '{0}' is out of order, expected canonical order {1}",
         category: Category,
         defaultSeverity: DiagnosticSeverity.Error,
-        isEnabledByDefault: true);
+        isEnabledByDefault: true
+    );
 
     /// <summary>An insert omits a required (non-optional) member.</summary>
     public static readonly DiagnosticDescriptor MissingRequiredMember = new(
@@ -138,7 +151,8 @@ internal static class DiagnosticDescriptors
         messageFormat: "Insert of '{0}' is missing required member '{1}'",
         category: Category,
         defaultSeverity: DiagnosticSeverity.Error,
-        isEnabledByDefault: true);
+        isEnabledByDefault: true
+    );
 
     /// <summary>A returning/select expression references a member it does not produce.</summary>
     public static readonly DiagnosticDescriptor ResultMemberNotInShape = new(
@@ -147,7 +161,8 @@ internal static class DiagnosticDescriptors
         messageFormat: "Member '{0}' is not part of the result shape of unit '{1}'",
         category: Category,
         defaultSeverity: DiagnosticSeverity.Error,
-        isEnabledByDefault: true);
+        isEnabledByDefault: true
+    );
 }
 
 /// <summary>An equatable, pipeline-safe description of a diagnostic (research §5).</summary>
@@ -157,7 +172,8 @@ internal static class DiagnosticDescriptors
 internal sealed record DiagnosticInfo(
     DiagnosticDescriptor Descriptor,
     LocationInfo? Location,
-    EquatableArray<string> MessageArgs)
+    EquatableArray<string> MessageArgs
+)
 {
     /// <summary>Materializes a Roslyn <see cref="Diagnostic"/> (call only in the output stage).</summary>
     public Diagnostic ToDiagnostic()

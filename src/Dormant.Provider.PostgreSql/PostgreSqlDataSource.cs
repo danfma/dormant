@@ -8,7 +8,9 @@ internal sealed class PostgreSqlDataSource(NpgsqlDataSource dataSource) : IDataS
 {
     public async ValueTask<IDbSession> OpenAsync(CancellationToken cancellationToken = default)
     {
-        var connection = await dataSource.OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+        var connection = await dataSource
+            .OpenConnectionAsync(cancellationToken)
+            .ConfigureAwait(false);
         return new PostgreSqlSession(connection);
     }
 

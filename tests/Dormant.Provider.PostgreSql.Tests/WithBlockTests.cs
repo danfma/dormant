@@ -27,7 +27,12 @@ public sealed class WithBlockTests
         await using (var session = await factory.OpenSessionAsync())
         {
             // with a = (insert Author …) ; insert Article r { r.writer = a } returning r.id
-            var returnedId = await session.CreateAuthorWithArticle(authorId, "Ada", articleId, "Notes");
+            var returnedId = await session.CreateAuthorWithArticle(
+                authorId,
+                "Ada",
+                articleId,
+                "Notes"
+            );
             await Assert.That(returnedId).IsEqualTo(articleId);
             await session.CommitAsync();
         }
@@ -35,7 +40,10 @@ public sealed class WithBlockTests
         // The bound author's id flowed into the article's `writer_id` FK column.
         await using var connection = new NpgsqlConnection(connectionString);
         await connection.OpenAsync();
-        await using var command = new NpgsqlCommand("SELECT writer_id FROM catalog.article WHERE id = @id", connection);
+        await using var command = new NpgsqlCommand(
+            "SELECT writer_id FROM catalog.article WHERE id = @id",
+            connection
+        );
         command.Parameters.AddWithValue("id", articleId);
         var writerId = (Guid)(await command.ExecuteScalarAsync())!;
         await Assert.That(writerId).IsEqualTo(authorId);

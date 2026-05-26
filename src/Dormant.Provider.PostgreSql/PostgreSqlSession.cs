@@ -13,7 +13,9 @@ internal sealed class PostgreSqlSession(NpgsqlConnection connection) : IDbSessio
     private NpgsqlTransaction? _transaction;
 
     public async ValueTask BeginAsync(CancellationToken cancellationToken = default) =>
-        _transaction = await connection.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
+        _transaction = await connection
+            .BeginTransactionAsync(cancellationToken)
+            .ConfigureAwait(false);
 
     public async ValueTask CommitAsync(CancellationToken cancellationToken = default)
     {
@@ -33,7 +35,8 @@ internal sealed class PostgreSqlSession(NpgsqlConnection connection) : IDbSessio
 
     public async ValueTask<int> ExecuteAsync(
         PreparedStatement statement,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default
+    )
     {
         await using var command = CreateCommand(statement);
         return await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
@@ -42,10 +45,13 @@ internal sealed class PostgreSqlSession(NpgsqlConnection connection) : IDbSessio
     public async IAsyncEnumerable<TRow> QueryAsync<TRow>(
         PreparedStatement statement,
         RowMaterializer<TRow> materialize,
-        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+        [EnumeratorCancellation] CancellationToken cancellationToken = default
+    )
     {
         await using var command = CreateCommand(statement);
-        await using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
+        await using var reader = await command
+            .ExecuteReaderAsync(cancellationToken)
+            .ConfigureAwait(false);
         var fieldReader = new PostgreSqlFieldReader(reader);
 
         while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))

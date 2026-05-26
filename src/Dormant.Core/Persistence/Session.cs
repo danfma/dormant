@@ -16,7 +16,10 @@ internal sealed class Session(IDbSession db) : ISession
 {
     private readonly Dictionary<(Type, object), object> _identityMap = [];
 
-    public async ValueTask<TEntity?> GetAsync<TEntity>(object key, CancellationToken cancellationToken = default)
+    public async ValueTask<TEntity?> GetAsync<TEntity>(
+        object key,
+        CancellationToken cancellationToken = default
+    )
         where TEntity : class
     {
         if (_identityMap.TryGetValue((typeof(TEntity), key), out var existing))
@@ -25,8 +28,14 @@ internal sealed class Session(IDbSession db) : ISession
         }
 
         var binding = EntityBindings.Get<TEntity>();
-        await foreach (var entity in db.QueryAsync(binding.SelectByKey(key), binding.Materialize, cancellationToken)
-                           .ConfigureAwait(false))
+        await foreach (
+            var entity in db.QueryAsync(
+                    binding.SelectByKey(key),
+                    binding.Materialize,
+                    cancellationToken
+                )
+                .ConfigureAwait(false)
+        )
         {
             _identityMap[(typeof(TEntity), key)] = entity;
             return entity;
@@ -35,13 +44,20 @@ internal sealed class Session(IDbSession db) : ISession
         return null;
     }
 
-    public IAsyncEnumerable<TResult> QueryAsync<TResult>(CompiledQuery<TResult> query, CancellationToken cancellationToken = default)
-        => db.QueryAsync(query.Statement, query.Materialize, cancellationToken);
+    public IAsyncEnumerable<TResult> QueryAsync<TResult>(
+        CompiledQuery<TResult> query,
+        CancellationToken cancellationToken = default
+    ) => db.QueryAsync(query.Statement, query.Materialize, cancellationToken);
 
-    public async ValueTask<TResult?> QuerySingleOrDefaultAsync<TResult>(CompiledQuery<TResult> query, CancellationToken cancellationToken = default)
+    public async ValueTask<TResult?> QuerySingleOrDefaultAsync<TResult>(
+        CompiledQuery<TResult> query,
+        CancellationToken cancellationToken = default
+    )
     {
-        await foreach (var row in db.QueryAsync(query.Statement, query.Materialize, cancellationToken)
-                           .ConfigureAwait(false))
+        await foreach (
+            var row in db.QueryAsync(query.Statement, query.Materialize, cancellationToken)
+                .ConfigureAwait(false)
+        )
         {
             return row;
         }
@@ -50,10 +66,15 @@ internal sealed class Session(IDbSession db) : ISession
     }
 
     // Authored write command executed in the session transaction; INSERT … RETURNING yields one row.
-    public async ValueTask<TResult> ExecuteCommandAsync<TResult>(CompiledCommand<TResult> command, CancellationToken cancellationToken = default)
+    public async ValueTask<TResult> ExecuteCommandAsync<TResult>(
+        CompiledCommand<TResult> command,
+        CancellationToken cancellationToken = default
+    )
     {
-        await foreach (var row in db.QueryAsync(command.Statement, command.Materialize, cancellationToken)
-                           .ConfigureAwait(false))
+        await foreach (
+            var row in db.QueryAsync(command.Statement, command.Materialize, cancellationToken)
+                .ConfigureAwait(false)
+        )
         {
             return row;
         }
@@ -62,12 +83,16 @@ internal sealed class Session(IDbSession db) : ISession
     }
 
     // Authored update/delete: returns the affected-row count (0 on a stale concurrency token).
-    public ValueTask<int> ExecuteWriteAsync(PreparedStatement statement, CancellationToken cancellationToken = default)
-        => db.ExecuteAsync(statement, cancellationToken);
+    public ValueTask<int> ExecuteWriteAsync(
+        PreparedStatement statement,
+        CancellationToken cancellationToken = default
+    ) => db.ExecuteAsync(statement, cancellationToken);
 
-    public ValueTask CommitAsync(CancellationToken cancellationToken = default) => db.CommitAsync(cancellationToken);
+    public ValueTask CommitAsync(CancellationToken cancellationToken = default) =>
+        db.CommitAsync(cancellationToken);
 
-    public ValueTask RollbackAsync(CancellationToken cancellationToken = default) => db.RollbackAsync(cancellationToken);
+    public ValueTask RollbackAsync(CancellationToken cancellationToken = default) =>
+        db.RollbackAsync(cancellationToken);
 
     public ValueTask DisposeAsync() => db.DisposeAsync();
 }

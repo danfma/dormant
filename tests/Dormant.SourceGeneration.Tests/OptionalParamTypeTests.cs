@@ -35,11 +35,16 @@ public sealed class OptionalParamTypeTests
     {
         var driver = GeneratorTestHarness.CreateDriver(
             new TestAdditionalText("schema/catalog.dqls", Schema),
-            new TestAdditionalText("schema/catalog.dql", Queries));
+            new TestAdditionalText("schema/catalog.dql", Queries)
+        );
         driver = driver.RunGenerators(CSharpCompilation.Create("Tests"));
         return string.Join(
             "\n",
-            driver.GetRunResult().Results.SelectMany(r => r.GeneratedSources).Select(s => s.SourceText.ToString()));
+            driver
+                .GetRunResult()
+                .Results.SelectMany(r => r.GeneratedSources)
+                .Select(s => s.SourceText.ToString())
+        );
     }
 
     [Test]
@@ -48,13 +53,22 @@ public sealed class OptionalParamTypeTests
         var generated = Run();
 
         // Single result type (Widget), optional params nullable + defaulted.
-        await Assert.That(generated)
-            .Contains("public global::System.Collections.Generic.IAsyncEnumerable<Widget> SearchWidgets(int? minQuantity = default, string? name = default,");
+        await Assert
+            .That(generated)
+            .Contains(
+                "public global::System.Collections.Generic.IAsyncEnumerable<Widget> SearchWidgets(int? minQuantity = default, string? name = default,"
+            );
         // Runtime fragment selection — each optional filter included only when its parameter is supplied.
         await Assert.That(generated).Contains("if (minQuantity != null) { conds.Add(");
         await Assert.That(generated).Contains("if (name != null) { conds.Add(");
-        await Assert.That(generated).Contains("if (conds.Count > 0) { sql.Append(\" WHERE \").Append(string.Join(\" AND \", conds)); }");
+        await Assert
+            .That(generated)
+            .Contains(
+                "if (conds.Count > 0) { sql.Append(\" WHERE \").Append(string.Join(\" AND \", conds)); }"
+            );
         // Value-type optional unwrapped via .Value when binding.
-        await Assert.That(generated).Contains("if (minQuantity != null) { writer.Write(++i, minQuantity.Value); }");
+        await Assert
+            .That(generated)
+            .Contains("if (minQuantity != null) { writer.Write(++i, minQuantity.Value); }");
     }
 }

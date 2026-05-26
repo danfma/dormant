@@ -35,7 +35,8 @@ internal static class TypeMap
     };
 
     /// <summary>Attempts to map a DormantQL value type to a CLR type.</summary>
-    public static bool TryMap(string dslType, out string clrType) => Map.TryGetValue(dslType, out clrType!);
+    public static bool TryMap(string dslType, out string clrType) =>
+        Map.TryGetValue(dslType, out clrType!);
 
     // DormantQL value type → PostgreSQL column type, for generated DDL (FR-020). PostgreSQL-specific;
     // a provider-neutral dialect abstraction is a later concern.
@@ -65,7 +66,8 @@ internal static class TypeMap
     };
 
     /// <summary>Maps a DormantQL value type to its PostgreSQL column type (falls back to <c>text</c>).</summary>
-    public static string ToSqlType(string dslType) => SqlMap.TryGetValue(dslType, out var sql) ? sql : "text";
+    public static string ToSqlType(string dslType) =>
+        SqlMap.TryGetValue(dslType, out var sql) ? sql : "text";
 }
 
 /// <summary>Deterministic naming helpers (ordinal, culture-invariant) for generated code (research §5).</summary>
@@ -97,7 +99,12 @@ internal static class Naming
     /// <c>schema/app.dqls</c> in <c>Dormant.Sample.Quickstart</c> → <c>Dormant.Sample.Quickstart.Schema.App</c>).
     /// Falls back gracefully when the project's root namespace or directory is unknown.
     /// </summary>
-    public static string ComputeNamespace(string? rootNamespace, string? projectDir, string filePath, string moduleName)
+    public static string ComputeNamespace(
+        string? rootNamespace,
+        string? projectDir,
+        string filePath,
+        string moduleName
+    )
     {
         var parts = new List<string>();
 
@@ -107,8 +114,10 @@ internal static class Naming
         }
 
         var dir = Path.GetDirectoryName(filePath) ?? string.Empty;
-        if (!string.IsNullOrEmpty(projectDir) &&
-            dir.StartsWith(projectDir!.TrimEnd('/', '\\'), StringComparison.Ordinal))
+        if (
+            !string.IsNullOrEmpty(projectDir)
+            && dir.StartsWith(projectDir!.TrimEnd('/', '\\'), StringComparison.Ordinal)
+        )
         {
             dir = dir.Substring(projectDir!.TrimEnd('/', '\\').Length);
         }

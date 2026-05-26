@@ -40,7 +40,10 @@ public static class DormantPostgres
     /// <param name="connectionString">The PostgreSQL connection string.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>A task that completes when the schema has been applied.</returns>
-    public static async ValueTask EnsureCreatedAsync(string connectionString, CancellationToken cancellationToken = default)
+    public static async ValueTask EnsureCreatedAsync(
+        string connectionString,
+        CancellationToken cancellationToken = default
+    )
     {
         await using var dataSource = CreateDataSource(connectionString);
         await using var db = await dataSource.OpenAsync(cancellationToken).ConfigureAwait(false);

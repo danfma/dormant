@@ -32,12 +32,16 @@ public sealed class OptionalParamsTests
 
         // Each combination filters correctly; ordered by name asc. (Joined string also verifies order.)
         await Assert.That(await NamesAsync(factory, null, null)).IsEqualTo("five,nine,seven"); // none
-        await Assert.That(await NamesAsync(factory, 6, null)).IsEqualTo("nine,seven");          // min only
-        await Assert.That(await NamesAsync(factory, null, "seven")).IsEqualTo("seven");         // name only
-        await Assert.That(await NamesAsync(factory, 6, "nine")).IsEqualTo("nine");              // both
+        await Assert.That(await NamesAsync(factory, 6, null)).IsEqualTo("nine,seven"); // min only
+        await Assert.That(await NamesAsync(factory, null, "seven")).IsEqualTo("seven"); // name only
+        await Assert.That(await NamesAsync(factory, 6, "nine")).IsEqualTo("nine"); // both
     }
 
-    private static async Task<string> NamesAsync(ISessionFactory factory, int? minQuantity, string? name)
+    private static async Task<string> NamesAsync(
+        ISessionFactory factory,
+        int? minQuantity,
+        string? name
+    )
     {
         var names = new List<string>();
         await using var session = await factory.OpenSessionAsync();

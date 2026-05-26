@@ -19,8 +19,8 @@ internal static class EntityEmitter
     public static string Emit(string @namespace, EntityModel entity)
     {
         var primaryKey = entity.Properties.FirstOrDefault(p => p.IsPrimary);
-        var hasSinglePrimaryKey = primaryKey is not null
-            && entity.Properties.Count(p => p.IsPrimary) == 1;
+        var hasSinglePrimaryKey =
+            primaryKey is not null && entity.Properties.Count(p => p.IsPrimary) == 1;
 
         var declaration = hasSinglePrimaryKey
             ? $"public partial class {entity.Name} : global::System.IEquatable<{entity.Name}>"
@@ -70,23 +70,31 @@ internal static class EntityEmitter
     private static void EmitConstructors(SourceWriter writer, EntityModel entity)
     {
         writer
-            .Line($"/// <summary>Initializes a new <see cref=\"{entity.Name}\"/> for `required`-init construction.</summary>")
+            .Line(
+                $"/// <summary>Initializes a new <see cref=\"{entity.Name}\"/> for `required`-init construction.</summary>"
+            )
             .Line($"public {entity.Name}() {{ }}")
             .Line();
 
         writer
-            .Line("/// <summary>Materializes an instance from a data row (internal; used by the generated binding).</summary>")
+            .Line(
+                "/// <summary>Materializes an instance from a data row (internal; used by the generated binding).</summary>"
+            )
             .Line("[global::System.Diagnostics.CodeAnalysis.SetsRequiredMembers]")
-            .Open($"internal {entity.Name}(global::Dormant.Abstractions.Querying.IFieldReader reader)");
+            .Open(
+                $"internal {entity.Name}(global::Dormant.Abstractions.Querying.IFieldReader reader)"
+            );
 
         var ordinal = 0;
         foreach (var property in entity.Properties)
         {
             var name = Naming.ToPascalCase(property.Name);
             var read = $"reader.GetValue<{property.ClrType}>({ordinal})";
-            writer.Line(property.IsNullable
-                ? $"this.{name} = reader.IsNull({ordinal}) ? null : {read};"
-                : $"this.{name} = {read};");
+            writer.Line(
+                property.IsNullable
+                    ? $"this.{name} = reader.IsNull({ordinal}) ? null : {read};"
+                    : $"this.{name} = {read};"
+            );
             ordinal++;
         }
 
@@ -104,34 +112,48 @@ internal static class EntityEmitter
                 writer.Line($"public required {Ns}.Ref<{target}> {name} {{ get; init; }}");
                 break;
             case ReferenceKind.Ref:
-                writer.Line($"public {Ns}.Ref<{target}?> {name} {{ get; init; }} = {Ns}.Ref<{target}?>.Unloaded;");
+                writer.Line(
+                    $"public {Ns}.Ref<{target}?> {name} {{ get; init; }} = {Ns}.Ref<{target}?>.Unloaded;"
+                );
                 break;
             case ReferenceKind.Set:
-                writer.Line($"public {Ns}.RefSet<{target}> {name} {{ get; init; }} = {Ns}.RefSet<{target}>.Unloaded;");
+                writer.Line(
+                    $"public {Ns}.RefSet<{target}> {name} {{ get; init; }} = {Ns}.RefSet<{target}>.Unloaded;"
+                );
                 break;
             case ReferenceKind.List:
-                writer.Line($"public {Ns}.RefList<{target}> {name} {{ get; init; }} = {Ns}.RefList<{target}>.Unloaded;");
+                writer.Line(
+                    $"public {Ns}.RefList<{target}> {name} {{ get; init; }} = {Ns}.RefList<{target}>.Unloaded;"
+                );
                 break;
             case ReferenceKind.Bag:
-                writer.Line($"public {Ns}.RefBag<{target}> {name} {{ get; init; }} = {Ns}.RefBag<{target}>.Unloaded;");
+                writer.Line(
+                    $"public {Ns}.RefBag<{target}> {name} {{ get; init; }} = {Ns}.RefBag<{target}>.Unloaded;"
+                );
                 break;
             case ReferenceKind.Map:
                 var keyClr = TypeMap.TryMap(reference.KeyType ?? string.Empty, out var mapped)
                     ? mapped
                     : reference.KeyType;
                 writer.Line(
-                    $"public {Ns}.RefMap<{keyClr}, {target}> {name} {{ get; init; }} = {Ns}.RefMap<{keyClr}, {target}>.Unloaded;");
+                    $"public {Ns}.RefMap<{keyClr}, {target}> {name} {{ get; init; }} = {Ns}.RefMap<{keyClr}, {target}>.Unloaded;"
+                );
                 break;
         }
     }
 
     // Identity equality by primary key (FR-051): a transient (unset key) entity uses reference equality.
-    private static void EmitIdentityEquality(SourceWriter writer, string entityName, PropertyModel key)
+    private static void EmitIdentityEquality(
+        SourceWriter writer,
+        string entityName,
+        PropertyModel key
+    )
     {
         var keyName = Naming.ToPascalCase(key.Name);
         var cmp = $"global::System.Collections.Generic.EqualityComparer<{key.ClrType}>.Default";
 
-        writer.Line()
+        writer
+            .Line()
             .Line($"/// <inheritdoc/>")
             .Open($"public bool Equals({entityName}? other)")
             .Line("if (other is null) { return false; }")

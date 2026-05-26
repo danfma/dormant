@@ -1,5 +1,4 @@
 <Project>
-
   <!-- Inherit the repo-root shared settings, then relax rules that fight idiomatic test code. -->
   <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
 
@@ -7,5 +6,4 @@
     <!-- CA1707: underscores in member names are idiomatic for test method names. -->
     <NoWarn>$(NoWarn);CA1707</NoWarn>
   </PropertyGroup>
-
 </Project>

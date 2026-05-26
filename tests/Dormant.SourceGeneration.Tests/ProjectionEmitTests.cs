@@ -46,7 +46,8 @@ public sealed class ProjectionEmitTests
     {
         var driver = GeneratorTestHarness.CreateDriver(
             new TestAdditionalText("schema/catalog.dqls", Schema),
-            new TestAdditionalText("schema/catalog.dql", Queries));
+            new TestAdditionalText("schema/catalog.dql", Queries)
+        );
         driver = driver.RunGenerators(CSharpCompilation.Create("Tests"));
         var sources = driver.GetRunResult().Results.SelectMany(r => r.GeneratedSources);
         return string.Join("\n", sources.Select(s => s.SourceText.ToString()));
@@ -58,13 +59,21 @@ public sealed class ProjectionEmitTests
         var generated = Run();
 
         // Exactly id + name — proving non-projected members (e.g. quantity) are absent → uncompilable (T050).
-        await Assert.That(generated)
-            .Contains("public sealed record WidgetNamesResult(global::System.Guid Id, string Name);");
+        await Assert
+            .That(generated)
+            .Contains(
+                "public sealed record WidgetNamesResult(global::System.Guid Id, string Name);"
+            );
 
         // Emitted inside a C# 14 extension block (FR-058) — receiver `session`, no `this` parameter.
-        await Assert.That(generated).Contains("extension(global::Dormant.Abstractions.Sessions.ISession session)");
-        await Assert.That(generated)
-            .Contains("public global::System.Collections.Generic.IAsyncEnumerable<WidgetNamesResult> WidgetNames(int min,");
+        await Assert
+            .That(generated)
+            .Contains("extension(global::Dormant.Abstractions.Sessions.ISession session)");
+        await Assert
+            .That(generated)
+            .Contains(
+                "public global::System.Collections.Generic.IAsyncEnumerable<WidgetNamesResult> WidgetNames(int min,"
+            );
     }
 
     [Test]
@@ -73,11 +82,17 @@ public sealed class ProjectionEmitTests
         var generated = Run();
 
         await Assert.That(generated).Contains("public static partial class CatalogQueries");
-        await Assert.That(generated)
-            .Contains("public global::System.Collections.Generic.IAsyncEnumerable<Widget> AllWidgets(int min,");
+        await Assert
+            .That(generated)
+            .Contains(
+                "public global::System.Collections.Generic.IAsyncEnumerable<Widget> AllWidgets(int min,"
+            );
         // Build-time SQL: full-entity column list in declaration order + filter + order by.
-        await Assert.That(generated)
-            .Contains("SELECT \"id\", \"name\", \"quantity\" FROM \"catalog\".\"widget\" WHERE \"quantity\" >= $1 ORDER BY \"quantity\" DESC");
+        await Assert
+            .That(generated)
+            .Contains(
+                "SELECT \"id\", \"name\", \"quantity\" FROM \"catalog\".\"widget\" WHERE \"quantity\" >= $1 ORDER BY \"quantity\" DESC"
+            );
         await Assert.That(generated).Contains("static reader => new Widget(reader)");
     }
 

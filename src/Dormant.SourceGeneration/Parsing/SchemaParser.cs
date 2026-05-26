@@ -12,7 +12,8 @@ namespace Dormant.SourceGeneration.Parsing;
 internal readonly record struct ParseResult(
     string ModuleName,
     IReadOnlyList<EntityModel> Entities,
-    IReadOnlyList<DiagnosticInfo> Diagnostics);
+    IReadOnlyList<DiagnosticInfo> Diagnostics
+);
 
 /// <summary>
 /// Hand-written recursive-descent parser for the DormantQL v1 schema grammar (FR-047): a module
@@ -127,13 +128,20 @@ internal sealed class SchemaParser
             name,
             new EquatableArray<PropertyModel>([.. properties]),
             new EquatableArray<ReferenceModel>([.. references]),
-            nameOverride);
+            nameOverride
+        );
     }
 
     // Optional `db("name")` override (FR-054); returns the literal name or null when absent.
     private string? TryParseDbOverride()
     {
-        if (!(Current.Kind == TokenKind.Identifier && Current.Text == "db" && Peek().Kind == TokenKind.LeftParen))
+        if (
+            !(
+                Current.Kind == TokenKind.Identifier
+                && Current.Text == "db"
+                && Peek().Kind == TokenKind.LeftParen
+            )
+        )
         {
             return null;
         }
@@ -169,9 +177,11 @@ internal sealed class SchemaParser
         }
 
         // Collection reference: Set/List/Bag/Map '<' ... '>'
-        if (Current.Kind == TokenKind.Identifier &&
-            TryCollectionKind(Current.Text, out var collectionKind) &&
-            Peek().Kind == TokenKind.LeftAngle)
+        if (
+            Current.Kind == TokenKind.Identifier
+            && TryCollectionKind(Current.Text, out var collectionKind)
+            && Peek().Kind == TokenKind.LeftAngle
+        )
         {
             ParseCollectionReference(name, collectionKind, references);
             return;
@@ -202,25 +212,49 @@ internal sealed class SchemaParser
         // PascalCase → single reference (validated against the entity set → ORM002 if undefined).
         if (TypeMap.TryMap(typeName, out var clrType))
         {
-            properties.Add(new PropertyModel(
-                name, typeName, clrType, isNullable, isPrimary, isConcurrency, nameOverride));
+            properties.Add(
+                new PropertyModel(
+                    name,
+                    typeName,
+                    clrType,
+                    isNullable,
+                    isPrimary,
+                    isConcurrency,
+                    nameOverride
+                )
+            );
             return;
         }
 
         if (typeName.Length > 0 && char.IsLower(typeName[0]))
         {
-            _diagnostics.Add(new DiagnosticInfo(
-                DiagnosticDescriptors.UnknownPropertyType,
-                LocationOf(typeToken),
-                new EquatableArray<string>([name, typeName])));
+            _diagnostics.Add(
+                new DiagnosticInfo(
+                    DiagnosticDescriptors.UnknownPropertyType,
+                    LocationOf(typeToken),
+                    new EquatableArray<string>([name, typeName])
+                )
+            );
             return;
         }
 
-        references.Add(new ReferenceModel(
-            name, typeName, ReferenceKind.Ref, KeyType: null, IsRequired: !isNullable, LocationOf(typeToken)));
+        references.Add(
+            new ReferenceModel(
+                name,
+                typeName,
+                ReferenceKind.Ref,
+                KeyType: null,
+                IsRequired: !isNullable,
+                LocationOf(typeToken)
+            )
+        );
     }
 
-    private void ParseCollectionReference(string name, ReferenceKind kind, List<ReferenceModel> references)
+    private void ParseCollectionReference(
+        string name,
+        ReferenceKind kind,
+        List<ReferenceModel> references
+    )
     {
         _pos++; // collection-kind identifier
         Expect(TokenKind.LeftAngle, "'<' after the collection kind");
@@ -253,8 +287,16 @@ internal sealed class SchemaParser
         Expect(TokenKind.RightAngle, "'>' to close the collection type");
         Expect(TokenKind.Semicolon, "';' after the member declaration");
 
-        references.Add(new ReferenceModel(
-            name, targetToken.Text, kind, keyType, IsRequired: false, LocationOf(targetToken)));
+        references.Add(
+            new ReferenceModel(
+                name,
+                targetToken.Text,
+                kind,
+                keyType,
+                IsRequired: false,
+                LocationOf(targetToken)
+            )
+        );
     }
 
     private (bool IsPrimary, bool IsConcurrency, string? NameOverride) ParseModifiers()
@@ -280,7 +322,9 @@ internal sealed class SchemaParser
             }
             else
             {
-                Error($"unexpected modifier '{Current.Text}'; expected 'primary', 'concurrency', or db(\"…\")");
+                Error(
+                    $"unexpected modifier '{Current.Text}'; expected 'primary', 'concurrency', or db(\"…\")"
+                );
             }
 
             _pos++;
@@ -293,11 +337,21 @@ internal sealed class SchemaParser
     {
         switch (text)
         {
-            case "Set": kind = ReferenceKind.Set; return true;
-            case "List": kind = ReferenceKind.List; return true;
-            case "Bag": kind = ReferenceKind.Bag; return true;
-            case "Map": kind = ReferenceKind.Map; return true;
-            default: kind = ReferenceKind.Ref; return false;
+            case "Set":
+                kind = ReferenceKind.Set;
+                return true;
+            case "List":
+                kind = ReferenceKind.List;
+                return true;
+            case "Bag":
+                kind = ReferenceKind.Bag;
+                return true;
+            case "Map":
+                kind = ReferenceKind.Map;
+                return true;
+            default:
+                kind = ReferenceKind.Ref;
+                return false;
         }
     }
 
@@ -305,7 +359,9 @@ internal sealed class SchemaParser
 
     private void RecoverToMemberEnd()
     {
-        while (Current.Kind is not (TokenKind.Semicolon or TokenKind.RightBrace or TokenKind.EndOfFile))
+        while (
+            Current.Kind is not (TokenKind.Semicolon or TokenKind.RightBrace or TokenKind.EndOfFile)
+        )
         {
             _pos++;
         }
@@ -329,17 +385,23 @@ internal sealed class SchemaParser
     }
 
     private void Error(string message) =>
-        _diagnostics.Add(new DiagnosticInfo(
-            DiagnosticDescriptors.SyntaxError,
-            LocationOf(Current),
-            new EquatableArray<string>([message])));
+        _diagnostics.Add(
+            new DiagnosticInfo(
+                DiagnosticDescriptors.SyntaxError,
+                LocationOf(Current),
+                new EquatableArray<string>([message])
+            )
+        );
 
-    private LocationInfo LocationOf(Token token) => new(
-        _filePath,
-        new TextSpan(token.Start, token.Length == 0 ? 1 : token.Length),
-        new LinePositionSpan(
-            new LinePosition(token.Line, token.Column),
-            new LinePosition(token.Line, token.Column + (token.Length == 0 ? 1 : token.Length))));
+    private LocationInfo LocationOf(Token token) =>
+        new(
+            _filePath,
+            new TextSpan(token.Start, token.Length == 0 ? 1 : token.Length),
+            new LinePositionSpan(
+                new LinePosition(token.Line, token.Column),
+                new LinePosition(token.Line, token.Column + (token.Length == 0 ? 1 : token.Length))
+            )
+        );
 
     private static string Describe(Token token) =>
         token.Kind == TokenKind.EndOfFile ? "end of file" : token.Text;

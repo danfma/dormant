@@ -20,9 +20,15 @@ if (connectionString is null)
         Version = 1,
     };
 
-    Console.WriteLine($"User {preview.Email} created at {preview.CreatedAt:o}; recent? {preview.IsRecent()}");
-    Console.WriteLine($"bio set? {preview.Bio is not null}; posts loaded? {preview.Posts.IsLoaded}");
-    Console.WriteLine("Set DORMANT_SAMPLE_DB to a PostgreSQL connection string to run the round-trip.");
+    Console.WriteLine(
+        $"User {preview.Email} created at {preview.CreatedAt:o}; recent? {preview.IsRecent()}"
+    );
+    Console.WriteLine(
+        $"bio set? {preview.Bio is not null}; posts loaded? {preview.Posts.IsLoaded}"
+    );
+    Console.WriteLine(
+        "Set DORMANT_SAMPLE_DB to a PostgreSQL connection string to run the round-trip."
+    );
     return;
 }
 

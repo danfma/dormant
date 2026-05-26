@@ -1,5 +1,4 @@
 <Project Sdk="Microsoft.NET.Sdk">
-
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <Description>Dormant ORM — provider-agnostic engine (schema, persistence, querying, migrations).</Description>
@@ -8,5 +7,4 @@
   <ItemGroup>
     <ProjectReference Include="../Dormant.Abstractions/Dormant.Abstractions.csproj" />
   </ItemGroup>
-
 </Project>

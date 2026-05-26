@@ -25,7 +25,9 @@ public sealed class NamingDiagnosticTests
             }
             """;
 
-        var driver = GeneratorTestHarness.CreateDriver(new TestAdditionalText("schema/shop.dqls", schema));
+        var driver = GeneratorTestHarness.CreateDriver(
+            new TestAdditionalText("schema/shop.dqls", schema)
+        );
         var result = driver.RunGenerators(CSharpCompilation.Create("Tests")).GetRunResult();
 
         await Assert.That(result.Diagnostics.Any(d => d.Id == "ORM013")).IsTrue();
@@ -44,7 +46,9 @@ public sealed class NamingDiagnosticTests
             }
             """;
 
-        var driver = GeneratorTestHarness.CreateDriver(new TestAdditionalText("schema/shop.dqls", schema));
+        var driver = GeneratorTestHarness.CreateDriver(
+            new TestAdditionalText("schema/shop.dqls", schema)
+        );
         var result = driver.RunGenerators(CSharpCompilation.Create("Tests")).GetRunResult();
 
         await Assert.That(result.Diagnostics.Any(d => d.Id == "ORM013")).IsFalse();

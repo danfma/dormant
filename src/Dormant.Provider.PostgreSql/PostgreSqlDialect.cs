@@ -9,7 +9,8 @@ internal sealed class PostgreSqlDialect : ISqlDialect
 
     public string QuoteIdentifier(string name) => "\"" + name.Replace("\"", "\"\"") + "\"";
 
-    public string Placeholder(int index) => "$" + index.ToString(System.Globalization.CultureInfo.InvariantCulture);
+    public string Placeholder(int index) =>
+        "$" + index.ToString(System.Globalization.CultureInfo.InvariantCulture);
 
     public bool Supports(string providerScope) =>
         string.Equals(providerScope, "postgres", System.StringComparison.Ordinal);

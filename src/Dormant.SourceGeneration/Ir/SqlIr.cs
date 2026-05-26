@@ -23,7 +23,8 @@ internal sealed record ColumnDef(string Name, string SqlType, bool NotNull, bool
 internal sealed record InsertColumn(string Name, string? ParamCast);
 
 /// <summary>An INSERT with positional <c>$1…$n</c> values, one per column (declaration order).</summary>
-internal sealed record InsertStatement(TableRef Table, IReadOnlyList<InsertColumn> Columns) : SqlStatement;
+internal sealed record InsertStatement(TableRef Table, IReadOnlyList<InsertColumn> Columns)
+    : SqlStatement;
 
 /// <summary>A SELECT with an optional WHERE / ORDER BY / LIMIT / OFFSET.</summary>
 internal sealed record SelectStatement(
@@ -32,13 +33,15 @@ internal sealed record SelectStatement(
     IReadOnlyList<SqlCondition> Where,
     IReadOnlyList<SqlOrder> OrderBy,
     SqlLimit? Limit,
-    SqlLimit? Offset) : SqlStatement;
+    SqlLimit? Offset
+) : SqlStatement;
 
 /// <summary>A DELETE with a WHERE clause and an optional <c>RETURNING</c> column list (003 FR-017).</summary>
 internal sealed record DeleteStatement(
     TableRef Table,
     IReadOnlyList<SqlCondition> Where,
-    IReadOnlyList<string>? Returning = null) : SqlStatement;
+    IReadOnlyList<string>? Returning = null
+) : SqlStatement;
 
 /// <summary>A SET assignment in an UPDATE: <c>"column" = &lt;valueToken&gt;</c> (token already rendered, e.g. <c>$1</c>).</summary>
 internal sealed record SqlAssignment(string Column, string ValueToken);
@@ -48,13 +51,15 @@ internal sealed record UpdateStatement(
     TableRef Table,
     IReadOnlyList<SqlAssignment> Assignments,
     IReadOnlyList<SqlCondition> Where,
-    IReadOnlyList<string>? Returning = null) : SqlStatement;
+    IReadOnlyList<string>? Returning = null
+) : SqlStatement;
 
 /// <summary>A <c>CREATE SCHEMA IF NOT EXISTS</c> for a module's database schema (FR-045).</summary>
 internal sealed record CreateSchemaStatement(string Schema) : SqlStatement;
 
 /// <summary>A <c>CREATE TABLE IF NOT EXISTS</c> with column definitions (FR-020/FR-045).</summary>
-internal sealed record CreateTableStatement(TableRef Table, IReadOnlyList<ColumnDef> Columns) : SqlStatement;
+internal sealed record CreateTableStatement(TableRef Table, IReadOnlyList<ColumnDef> Columns)
+    : SqlStatement;
 
 /// <summary>A <c>"column" op $index</c> comparison (database column name already resolved).</summary>
 internal sealed record SqlCondition(string Column, string Operator, int ParameterIndex);
@@ -68,27 +73,34 @@ internal sealed record SqlLimit(bool IsParameter, int ParameterIndex, int Litera
 /// <summary>Renders <see cref="SqlStatement"/> nodes to PostgreSQL text (the single string boundary).</summary>
 internal static class SqlRenderer
 {
-    public static string Render(SqlStatement statement) => statement switch
-    {
-        InsertStatement insert => RenderInsert(insert),
-        SelectStatement select => RenderSelect(select),
-        DeleteStatement delete => RenderDelete(delete),
-        UpdateStatement update => RenderUpdate(update),
-        CreateSchemaStatement createSchema => $"CREATE SCHEMA IF NOT EXISTS {Quote(createSchema.Schema)}",
-        CreateTableStatement createTable => RenderCreateTable(createTable),
-        _ => throw new System.NotSupportedException($"Unknown statement: {statement.GetType().Name}"),
-    };
+    public static string Render(SqlStatement statement) =>
+        statement switch
+        {
+            InsertStatement insert => RenderInsert(insert),
+            SelectStatement select => RenderSelect(select),
+            DeleteStatement delete => RenderDelete(delete),
+            UpdateStatement update => RenderUpdate(update),
+            CreateSchemaStatement createSchema =>
+                $"CREATE SCHEMA IF NOT EXISTS {Quote(createSchema.Schema)}",
+            CreateTableStatement createTable => RenderCreateTable(createTable),
+            _ => throw new System.NotSupportedException(
+                $"Unknown statement: {statement.GetType().Name}"
+            ),
+        };
 
     private static string RenderInsert(InsertStatement insert)
     {
         var columns = string.Join(", ", insert.Columns.Select(c => Quote(c.Name)));
         var values = string.Join(
             ", ",
-            insert.Columns.Select((c, i) =>
-            {
-                var placeholder = "$" + (i + 1).ToString(CultureInfo.InvariantCulture);
-                return c.ParamCast is null ? placeholder : placeholder + "::" + c.ParamCast;
-            }));
+            insert.Columns.Select(
+                (c, i) =>
+                {
+                    var placeholder = "$" + (i + 1).ToString(CultureInfo.InvariantCulture);
+                    return c.ParamCast is null ? placeholder : placeholder + "::" + c.ParamCast;
+                }
+            )
+        );
         return $"INSERT INTO {RenderTable(insert.Table)} ({columns}) VALUES ({values})";
     }
 
@@ -110,7 +122,8 @@ internal static class SqlRenderer
                 }
 
                 return parts;
-            }));
+            })
+        );
         return $"CREATE TABLE IF NOT EXISTS {RenderTable(createTable.Table)} ({columns})";
     }
 
@@ -124,9 +137,12 @@ internal static class SqlRenderer
         if (select.OrderBy.Count > 0)
         {
             sb.Append(" ORDER BY ");
-            sb.Append(string.Join(
-                ", ",
-                select.OrderBy.Select(o => Quote(o.Column) + (o.Descending ? " DESC" : " ASC"))));
+            sb.Append(
+                string.Join(
+                    ", ",
+                    select.OrderBy.Select(o => Quote(o.Column) + (o.Descending ? " DESC" : " ASC"))
+                )
+            );
         }
 
         AppendLimit(sb, "LIMIT", select.Limit);
@@ -147,13 +163,21 @@ internal static class SqlRenderer
     {
         var sb = new System.Text.StringBuilder();
         sb.Append("UPDATE ").Append(RenderTable(update.Table)).Append(" SET ");
-        sb.Append(string.Join(", ", update.Assignments.Select(a => Quote(a.Column) + " = " + a.ValueToken)));
+        sb.Append(
+            string.Join(
+                ", ",
+                update.Assignments.Select(a => Quote(a.Column) + " = " + a.ValueToken)
+            )
+        );
         AppendWhere(sb, update.Where);
         AppendReturning(sb, update.Returning);
         return sb.ToString();
     }
 
-    private static void AppendReturning(System.Text.StringBuilder sb, IReadOnlyList<string>? columns)
+    private static void AppendReturning(
+        System.Text.StringBuilder sb,
+        IReadOnlyList<string>? columns
+    )
     {
         if (columns is null || columns.Count == 0)
         {
@@ -174,9 +198,14 @@ internal static class SqlRenderer
         }
 
         sb.Append(" WHERE ");
-        sb.Append(string.Join(
-            " AND ",
-            where.Select(c => $"{Quote(c.Column)} {c.Operator} ${c.ParameterIndex.ToString(CultureInfo.InvariantCulture)}")));
+        sb.Append(
+            string.Join(
+                " AND ",
+                where.Select(c =>
+                    $"{Quote(c.Column)} {c.Operator} ${c.ParameterIndex.ToString(CultureInfo.InvariantCulture)}"
+                )
+            )
+        );
     }
 
     private static void AppendLimit(System.Text.StringBuilder sb, string keyword, SqlLimit? limit)
@@ -187,9 +216,11 @@ internal static class SqlRenderer
         }
 
         sb.Append(' ').Append(keyword).Append(' ');
-        sb.Append(limit.IsParameter
-            ? "$" + limit.ParameterIndex.ToString(CultureInfo.InvariantCulture)
-            : limit.Literal.ToString(CultureInfo.InvariantCulture));
+        sb.Append(
+            limit.IsParameter
+                ? "$" + limit.ParameterIndex.ToString(CultureInfo.InvariantCulture)
+                : limit.Literal.ToString(CultureInfo.InvariantCulture)
+        );
     }
 
     private static string Quote(string identifier) => "\"" + identifier + "\"";

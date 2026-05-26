@@ -41,7 +41,8 @@ internal readonly record struct Token(
     int Start,
     int Length,
     int Line,
-    int Column);
+    int Column
+);
 
 /// <summary>
 /// Hand-written DormantQL lexer. Recognizes identifiers, punctuation (<c>: ; { } -> ?</c>), skips
@@ -106,7 +107,9 @@ internal static class Lexer
                     continue;
                 case ':' when i + 1 < text.Length && text[i + 1] == ':':
                     Advance(2);
-                    tokens.Add(new Token(TokenKind.DoubleColon, "::", start, 2, startLine, startColumn));
+                    tokens.Add(
+                        new Token(TokenKind.DoubleColon, "::", start, 2, startLine, startColumn)
+                    );
                     continue;
                 case ':':
                     Advance();
@@ -114,39 +117,57 @@ internal static class Lexer
                     continue;
                 case ';':
                     Advance();
-                    tokens.Add(new Token(TokenKind.Semicolon, ";", start, 1, startLine, startColumn));
+                    tokens.Add(
+                        new Token(TokenKind.Semicolon, ";", start, 1, startLine, startColumn)
+                    );
                     continue;
                 case '{':
                     Advance();
-                    tokens.Add(new Token(TokenKind.LeftBrace, "{", start, 1, startLine, startColumn));
+                    tokens.Add(
+                        new Token(TokenKind.LeftBrace, "{", start, 1, startLine, startColumn)
+                    );
                     continue;
                 case '}':
                     Advance();
-                    tokens.Add(new Token(TokenKind.RightBrace, "}", start, 1, startLine, startColumn));
+                    tokens.Add(
+                        new Token(TokenKind.RightBrace, "}", start, 1, startLine, startColumn)
+                    );
                     continue;
                 case '?':
                     Advance();
-                    tokens.Add(new Token(TokenKind.Question, "?", start, 1, startLine, startColumn));
+                    tokens.Add(
+                        new Token(TokenKind.Question, "?", start, 1, startLine, startColumn)
+                    );
                     continue;
                 case '<' when i + 1 < text.Length && text[i + 1] == '=':
                     Advance(2);
-                    tokens.Add(new Token(TokenKind.LessEqual, "<=", start, 2, startLine, startColumn));
+                    tokens.Add(
+                        new Token(TokenKind.LessEqual, "<=", start, 2, startLine, startColumn)
+                    );
                     continue;
                 case '<':
                     Advance();
-                    tokens.Add(new Token(TokenKind.LeftAngle, "<", start, 1, startLine, startColumn));
+                    tokens.Add(
+                        new Token(TokenKind.LeftAngle, "<", start, 1, startLine, startColumn)
+                    );
                     continue;
                 case '>' when i + 1 < text.Length && text[i + 1] == '=':
                     Advance(2);
-                    tokens.Add(new Token(TokenKind.GreaterEqual, ">=", start, 2, startLine, startColumn));
+                    tokens.Add(
+                        new Token(TokenKind.GreaterEqual, ">=", start, 2, startLine, startColumn)
+                    );
                     continue;
                 case '>':
                     Advance();
-                    tokens.Add(new Token(TokenKind.RightAngle, ">", start, 1, startLine, startColumn));
+                    tokens.Add(
+                        new Token(TokenKind.RightAngle, ">", start, 1, startLine, startColumn)
+                    );
                     continue;
                 case '=' when i + 1 < text.Length && text[i + 1] == '=':
                     Advance(2);
-                    tokens.Add(new Token(TokenKind.EqualEqual, "==", start, 2, startLine, startColumn));
+                    tokens.Add(
+                        new Token(TokenKind.EqualEqual, "==", start, 2, startLine, startColumn)
+                    );
                     continue;
                 case '=':
                     Advance();
@@ -154,7 +175,9 @@ internal static class Lexer
                     continue;
                 case '!' when i + 1 < text.Length && text[i + 1] == '=':
                     Advance(2);
-                    tokens.Add(new Token(TokenKind.BangEqual, "!=", start, 2, startLine, startColumn));
+                    tokens.Add(
+                        new Token(TokenKind.BangEqual, "!=", start, 2, startLine, startColumn)
+                    );
                     continue;
                 case '!':
                     Advance();
@@ -166,15 +189,21 @@ internal static class Lexer
                     continue;
                 case '|' when i + 1 < text.Length && text[i + 1] == '|':
                     Advance(2);
-                    tokens.Add(new Token(TokenKind.PipePipe, "||", start, 2, startLine, startColumn));
+                    tokens.Add(
+                        new Token(TokenKind.PipePipe, "||", start, 2, startLine, startColumn)
+                    );
                     continue;
                 case '(':
                     Advance();
-                    tokens.Add(new Token(TokenKind.LeftParen, "(", start, 1, startLine, startColumn));
+                    tokens.Add(
+                        new Token(TokenKind.LeftParen, "(", start, 1, startLine, startColumn)
+                    );
                     continue;
                 case ')':
                     Advance();
-                    tokens.Add(new Token(TokenKind.RightParen, ")", start, 1, startLine, startColumn));
+                    tokens.Add(
+                        new Token(TokenKind.RightParen, ")", start, 1, startLine, startColumn)
+                    );
                     continue;
                 case ',':
                     Advance();
@@ -205,8 +234,16 @@ internal static class Lexer
                     Advance(); // closing quote
                 }
 
-                tokens.Add(new Token(
-                    TokenKind.String, text.Substring(contentStart, contentLen), start, i - start, startLine, startColumn));
+                tokens.Add(
+                    new Token(
+                        TokenKind.String,
+                        text.Substring(contentStart, contentLen),
+                        start,
+                        i - start,
+                        startLine,
+                        startColumn
+                    )
+                );
                 continue;
             }
 
@@ -224,8 +261,16 @@ internal static class Lexer
                 }
 
                 var numLen = i - start;
-                tokens.Add(new Token(
-                    TokenKind.Number, text.Substring(start, numLen), start, numLen, startLine, startColumn));
+                tokens.Add(
+                    new Token(
+                        TokenKind.Number,
+                        text.Substring(start, numLen),
+                        start,
+                        numLen,
+                        startLine,
+                        startColumn
+                    )
+                );
                 continue;
             }
 
@@ -237,13 +282,23 @@ internal static class Lexer
                 }
 
                 var len = i - start;
-                tokens.Add(new Token(
-                    TokenKind.Identifier, text.Substring(start, len), start, len, startLine, startColumn));
+                tokens.Add(
+                    new Token(
+                        TokenKind.Identifier,
+                        text.Substring(start, len),
+                        start,
+                        len,
+                        startLine,
+                        startColumn
+                    )
+                );
                 continue;
             }
 
             Advance();
-            tokens.Add(new Token(TokenKind.Unknown, c.ToString(), start, 1, startLine, startColumn));
+            tokens.Add(
+                new Token(TokenKind.Unknown, c.ToString(), start, 1, startLine, startColumn)
+            );
         }
 
         tokens.Add(new Token(TokenKind.EndOfFile, string.Empty, i, 0, line, column));

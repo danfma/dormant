@@ -17,16 +17,23 @@ public static class SchemaInitializer
     /// <param name="db">An open driver session.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>A task that completes when the schema has been applied.</returns>
-    public static async ValueTask EnsureCreatedAsync(IDbSession db, CancellationToken cancellationToken = default)
+    public static async ValueTask EnsureCreatedAsync(
+        IDbSession db,
+        CancellationToken cancellationToken = default
+    )
     {
         var bindings = EntityBindings.All();
 
         await db.BeginAsync(cancellationToken).ConfigureAwait(false);
 
-        foreach (var schema in bindings.Select(b => b.Schema).Distinct(System.StringComparer.Ordinal))
+        foreach (
+            var schema in bindings.Select(b => b.Schema).Distinct(System.StringComparer.Ordinal)
+        )
         {
             await db.ExecuteAsync(
-                new PreparedStatement($"CREATE SCHEMA IF NOT EXISTS \"{schema}\""), cancellationToken)
+                    new PreparedStatement($"CREATE SCHEMA IF NOT EXISTS \"{schema}\""),
+                    cancellationToken
+                )
                 .ConfigureAwait(false);
         }
 

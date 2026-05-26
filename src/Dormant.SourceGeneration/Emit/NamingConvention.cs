@@ -23,14 +23,19 @@ internal enum NamingConvention
 internal static class NamingConventions
 {
     /// <summary>Parses the project build-property value into a convention (default <see cref="NamingConvention.SnakeCase"/>).</summary>
-    public static NamingConvention Parse(string? value) => value?.Trim().ToLowerInvariant() switch
-    {
-        "verbatim" => NamingConvention.Verbatim,
-        _ => NamingConvention.SnakeCase,
-    };
+    public static NamingConvention Parse(string? value) =>
+        value?.Trim().ToLowerInvariant() switch
+        {
+            "verbatim" => NamingConvention.Verbatim,
+            _ => NamingConvention.SnakeCase,
+        };
 
     /// <summary>Resolves a database name: the explicit <paramref name="nameOverride"/> if present, else the convention.</summary>
-    public static string Resolve(string identifier, string? nameOverride, NamingConvention convention)
+    public static string Resolve(
+        string identifier,
+        string? nameOverride,
+        NamingConvention convention
+    )
     {
         if (!string.IsNullOrEmpty(nameOverride))
         {
@@ -114,18 +119,26 @@ internal static class NameResolution
     /// Finds value-column name collisions within an entity under the active convention: two distinct
     /// members resolving to the same database column name (FR-057). Reported as ORM013.
     /// </summary>
-    public static IEnumerable<DiagnosticInfo> FindColumnCollisions(EntityModel entity, NamingConvention convention)
+    public static IEnumerable<DiagnosticInfo> FindColumnCollisions(
+        EntityModel entity,
+        NamingConvention convention
+    )
     {
         var seen = new Dictionary<string, string>(System.StringComparer.Ordinal);
         foreach (var property in entity.Properties)
         {
-            var dbName = NamingConventions.Resolve(property.Name, property.NameOverride, convention);
+            var dbName = NamingConventions.Resolve(
+                property.Name,
+                property.NameOverride,
+                convention
+            );
             if (seen.TryGetValue(dbName, out var firstMember))
             {
                 yield return new DiagnosticInfo(
                     DiagnosticDescriptors.NameCollision,
                     null,
-                    new EquatableArray<string>([entity.Name, firstMember, property.Name, dbName]));
+                    new EquatableArray<string>([entity.Name, firstMember, property.Name, dbName])
+                );
             }
             else
             {

@@ -15,7 +15,9 @@ public sealed class SchemaCacheabilityTests
     {
         const string schema = "module app;\nentity User { id: uuid primary; email: str; }";
         var compilation = CSharpCompilation.Create("Tests");
-        var driver = GeneratorTestHarness.CreateDriver(new TestAdditionalText("schema/app.dqls", schema));
+        var driver = GeneratorTestHarness.CreateDriver(
+            new TestAdditionalText("schema/app.dqls", schema)
+        );
 
         driver = driver.RunGenerators(compilation);
         driver = driver.RunGenerators(compilation.Clone());
@@ -25,7 +27,11 @@ public sealed class SchemaCacheabilityTests
         {
             var allCached = trackedSteps[stepName]
                 .SelectMany(step => step.Outputs)
-                .All(output => output.Reason is IncrementalStepRunReason.Cached or IncrementalStepRunReason.Unchanged);
+                .All(output =>
+                    output.Reason
+                        is IncrementalStepRunReason.Cached
+                            or IncrementalStepRunReason.Unchanged
+                );
 
             await Assert.That(allCached).IsTrue();
         }

@@ -67,7 +67,9 @@ internal readonly struct EquatableArray<T> : IEquatable<EquatableArray<T>>, IRea
 
     IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 
-    public static bool operator ==(EquatableArray<T> left, EquatableArray<T> right) => left.Equals(right);
+    public static bool operator ==(EquatableArray<T> left, EquatableArray<T> right) =>
+        left.Equals(right);
 
-    public static bool operator !=(EquatableArray<T> left, EquatableArray<T> right) => !left.Equals(right);
+    public static bool operator !=(EquatableArray<T> left, EquatableArray<T> right) =>
+        !left.Equals(right);
 }

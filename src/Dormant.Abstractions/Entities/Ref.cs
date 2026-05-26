@@ -40,8 +40,10 @@ public readonly struct Ref<T>
 
     /// <summary>Gets the loaded value. Prefer <see cref="TryGetLoaded"/>; this throws when unloaded.</summary>
     /// <exception cref="InvalidOperationException">The reference is unloaded.</exception>
-    public T Value => IsLoaded
-        ? _value
-        : throw new InvalidOperationException(
-            "Ref is unloaded; handle the unloaded case (e.g. ISession.LoadAsync) before reading Value.");
+    public T Value =>
+        IsLoaded
+            ? _value
+            : throw new InvalidOperationException(
+                "Ref is unloaded; handle the unloaded case (e.g. ISession.LoadAsync) before reading Value."
+            );
 }

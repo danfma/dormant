@@ -15,7 +15,8 @@ public sealed class GeneratorPipelineTests
     {
         var compilation = CSharpCompilation.Create("Tests");
         var driver = GeneratorTestHarness.CreateDriver(
-            new TestAdditionalText("schema/app.dqls", "module app;"));
+            new TestAdditionalText("schema/app.dqls", "module app;")
+        );
 
         driver = driver.RunGenerators(compilation);
 
@@ -27,18 +28,27 @@ public sealed class GeneratorPipelineTests
     {
         var compilation = CSharpCompilation.Create("Tests");
         var driver = GeneratorTestHarness.CreateDriver(
-            new TestAdditionalText("schema/app.dqls", "module app;"));
+            new TestAdditionalText("schema/app.dqls", "module app;")
+        );
 
         driver = driver.RunGenerators(compilation);
         driver = driver.RunGenerators(compilation.Clone());
 
         // Tracking-name string mirrors DormantGenerator.TrackingNames.LoadDslFiles (internal).
-        var outputs = driver.GetRunResult().Results[0]
+        var outputs = driver
+            .GetRunResult()
+            .Results[0]
             .TrackedSteps["LoadDslFiles"]
             .SelectMany(step => step.Outputs);
 
-        await Assert.That(outputs.All(o =>
-                o.Reason is IncrementalStepRunReason.Cached or IncrementalStepRunReason.Unchanged))
+        await Assert
+            .That(
+                outputs.All(o =>
+                    o.Reason
+                        is IncrementalStepRunReason.Cached
+                            or IncrementalStepRunReason.Unchanged
+                )
+            )
             .IsTrue();
     }
 }

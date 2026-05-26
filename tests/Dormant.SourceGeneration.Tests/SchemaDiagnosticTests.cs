@@ -12,7 +12,9 @@ public sealed class SchemaDiagnosticTests
 {
     private static GeneratorDriverRunResult Run(string schema)
     {
-        var driver = GeneratorTestHarness.CreateDriver(new TestAdditionalText("schema/app.dqls", schema));
+        var driver = GeneratorTestHarness.CreateDriver(
+            new TestAdditionalText("schema/app.dqls", schema)
+        );
         return driver.RunGenerators(CSharpCompilation.Create("Tests")).GetRunResult();
     }
 

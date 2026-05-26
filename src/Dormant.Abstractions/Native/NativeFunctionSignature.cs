@@ -9,4 +9,5 @@ public sealed record NativeFunctionSignature(
     string ProviderScope,
     string Name,
     IReadOnlyList<string> ParameterTypes,
-    string ReturnType);
+    string ReturnType
+);

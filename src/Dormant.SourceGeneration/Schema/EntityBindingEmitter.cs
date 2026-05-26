@@ -23,7 +23,8 @@ internal static class EntityBindingEmitter
         EntityModel entity,
         string schema,
         NamingConvention convention,
-        IReadOnlyDictionary<string, string> refPkSqlTypes)
+        IReadOnlyDictionary<string, string> refPkSqlTypes
+    )
     {
         var key = entity.Properties.FirstOrDefault(p => p.IsPrimary);
         var columns = entity.Properties; // value columns, declaration order
@@ -34,13 +35,24 @@ internal static class EntityBindingEmitter
         // reference (FR-020): typed as the target entity's primary key, NOT NULL iff the ref is required.
         // Reads materialize value columns only; the FK column is written by commands, read via the relationship.
         var ddlColumns = columns
-            .Select(p => new ColumnDef(Col(p, convention), TypeMap.ToSqlType(p.DslType), !p.IsNullable, p.IsPrimary))
+            .Select(p => new ColumnDef(
+                Col(p, convention),
+                TypeMap.ToSqlType(p.DslType),
+                !p.IsNullable,
+                p.IsPrimary
+            ))
             .ToList();
         foreach (var reference in entity.References.Where(r => r.Kind == ReferenceKind.Ref))
         {
             var fkType = refPkSqlTypes.TryGetValue(reference.TargetEntity, out var t) ? t : "uuid";
-            ddlColumns.Add(new ColumnDef(
-                NamingConventions.Resolve(reference.Name, null, convention) + "_id", fkType, reference.IsRequired, false));
+            ddlColumns.Add(
+                new ColumnDef(
+                    NamingConventions.Resolve(reference.Name, null, convention) + "_id",
+                    fkType,
+                    reference.IsRequired,
+                    false
+                )
+            );
         }
 
         var createTableSql = SqlRenderer.Render(new CreateTableStatement(tableRef, ddlColumns));
@@ -51,9 +63,13 @@ internal static class EntityBindingEmitter
             .Line()
             .Line($"namespace {@namespace};")
             .Line()
-            .Open($"internal sealed class {entity.Name}Binding : {Abs}.Entities.IEntityBinding<{entity.Name}>")
+            .Open(
+                $"internal sealed class {entity.Name}Binding : {Abs}.Entities.IEntityBinding<{entity.Name}>"
+            )
             .Line("[global::System.Runtime.CompilerServices.ModuleInitializer]")
-            .Line($"internal static void Register() => {Abs}.Entities.EntityBindings.Register<{entity.Name}>(new {entity.Name}Binding());")
+            .Line(
+                $"internal static void Register() => {Abs}.Entities.EntityBindings.Register<{entity.Name}>(new {entity.Name}Binding());"
+            )
             .Line()
             .Line($"public string Schema => {Quote(schema)};")
             .Line($"public string CreateTableSql => {Quote(createTableSql)};")
@@ -87,22 +103,28 @@ internal static class EntityBindingEmitter
         TableRef table,
         IReadOnlyList<string> colNames,
         PropertyModel? key,
-        NamingConvention convention)
+        NamingConvention convention
+    )
     {
         writer.Open("public " + Abs + ".Querying.PreparedStatement SelectByKey(object key)");
         if (key is null)
         {
-            writer.Line("throw new global::System.NotSupportedException(\"Entity has no single primary key.\");");
+            writer.Line(
+                "throw new global::System.NotSupportedException(\"Entity has no single primary key.\");"
+            );
         }
         else
         {
-            var selectSql = SqlRenderer.Render(new SelectStatement(
-                table,
-                colNames,
-                [new SqlCondition(Col(key, convention), "=", 1)],
-                [],
-                Limit: null,
-                Offset: null));
+            var selectSql = SqlRenderer.Render(
+                new SelectStatement(
+                    table,
+                    colNames,
+                    [new SqlCondition(Col(key, convention), "=", 1)],
+                    [],
+                    Limit: null,
+                    Offset: null
+                )
+            );
             writer
                 .Line($"return new {Stmt}(")
                 .Line($"    {Quote(selectSql)},")

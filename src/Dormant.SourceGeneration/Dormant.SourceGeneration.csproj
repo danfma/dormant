@@ -1,5 +1,4 @@
 <Project Sdk="Microsoft.NET.Sdk">
-
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
     <Description>Dormant ORM — Roslyn incremental source generator + analyzer for the DormantQL DSL.</Description>
@@ -19,5 +18,4 @@
     <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" PrivateAssets="all" />
     <PackageReference Include="PolySharp" PrivateAssets="all" />
   </ItemGroup>
-
 </Project>

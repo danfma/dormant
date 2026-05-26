@@ -1,5 +1,4 @@
 <Project>
-
   <PropertyGroup>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
   </PropertyGroup>
@@ -30,5 +29,4 @@
     <PackageVersion Include="Testcontainers.PostgreSql" Version="4.1.0" />
     <PackageVersion Include="BenchmarkDotNet" Version="0.14.0" />
   </ItemGroup>
-
 </Project>

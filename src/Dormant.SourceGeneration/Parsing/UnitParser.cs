@@ -17,7 +17,8 @@ internal readonly record struct UnitParseResult(
     string ModuleName,
     IReadOnlyList<QueryModel> Queries,
     IReadOnlyList<CommandModel> Commands,
-    IReadOnlyList<DiagnosticInfo> Diagnostics);
+    IReadOnlyList<DiagnosticInfo> Diagnostics
+);
 
 /// <summary>
 /// Hand-written recursive-descent parser for the 003 LINQ-/SQL-hybrid DormantQL unit grammar (one pass per
@@ -100,7 +101,9 @@ internal sealed class UnitParser
                 // Removed 002 form (FR-015): name the construct + replacement, then recover. Consume the
                 // 'command' keyword FIRST (parity with ParseQuery/ParseMutation) — otherwise RecoverToUnitEnd
                 // sees 'command' as a unit boundary and returns without advancing, spinning this loop forever.
-                Removed("'command' was removed; write 'mutation name(...) { insert|update|delete … }' instead");
+                Removed(
+                    "'command' was removed; write 'mutation name(...) { insert|update|delete … }' instead"
+                );
                 _pos++;
                 RecoverToUnitEnd();
             }
@@ -139,7 +142,9 @@ internal sealed class UnitParser
         // Removed 002 form: `query Name(...) = select …;`.
         if (Current.Kind == TokenKind.Equals)
         {
-            Removed("the '= select …;' form was removed; write 'query name(...) { from Entity alias … select … }' instead");
+            Removed(
+                "the '= select …;' form was removed; write 'query name(...) { from Entity alias … select … }' instead"
+            );
             RecoverToUnitEnd();
             return null;
         }
@@ -226,7 +231,9 @@ internal sealed class UnitParser
             }
             else
             {
-                Error($"unexpected '{Describe(Current)}' in the query body; expected 'where', 'order by', or 'select'");
+                Error(
+                    $"unexpected '{Describe(Current)}' in the query body; expected 'where', 'order by', or 'select'"
+                );
                 RecoverToUnitEnd();
                 return null;
             }
@@ -250,7 +257,8 @@ internal sealed class UnitParser
             new EquatableArray<FilterCondition>([.. filters]),
             new EquatableArray<OrderTerm>([.. orderBy]),
             Limit: null,
-            Offset: null);
+            Offset: null
+        );
     }
 
     // mutation := 'mutation' snake_name '(' params? ')' '{' command '}'
@@ -279,7 +287,9 @@ internal sealed class UnitParser
         // Removed 002 form: `command Name(...) = insert …;` (now also if a mutation used `=`).
         if (Current.Kind == TokenKind.Equals)
         {
-            Removed("the '= insert …;' form was removed; write 'mutation name(...) { insert Entity alias { … } }' instead");
+            Removed(
+                "the '= insert …;' form was removed; write 'mutation name(...) { insert Entity alias { … } }' instead"
+            );
             RecoverToUnitEnd();
             return null;
         }
@@ -306,8 +316,10 @@ internal sealed class UnitParser
 
             var bindingName = Current.Text;
             _pos++;
-            if (!Expect(TokenKind.Equals, "'=' after the with-binding name") ||
-                !Expect(TokenKind.LeftParen, "'(' to open the bound command"))
+            if (
+                !Expect(TokenKind.Equals, "'=' after the with-binding name")
+                || !Expect(TokenKind.LeftParen, "'(' to open the bound command")
+            )
             {
                 RecoverToUnitEnd();
                 return null;
@@ -346,7 +358,10 @@ internal sealed class UnitParser
 
         Expect(TokenKind.RightBrace, "'}' to close the mutation");
 
-        return terminal with { Bindings = new EquatableArray<WithBinding>([.. bindings]) };
+        return terminal with
+        {
+            Bindings = new EquatableArray<WithBinding>([.. bindings]),
+        };
     }
 
     // Parses one command core — `insert|update|delete Entity alias <body> [returning]` — without the
@@ -437,7 +452,8 @@ internal sealed class UnitParser
             new EquatableArray<QueryParameter>([.. parameters]),
             new EquatableArray<Assignment>([.. assignments]),
             new EquatableArray<FilterCondition>([.. filters]),
-            returning);
+            returning
+        );
     }
 
     // alias := IDENT (required; missing → ORM021). A reserved clause/keyword token cannot be an alias (so
@@ -457,10 +473,22 @@ internal sealed class UnitParser
     }
 
     // Clause/structural keywords that may immediately follow a subject; they can never be an alias.
-    private static bool IsReserved(string text) => text is
-        "where" or "order" or "select" or "set" or "from" or
-        "insert" or "update" or "delete" or "query" or "mutation" or
-        "returning" or "with" or "and" or "or";
+    private static bool IsReserved(string text) =>
+        text
+            is "where"
+                or "order"
+                or "select"
+                or "set"
+                or "from"
+                or "insert"
+                or "update"
+                or "delete"
+                or "query"
+                or "mutation"
+                or "returning"
+                or "with"
+                or "and"
+                or "or";
 
     private List<QueryParameter> ParseParameters()
     {
@@ -532,14 +560,18 @@ internal sealed class UnitParser
             // Removed 002 form: keyword connectives `and`/`or`.
             if (IsKeyword("and") || IsKeyword("or"))
             {
-                Removed($"keyword connective '{Current.Text}' was removed; use '&&' (and) or '||' (or)");
+                Removed(
+                    $"keyword connective '{Current.Text}' was removed; use '&&' (and) or '||' (or)"
+                );
                 break;
             }
 
             // TODO(003): `||` and `!` logical operators are deferred.
             if (Current.Kind == TokenKind.PipePipe || Current.Kind == TokenKind.Bang)
             {
-                Error($"the '{Current.Text}' logical operator is not supported yet (only '&&' conjunction)");
+                Error(
+                    $"the '{Current.Text}' logical operator is not supported yet (only '&&' conjunction)"
+                );
                 break;
             }
 
@@ -578,7 +610,9 @@ internal sealed class UnitParser
         // Removed 002 form: leading-dot member (`.email`).
         if (Current.Kind == TokenKind.Dot)
         {
-            Removed("leading-dot members ('.field') were removed; use alias-qualified members like 'u.field'");
+            Removed(
+                "leading-dot members ('.field') were removed; use alias-qualified members like 'u.field'"
+            );
             return null;
         }
 
@@ -623,12 +657,24 @@ internal sealed class UnitParser
     {
         switch (Current.Kind)
         {
-            case TokenKind.EqualEqual: _pos++; return CompareOp.Eq;
-            case TokenKind.BangEqual: _pos++; return CompareOp.Neq;
-            case TokenKind.LeftAngle: _pos++; return CompareOp.Lt;
-            case TokenKind.RightAngle: _pos++; return CompareOp.Gt;
-            case TokenKind.LessEqual: _pos++; return CompareOp.Le;
-            case TokenKind.GreaterEqual: _pos++; return CompareOp.Ge;
+            case TokenKind.EqualEqual:
+                _pos++;
+                return CompareOp.Eq;
+            case TokenKind.BangEqual:
+                _pos++;
+                return CompareOp.Neq;
+            case TokenKind.LeftAngle:
+                _pos++;
+                return CompareOp.Lt;
+            case TokenKind.RightAngle:
+                _pos++;
+                return CompareOp.Gt;
+            case TokenKind.LessEqual:
+                _pos++;
+                return CompareOp.Le;
+            case TokenKind.GreaterEqual:
+                _pos++;
+                return CompareOp.Ge;
             case TokenKind.Equals:
                 // Removed 002 form: single '=' as comparison.
                 Removed("single '=' is assignment; use '==' for equality comparison");
@@ -710,14 +756,18 @@ internal sealed class UnitParser
             _pos++;
             if (selected != alias)
             {
-                _diagnostics.Add(Located(DiagnosticDescriptors.UndeclaredAlias, _tokens[_pos - 1], selected));
+                _diagnostics.Add(
+                    Located(DiagnosticDescriptors.UndeclaredAlias, _tokens[_pos - 1], selected)
+                );
                 return false;
             }
 
             return true;
         }
 
-        Error($"expected an alias or a '{{ … }}' projection after 'select' but found '{Describe(Current)}'");
+        Error(
+            $"expected an alias or a '{{ … }}' projection after 'select' but found '{Describe(Current)}'"
+        );
         return false;
     }
 
@@ -744,13 +794,18 @@ internal sealed class UnitParser
             }
 
             return Expect(TokenKind.RightBrace, "'}' to close the returning projection")
-                ? new ReturningShape(ReturningKind.Projection, new EquatableArray<string>([.. members]))
+                ? new ReturningShape(
+                    ReturningKind.Projection,
+                    new EquatableArray<string>([.. members])
+                )
                 : null;
         }
 
         if (Current.Kind != TokenKind.Identifier)
         {
-            Error($"expected an alias or a '{{ … }}' projection after 'returning' but found '{Describe(Current)}'");
+            Error(
+                $"expected an alias or a '{{ … }}' projection after 'returning' but found '{Describe(Current)}'"
+            );
             return null;
         }
 
@@ -767,7 +822,9 @@ internal sealed class UnitParser
         _pos++;
         if (selected != alias)
         {
-            _diagnostics.Add(Located(DiagnosticDescriptors.UndeclaredAlias, _tokens[_pos - 1], selected));
+            _diagnostics.Add(
+                Located(DiagnosticDescriptors.UndeclaredAlias, _tokens[_pos - 1], selected)
+            );
             return null;
         }
 
@@ -855,9 +912,15 @@ internal sealed class UnitParser
                 _pos++;
                 // A bare identifier naming a `with` binding is a WithRef (FR-021); otherwise a parameter.
                 return new CommandValue(
-                    _bindingNames.Contains(param) ? CommandValueKind.WithRef : CommandValueKind.Parameter, param);
+                    _bindingNames.Contains(param)
+                        ? CommandValueKind.WithRef
+                        : CommandValueKind.Parameter,
+                    param
+                );
             default:
-                Error($"expected a value (parameter, literal, or native call) but found '{Describe(Current)}'");
+                Error(
+                    $"expected a value (parameter, literal, or native call) but found '{Describe(Current)}'"
+                );
                 return null;
         }
     }
@@ -867,13 +930,17 @@ internal sealed class UnitParser
     {
         if (IsKeyword("filter"))
         {
-            Removed("'filter' was removed; use 'where' with C#/TypeScript operators (== != < <= > >= &&)");
+            Removed(
+                "'filter' was removed; use 'where' with C#/TypeScript operators (== != < <= > >= &&)"
+            );
             return true;
         }
 
         if (Current.Kind == TokenKind.Dot)
         {
-            Removed("leading-dot members ('.field') were removed; use alias-qualified members like 'u.field'");
+            Removed(
+                "leading-dot members ('.field') were removed; use alias-qualified members like 'u.field'"
+            );
             return true;
         }
 
@@ -914,7 +981,10 @@ internal sealed class UnitParser
                 depth--;
                 continue;
             }
-            else if (depth == 0 && (IsKeyword("query") || IsKeyword("mutation") || IsKeyword("command")))
+            else if (
+                depth == 0
+                && (IsKeyword("query") || IsKeyword("mutation") || IsKeyword("command"))
+            )
             {
                 return;
             }
@@ -936,32 +1006,47 @@ internal sealed class UnitParser
     }
 
     private void ClauseOrder(string clause, string canonical) =>
-        _diagnostics.Add(new DiagnosticInfo(
-            DiagnosticDescriptors.WrongClauseOrder,
-            LocationOf(Current),
-            new EquatableArray<string>([clause, canonical])));
+        _diagnostics.Add(
+            new DiagnosticInfo(
+                DiagnosticDescriptors.WrongClauseOrder,
+                LocationOf(Current),
+                new EquatableArray<string>([clause, canonical])
+            )
+        );
 
     private void Removed(string message) =>
-        _diagnostics.Add(new DiagnosticInfo(
-            DiagnosticDescriptors.RemovedSyntax,
-            LocationOf(Current),
-            new EquatableArray<string>([message])));
+        _diagnostics.Add(
+            new DiagnosticInfo(
+                DiagnosticDescriptors.RemovedSyntax,
+                LocationOf(Current),
+                new EquatableArray<string>([message])
+            )
+        );
 
     private void Error(string message) =>
-        _diagnostics.Add(new DiagnosticInfo(
-            DiagnosticDescriptors.SyntaxError,
-            LocationOf(Current),
-            new EquatableArray<string>([message])));
+        _diagnostics.Add(
+            new DiagnosticInfo(
+                DiagnosticDescriptors.SyntaxError,
+                LocationOf(Current),
+                new EquatableArray<string>([message])
+            )
+        );
 
-    private DiagnosticInfo Located(Microsoft.CodeAnalysis.DiagnosticDescriptor descriptor, Token token, params string[] args) =>
-        new(descriptor, LocationOf(token), new EquatableArray<string>(args));
+    private DiagnosticInfo Located(
+        Microsoft.CodeAnalysis.DiagnosticDescriptor descriptor,
+        Token token,
+        params string[] args
+    ) => new(descriptor, LocationOf(token), new EquatableArray<string>(args));
 
-    private LocationInfo LocationOf(Token token) => new(
-        _filePath,
-        new TextSpan(token.Start, token.Length == 0 ? 1 : token.Length),
-        new LinePositionSpan(
-            new LinePosition(token.Line, token.Column),
-            new LinePosition(token.Line, token.Column + (token.Length == 0 ? 1 : token.Length))));
+    private LocationInfo LocationOf(Token token) =>
+        new(
+            _filePath,
+            new TextSpan(token.Start, token.Length == 0 ? 1 : token.Length),
+            new LinePositionSpan(
+                new LinePosition(token.Line, token.Column),
+                new LinePosition(token.Line, token.Column + (token.Length == 0 ? 1 : token.Length))
+            )
+        );
 
     private static string Describe(Token token) =>
         token.Kind == TokenKind.EndOfFile ? "end of file" : token.Text;

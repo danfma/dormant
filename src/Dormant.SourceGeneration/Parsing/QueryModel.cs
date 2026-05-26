@@ -11,7 +11,8 @@ internal sealed record QueryFile(
     string ModuleName,
     string FilePath,
     EquatableArray<QueryModel> Queries,
-    EquatableArray<DiagnosticInfo> Diagnostics)
+    EquatableArray<DiagnosticInfo> Diagnostics
+)
 {
     /// <summary>Whether the file is free of error-severity diagnostics and safe to emit.</summary>
     public bool IsValid => Diagnostics.Count == 0;
@@ -36,7 +37,8 @@ internal sealed record QueryModel(
     EquatableArray<FilterCondition> Filters,
     EquatableArray<OrderTerm> OrderBy,
     LimitValue? Limit,
-    LimitValue? Offset)
+    LimitValue? Offset
+)
 {
     /// <summary>Whether the result is a flat projection (vs a full entity).</summary>
     public bool IsProjection => ProjectionFields.Count > 0;
@@ -47,7 +49,12 @@ internal sealed record QueryModel(
 /// <param name="DslType">The DormantQL type as written.</param>
 /// <param name="ClrType">The mapped CLR type, or empty when unknown.</param>
 /// <param name="IsOptional">Whether declared <c>optional</c> (FR-012/FR-031): a filter on it is a conditional fragment.</param>
-internal sealed record QueryParameter(string Name, string DslType, string ClrType, bool IsOptional = false);
+internal sealed record QueryParameter(
+    string Name,
+    string DslType,
+    string ClrType,
+    bool IsOptional = false
+);
 
 /// <summary>A comparison operator usable in a filter condition (FR-032, MVP subset).</summary>
 internal enum CompareOp

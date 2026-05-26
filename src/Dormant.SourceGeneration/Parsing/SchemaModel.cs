@@ -11,7 +11,8 @@ internal sealed record SchemaModel(
     string ModuleName,
     string FilePath,
     EquatableArray<EntityModel> Entities,
-    EquatableArray<DiagnosticInfo> Diagnostics)
+    EquatableArray<DiagnosticInfo> Diagnostics
+)
 {
     /// <summary>Whether the schema is free of error-severity diagnostics and safe to emit.</summary>
     public bool IsValid => Diagnostics.Count == 0;
@@ -26,7 +27,8 @@ internal sealed record EntityModel(
     string Name,
     EquatableArray<PropertyModel> Properties,
     EquatableArray<ReferenceModel> References,
-    string? NameOverride = null);
+    string? NameOverride = null
+);
 
 /// <summary>A declared value property.</summary>
 /// <param name="Name">The DormantQL property name.</param>
@@ -43,7 +45,8 @@ internal sealed record PropertyModel(
     bool IsNullable,
     bool IsPrimary,
     bool IsConcurrency,
-    string? NameOverride = null);
+    string? NameOverride = null
+);
 
 /// <summary>The kind of relationship reference (FR-049): single, or an NHibernate collection.</summary>
 internal enum ReferenceKind
@@ -80,4 +83,5 @@ internal sealed record ReferenceModel(
     ReferenceKind Kind,
     string? KeyType,
     bool IsRequired,
-    LocationInfo TargetLocation);
+    LocationInfo TargetLocation
+);

@@ -25,10 +25,13 @@ internal static class SchemaValidator
             {
                 if (!defined.Contains(reference.TargetEntity))
                 {
-                    diagnostics.Add(new DiagnosticInfo(
-                        DiagnosticDescriptors.UndefinedLinkTarget,
-                        reference.TargetLocation,
-                        new EquatableArray<string>([reference.Name, reference.TargetEntity])));
+                    diagnostics.Add(
+                        new DiagnosticInfo(
+                            DiagnosticDescriptors.UndefinedLinkTarget,
+                            reference.TargetLocation,
+                            new EquatableArray<string>([reference.Name, reference.TargetEntity])
+                        )
+                    );
                 }
             }
         }

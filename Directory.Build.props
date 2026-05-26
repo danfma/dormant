@@ -1,5 +1,4 @@
 <Project>
-
   <!-- Shared settings for all Dormant projects (Constitution: Performance & Quality by default). -->
   <PropertyGroup>
     <LangVersion>14</LangVersion>
@@ -27,5 +26,4 @@
     <CompilerVisibleProperty Include="RootNamespace" />
     <CompilerVisibleProperty Include="ProjectDir" />
   </ItemGroup>
-
 </Project>

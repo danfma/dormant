@@ -8,22 +8,16 @@ public sealed class ConcurrencyConflictException : Exception
 {
     /// <summary>Initializes a new instance.</summary>
     public ConcurrencyConflictException()
-        : base("An optimistic concurrency conflict was detected.")
-    {
-    }
+        : base("An optimistic concurrency conflict was detected.") { }
 
     /// <summary>Initializes a new instance with a message.</summary>
     /// <param name="message">The error message.</param>
     public ConcurrencyConflictException(string message)
-        : base(message)
-    {
-    }
+        : base(message) { }
 
     /// <summary>Initializes a new instance with a message and inner exception.</summary>
     /// <param name="message">The error message.</param>
     /// <param name="innerException">The underlying cause.</param>
     public ConcurrencyConflictException(string message, Exception innerException)
-        : base(message, innerException)
-    {
-    }
+        : base(message, innerException) { }
 }

@@ -25,7 +25,8 @@ public interface ISession : IAsyncDisposable
     /// <returns>An async stream of immutable results.</returns>
     IAsyncEnumerable<TResult> QueryAsync<TResult>(
         CompiledQuery<TResult> query,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default
+    );
 
     /// <summary>Executes a query expecting at most one result.</summary>
     /// <typeparam name="TResult">The result type.</typeparam>
@@ -34,7 +35,8 @@ public interface ISession : IAsyncDisposable
     /// <returns>The single result, or <see langword="null"/> when none match.</returns>
     ValueTask<TResult?> QuerySingleOrDefaultAsync<TResult>(
         CompiledQuery<TResult> query,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default
+    );
 
     /// <summary>
     /// Executes a build-time-compiled write command (authored DQL <c>insert</c>/<c>update</c>/<c>delete</c>)
@@ -47,7 +49,8 @@ public interface ISession : IAsyncDisposable
     /// <returns>The command's result (e.g. the inserted row via <c>RETURNING</c>).</returns>
     ValueTask<TResult> ExecuteCommandAsync<TResult>(
         CompiledCommand<TResult> command,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default
+    );
 
     /// <summary>
     /// Executes a write command that returns an affected-row count (authored <c>update</c>/<c>delete</c>)
@@ -59,7 +62,8 @@ public interface ISession : IAsyncDisposable
     /// <returns>The number of affected rows.</returns>
     ValueTask<int> ExecuteWriteAsync(
         PreparedStatement statement,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default
+    );
 
     /// <summary>Commits the transaction.</summary>
     /// <param name="cancellationToken">Cancellation token.</param>

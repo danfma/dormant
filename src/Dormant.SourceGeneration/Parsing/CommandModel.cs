@@ -11,7 +11,8 @@ internal sealed record CommandFile(
     string ModuleName,
     string FilePath,
     EquatableArray<CommandModel> Commands,
-    EquatableArray<DiagnosticInfo> Diagnostics)
+    EquatableArray<DiagnosticInfo> Diagnostics
+)
 {
     /// <summary>Whether the file is free of error-severity diagnostics and safe to emit.</summary>
     public bool IsValid => Diagnostics.Count == 0;
@@ -50,7 +51,8 @@ internal sealed record CommandModel(
     EquatableArray<Assignment> Assignments,
     EquatableArray<FilterCondition> Filters = default,
     ReturningShape? Returning = null,
-    EquatableArray<WithBinding> Bindings = default);
+    EquatableArray<WithBinding> Bindings = default
+);
 
 /// <summary>A <c>with name = (command)</c> binding: the bound command runs as its own SQL statement and its
 /// result (default: the inserted PK) becomes a C# local referable downstream (003 FR-021/FR-022).</summary>

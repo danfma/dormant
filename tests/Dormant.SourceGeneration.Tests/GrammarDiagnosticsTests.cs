@@ -24,10 +24,12 @@ public sealed class GrammarDiagnosticsTests
     {
         var driver = GeneratorTestHarness.CreateDriver(
             new TestAdditionalText("schema/catalog.dqls", Schema),
-            new TestAdditionalText("schema/catalog.dql", units));
+            new TestAdditionalText("schema/catalog.dql", units)
+        );
         driver = driver.RunGenerators(CSharpCompilation.Create("Tests"));
-        return driver.GetRunResult().Results
-            .SelectMany(r => r.Diagnostics)
+        return driver
+            .GetRunResult()
+            .Results.SelectMany(r => r.Diagnostics)
             .Select(d => d.Id)
             .ToArray();
     }
@@ -35,21 +37,27 @@ public sealed class GrammarDiagnosticsTests
     [Test]
     public async Task Removed_command_keyword_reports_ORM020()
     {
-        var ids = DiagnosticIds("module catalog;\ncommand CreateWidget(id: uuid) = insert Widget { id := id };");
+        var ids = DiagnosticIds(
+            "module catalog;\ncommand CreateWidget(id: uuid) = insert Widget { id := id };"
+        );
         await Assert.That(ids).Contains("ORM020");
     }
 
     [Test]
     public async Task Removed_equals_query_form_reports_ORM020()
     {
-        var ids = DiagnosticIds("module catalog;\nquery widgets(min: int) = select Widget filter .quantity >= min;");
+        var ids = DiagnosticIds(
+            "module catalog;\nquery widgets(min: int) = select Widget filter .quantity >= min;"
+        );
         await Assert.That(ids).Contains("ORM020");
     }
 
     [Test]
     public async Task Leading_dot_member_reports_ORM020()
     {
-        var ids = DiagnosticIds("module catalog;\nquery widgets(min: int) { from Widget w where .quantity >= min select w }");
+        var ids = DiagnosticIds(
+            "module catalog;\nquery widgets(min: int) { from Widget w where .quantity >= min select w }"
+        );
         await Assert.That(ids).Contains("ORM020");
     }
 
@@ -57,28 +65,35 @@ public sealed class GrammarDiagnosticsTests
     public async Task Keyword_connective_and_reports_ORM020()
     {
         var ids = DiagnosticIds(
-            "module catalog;\nquery widgets(min: int, n: string) { from Widget w where w.quantity >= min and w.name == n select w }");
+            "module catalog;\nquery widgets(min: int, n: string) { from Widget w where w.quantity >= min and w.name == n select w }"
+        );
         await Assert.That(ids).Contains("ORM020");
     }
 
     [Test]
     public async Task Missing_alias_reports_ORM021()
     {
-        var ids = DiagnosticIds("module catalog;\nquery widgets(min: int) { from Widget where Widget.quantity >= min select Widget }");
+        var ids = DiagnosticIds(
+            "module catalog;\nquery widgets(min: int) { from Widget where Widget.quantity >= min select Widget }"
+        );
         await Assert.That(ids).Contains("ORM021");
     }
 
     [Test]
     public async Task Unqualified_member_reports_ORM024()
     {
-        var ids = DiagnosticIds("module catalog;\nquery widgets(min: int) { from Widget w where quantity >= min select w }");
+        var ids = DiagnosticIds(
+            "module catalog;\nquery widgets(min: int) { from Widget w where quantity >= min select w }"
+        );
         await Assert.That(ids).Contains("ORM024");
     }
 
     [Test]
     public async Task Undeclared_alias_reports_ORM022()
     {
-        var ids = DiagnosticIds("module catalog;\nquery widgets(min: int) { from Widget w where x.quantity >= min select w }");
+        var ids = DiagnosticIds(
+            "module catalog;\nquery widgets(min: int) { from Widget w where x.quantity >= min select w }"
+        );
         await Assert.That(ids).Contains("ORM022");
     }
 }

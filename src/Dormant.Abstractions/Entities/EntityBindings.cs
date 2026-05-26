@@ -15,19 +15,19 @@ public static class EntityBindings
     /// <typeparam name="TEntity">The entity type.</typeparam>
     /// <param name="binding">The generated binding.</param>
     public static void Register<TEntity>(IEntityBinding<TEntity> binding)
-        where TEntity : class
-        => Bindings[typeof(TEntity)] = binding;
+        where TEntity : class => Bindings[typeof(TEntity)] = binding;
 
     /// <summary>Resolves the binding for <typeparamref name="TEntity"/>.</summary>
     /// <typeparam name="TEntity">The entity type.</typeparam>
     /// <returns>The registered binding.</returns>
     /// <exception cref="InvalidOperationException">No binding is registered for the type.</exception>
     public static IEntityBinding<TEntity> Get<TEntity>()
-        where TEntity : class
-        => Bindings.TryGetValue(typeof(TEntity), out var binding)
+        where TEntity : class =>
+        Bindings.TryGetValue(typeof(TEntity), out var binding)
             ? (IEntityBinding<TEntity>)binding
             : throw new InvalidOperationException(
-                $"No Dormant entity binding registered for '{typeof(TEntity)}'. Ensure its schema is compiled by the generator.");
+                $"No Dormant entity binding registered for '{typeof(TEntity)}'. Ensure its schema is compiled by the generator."
+            );
 
     /// <summary>All registered bindings (used to apply the generated schema, FR-020).</summary>
     /// <returns>Every registered entity binding, in registration order.</returns>
