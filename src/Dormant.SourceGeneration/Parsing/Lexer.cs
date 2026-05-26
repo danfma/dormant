@@ -19,6 +19,11 @@ internal enum TokenKind
     LessEqual,
     GreaterEqual,
     Equals,
+    EqualEqual,
+    BangEqual,
+    AmpAmp,
+    PipePipe,
+    Bang,
     LeftParen,
     RightParen,
     Dot,
@@ -139,9 +144,29 @@ internal static class Lexer
                     Advance();
                     tokens.Add(new Token(TokenKind.RightAngle, ">", start, 1, startLine, startColumn));
                     continue;
+                case '=' when i + 1 < text.Length && text[i + 1] == '=':
+                    Advance(2);
+                    tokens.Add(new Token(TokenKind.EqualEqual, "==", start, 2, startLine, startColumn));
+                    continue;
                 case '=':
                     Advance();
                     tokens.Add(new Token(TokenKind.Equals, "=", start, 1, startLine, startColumn));
+                    continue;
+                case '!' when i + 1 < text.Length && text[i + 1] == '=':
+                    Advance(2);
+                    tokens.Add(new Token(TokenKind.BangEqual, "!=", start, 2, startLine, startColumn));
+                    continue;
+                case '!':
+                    Advance();
+                    tokens.Add(new Token(TokenKind.Bang, "!", start, 1, startLine, startColumn));
+                    continue;
+                case '&' when i + 1 < text.Length && text[i + 1] == '&':
+                    Advance(2);
+                    tokens.Add(new Token(TokenKind.AmpAmp, "&&", start, 2, startLine, startColumn));
+                    continue;
+                case '|' when i + 1 < text.Length && text[i + 1] == '|':
+                    Advance(2);
+                    tokens.Add(new Token(TokenKind.PipePipe, "||", start, 2, startLine, startColumn));
                     continue;
                 case '(':
                     Advance();

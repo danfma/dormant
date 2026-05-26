@@ -44,6 +44,36 @@ internal static class NamingConventions
         };
     }
 
+    /// <summary>
+    /// Maps a <c>snake_case</c> unit name to a <c>PascalCase</c> C# method name (FR-016): splits on
+    /// underscores and upper-cases the first letter of each segment. <c>users_by_email</c> →
+    /// <c>UsersByEmail</c>, <c>create_user</c> → <c>CreateUser</c>, <c>id</c> → <c>Id</c>. Already-Pascal
+    /// input is preserved per segment (no internal letters are lowered).
+    /// </summary>
+    public static string ToPascalCase(string identifier)
+    {
+        if (identifier.Length == 0)
+        {
+            return identifier;
+        }
+
+        var sb = new StringBuilder(identifier.Length);
+        var atSegmentStart = true;
+        foreach (var c in identifier)
+        {
+            if (c == '_')
+            {
+                atSegmentStart = true;
+                continue;
+            }
+
+            sb.Append(atSegmentStart ? char.ToUpperInvariant(c) : c);
+            atSegmentStart = false;
+        }
+
+        return sb.ToString();
+    }
+
     // Inserts '_' before each interior uppercase letter and lowercases everything; idempotent on
     // already-snake identifiers (no doubled underscores). RecentPost → recent_post, createdAt →
     // created_at, created_at → created_at, id → id.
