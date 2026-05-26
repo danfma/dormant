@@ -127,4 +127,32 @@ public sealed class CommandEmitTests
         await Assert.That(generated).Contains("DELETE FROM \"catalog\".\"widget\" WHERE \"id\" = $1 RETURNING \"id\"");
         await Assert.That(generated).Contains("session.ExecuteCommandAsync(command, cancellationToken)");
     }
+
+    // 003 T037/T038/FR-020: a command assigns a single ref via `alias.ref = expr`, writing the `<ref>_id`
+    // foreign-key column.
+    [Test]
+    public async Task Insert_assigning_a_ref_writes_the_fk_column()
+    {
+        const string refSchema = """
+            module app;
+
+            entity User { id: uuid primary; name: str; }
+            entity Post { id: uuid primary; title: str; author: User; }
+            """;
+        const string commands =
+            "module app;\nmutation create_post(id: uuid, title: string, author: uuid) { insert Post p { p.id = id p.title = title p.author = author } }";
+
+        var driver = GeneratorTestHarness.CreateDriver(
+            new TestAdditionalText("schema/app.dqls", refSchema),
+            new TestAdditionalText("schema/app.dql", commands));
+        driver = driver.RunGenerators(CSharpCompilation.Create("Tests"));
+        var generated = string.Join(
+            "\n",
+            driver.GetRunResult().Results.SelectMany(r => r.GeneratedSources).Select(s => s.SourceText.ToString()));
+
+        // The ref `p.author = author` writes the `author_id` FK column (raw-string INSERT, real quotes).
+        await Assert.That(generated).Contains("INSERT INTO \"app\".\"post\" (\"id\", \"title\", \"author_id\") VALUES ($1, $2, $3)");
+        // CREATE TABLE (escaped string literal) carries the FK column too.
+        await Assert.That(generated).Contains("\\\"author_id\\\" uuid");
+    }
 }

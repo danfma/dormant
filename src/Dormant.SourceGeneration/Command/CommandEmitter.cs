@@ -89,10 +89,14 @@ internal static class CommandEmitter
         var ok = true;
         var columns = new HashSet<string>(entity.Properties.Select(p => p.Name), System.StringComparer.Ordinal);
         var parameters = new HashSet<string>(command.Parameters.Select(p => p.Name), System.StringComparer.Ordinal);
+        // FR-020/021: an assignment target may be a value property OR a single reference (`alias.ref = expr`
+        // writes the `<ref>_id` FK column).
+        var singleRefs = new HashSet<string>(
+            entity.References.Where(r => r.Kind == ReferenceKind.Ref).Select(r => r.Name), System.StringComparer.Ordinal);
 
         foreach (var assignment in command.Assignments)
         {
-            if (!columns.Contains(assignment.Column))
+            if (!columns.Contains(assignment.Column) && !singleRefs.Contains(assignment.Column))
             {
                 diagnostics.Add(Diag(DiagnosticDescriptors.UnknownQueryColumn, filePath, command.Name, assignment.Column, entity.Name));
                 ok = false;
@@ -156,9 +160,9 @@ internal static class CommandEmitter
         var valueTokens = new List<string>();
         foreach (var assignment in command.Assignments)
         {
-            var property = entity.Properties.First(x => x.Name == assignment.Column);
-            assignedColumns.Add("\"" + Col(property.Name, property.NameOverride, convention) + "\"");
-            valueTokens.Add(ValueToken(assignment.Value, property, ref p, binds));
+            var (col, token) = ResolveAssignment(assignment, entity, convention, ref p, binds);
+            assignedColumns.Add("\"" + col + "\"");
+            valueTokens.Add(token);
         }
 
         // insert always materializes a result; the default shape is the full entity (`returning alias`).
@@ -178,8 +182,8 @@ internal static class CommandEmitter
         var assignments = new List<SqlAssignment>();
         foreach (var assignment in command.Assignments)
         {
-            var property = entity.Properties.First(x => x.Name == assignment.Column);
-            assignments.Add(new SqlAssignment(Col(property.Name, property.NameOverride, convention), ValueToken(assignment.Value, property, ref p, binds)));
+            var (col, token) = ResolveAssignment(assignment, entity, convention, ref p, binds);
+            assignments.Add(new SqlAssignment(col, token));
         }
 
         var where = BuildWhere(command, entity, convention, ref p, binds);
@@ -284,10 +288,30 @@ internal static class CommandEmitter
         return w.ToString().TrimEnd('\n');
     }
 
-    // A value token for an assignment: param/literal → $n (bound, +`::jsonb` for json), native → inline SQL.
-    private static string ValueToken(CommandValue value, PropertyModel property, ref int p, List<string> binds)
+    // Resolves an assignment's target database column + its value token. The target is either a value
+    // property or a single reference (FR-020/021): `alias.author = expr` writes the `author_id` FK column
+    // (no json cast; the value is the target's primary key).
+    private static (string Column, string Token) ResolveAssignment(
+        Assignment assignment, EntityModel entity, NamingConvention convention, ref int p, List<string> binds)
     {
-        var cast = property.DslType == "json" ? "::jsonb" : string.Empty;
+        var property = entity.Properties.FirstOrDefault(x => x.Name == assignment.Column);
+        if (property is not null)
+        {
+            return (
+                Col(property.Name, property.NameOverride, convention),
+                ValueToken(assignment.Value, property.DslType == "json", ref p, binds));
+        }
+
+        var reference = entity.References.First(r => r.Kind == ReferenceKind.Ref && r.Name == assignment.Column);
+        return (
+            NamingConventions.Resolve(reference.Name, null, convention) + "_id",
+            ValueToken(assignment.Value, jsonCast: false, ref p, binds));
+    }
+
+    // A value token for an assignment: param/literal → $n (bound, +`::jsonb` when jsonCast), native → inline SQL.
+    private static string ValueToken(CommandValue value, bool jsonCast, ref int p, List<string> binds)
+    {
+        var cast = jsonCast ? "::jsonb" : string.Empty;
         switch (value.Kind)
         {
             case CommandValueKind.Parameter:
