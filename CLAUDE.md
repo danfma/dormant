@@ -1,8 +1,18 @@
 <!-- SPECKIT START -->
 For additional context about technologies, project structure, conventions, and
 important decisions for the active feature, read the current plan:
-`specs/003-linq-dql-grammar/plan.md` (with `research.md`, `data-model.md`,
-`contracts/`, `quickstart.md`). Done + green: the cutover (LINQ grammar) and
+`specs/005-sqlite-nmemory-providers/plan.md` (with `research.md`, `data-model.md`,
+`contracts/dialect-boundary.md`, `contracts/provider-sqlite.md`, `quickstart.md`).
+Feature 005 generalizes the PostgreSQL-only `SqlRenderer` into a **multi-variant
+dialect framework** (per-dialect renderers over the existing neutral `SqlIr`,
+rendered at build time) and adds the **SQLite** provider (`Dormant.Provider.Sqlite`,
+AOT-clean via `Microsoft.Data.Sqlite.Core` + `bundle_e_sqlite3` + explicit
+`Batteries_V2.Init()`). Generated code selects the SQL variant by `session.Dialect`
+(`enum DialectId { PostgreSql, Sqlite }`) — a branch over const strings, no runtime
+SQL compilation; PG output stays byte-identical. NMemory is deferred. Cross-provider
+parity proven by one parameterized conformance suite (PG via Testcontainers + SQLite
+in-memory). The predecessor plans below remain the completed-feature background:
+`specs/003-linq-dql-grammar/plan.md` — done + green: the cutover (LINQ grammar) and
 `returning` for insert/update/delete. **Remaining (post-2026-05-26 clarify, see
 plan.md "Post-clarify design" + FR-020/021/022)**: ref → `<ref>_id` FK column +
 `alias.ref = expr` (FR-020); a **`with name = (expr)` block + single terminal
