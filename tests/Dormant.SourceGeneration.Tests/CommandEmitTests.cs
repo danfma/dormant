@@ -104,4 +104,27 @@ public sealed class CommandEmitTests
         await Assert.That(generated).Contains("global::System.Threading.Tasks.ValueTask<CreateWidgetResult> CreateWidget(");
         await Assert.That(generated).Contains("RETURNING \"id\", \"name\"");
     }
+
+    // 003 T015/FR-017: an `update … returning alias` RETURNs the entity (UPDATE … RETURNING), not a count.
+    [Test]
+    public async Task Update_returning_entity_emits_update_returning()
+    {
+        var generated = RunWith(
+            "module catalog;\nmutation bump_widget(id: uuid, quantity: int) { update Widget w where w.id == id set { w.quantity = quantity } returning w }");
+
+        await Assert.That(generated).Contains("global::System.Threading.Tasks.ValueTask<Widget> BumpWidget(");
+        await Assert.That(generated).Contains("UPDATE \"catalog\".\"widget\" SET \"quantity\" = $1 WHERE \"id\" = $2 RETURNING \"id\", \"name\", \"quantity\"");
+    }
+
+    // 003 T015/FR-017: a `delete … returning alias.member` RETURNs a scalar (DELETE … RETURNING one column).
+    [Test]
+    public async Task Delete_returning_scalar_emits_delete_returning()
+    {
+        var generated = RunWith(
+            "module catalog;\nmutation drop_widget(id: uuid) { delete Widget w where w.id == id returning w.id }");
+
+        await Assert.That(generated).Contains("global::System.Threading.Tasks.ValueTask<global::System.Guid> DropWidget(");
+        await Assert.That(generated).Contains("DELETE FROM \"catalog\".\"widget\" WHERE \"id\" = $1 RETURNING \"id\"");
+        await Assert.That(generated).Contains("session.ExecuteCommandAsync(command, cancellationToken)");
+    }
 }

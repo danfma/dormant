@@ -141,42 +141,104 @@ internal static class CommandEmitter
         return command.Kind switch
         {
             CommandKind.Insert => EmitInsert(command, entity, schema, convention, out projection),
-            CommandKind.Update => EmitUpdate(command, entity, schema, convention),
-            CommandKind.Delete => EmitDelete(command, entity, schema, convention),
+            CommandKind.Update => EmitUpdate(command, entity, schema, convention, out projection),
+            CommandKind.Delete => EmitDelete(command, entity, schema, convention, out projection),
             _ => throw new System.NotSupportedException($"Unknown command kind: {command.Kind}"),
         };
     }
 
     private static string EmitInsert(CommandModel command, EntityModel entity, string schema, NamingConvention convention, out string? projection)
     {
-        projection = null;
         var table = new TableRef(schema, Col(entity.Name, entity.NameOverride, convention));
         var binds = new List<string>();
         var p = 0;
-        var assignedColumns = new List<InsertColumn>();
+        var assignedColumns = new List<string>();
         var valueTokens = new List<string>();
         foreach (var assignment in command.Assignments)
         {
             var property = entity.Properties.First(x => x.Name == assignment.Column);
-            assignedColumns.Add(new InsertColumn(Col(property.Name, property.NameOverride, convention), null));
+            assignedColumns.Add("\"" + Col(property.Name, property.NameOverride, convention) + "\"");
             valueTokens.Add(ValueToken(assignment.Value, property, ref p, binds));
         }
 
-        var columns = string.Join(", ", assignedColumns.Select(c => "\"" + c.Name + "\""));
+        // insert always materializes a result; the default shape is the full entity (`returning alias`).
+        var shape = command.Returning ?? new ReturningShape(ReturningKind.Entity, new EquatableArray<string>([]));
+        var returningCols = ReturningColumns(shape, entity, convention).Select(c => "\"" + c + "\"");
+        var sql =
+            $"INSERT INTO {QualifiedTable(table)} ({string.Join(", ", assignedColumns)}) VALUES ({string.Join(", ", valueTokens)}) RETURNING {string.Join(", ", returningCols)}";
+        return EmitShapedMethod(command, entity, shape, sql, binds, out projection);
+    }
 
-        // 003 (T015/FR-017): the result shape is the `returning` clause, defaulting to the full entity.
-        //  - Entity   → ValueTask<Entity>,        RETURNING all columns, materialize via the entity ctor.
-        //  - Scalar   → ValueTask<Clr>,           RETURNING one column,  read column 0.
-        //  - Projection → ValueTask<{Method}Result>, RETURNING the members, materialize a distinct record.
-        var shape = command.Returning;
-        if (shape is { Kind: ReturningKind.Scalar })
+    private static string EmitUpdate(CommandModel command, EntityModel entity, string schema, NamingConvention convention, out string? projection)
+    {
+        projection = null;
+        var table = new TableRef(schema, Col(entity.Name, entity.NameOverride, convention));
+        var binds = new List<string>();
+        var p = 0;
+        var assignments = new List<SqlAssignment>();
+        foreach (var assignment in command.Assignments)
+        {
+            var property = entity.Properties.First(x => x.Name == assignment.Column);
+            assignments.Add(new SqlAssignment(Col(property.Name, property.NameOverride, convention), ValueToken(assignment.Value, property, ref p, binds)));
+        }
+
+        var where = BuildWhere(command, entity, convention, ref p, binds);
+
+        // With an explicit `returning`, the UPDATE RETURNs rows shaped like a select (003 FR-017); otherwise
+        // it returns the affected-row count (the default + the optimistic-concurrency conflict signal).
+        if (command.Returning is { } shape)
+        {
+            var sqlR = SqlRenderer.Render(new UpdateStatement(table, assignments, where, ReturningColumns(shape, entity, convention)));
+            return EmitShapedMethod(command, entity, shape, sqlR, binds, out projection);
+        }
+
+        var sql = SqlRenderer.Render(new UpdateStatement(table, assignments, where));
+        return EmitWriteMethod(command, sql, binds);
+    }
+
+    private static string EmitDelete(CommandModel command, EntityModel entity, string schema, NamingConvention convention, out string? projection)
+    {
+        projection = null;
+        var table = new TableRef(schema, Col(entity.Name, entity.NameOverride, convention));
+        var binds = new List<string>();
+        var p = 0;
+        var where = BuildWhere(command, entity, convention, ref p, binds);
+
+        if (command.Returning is { } shape)
+        {
+            var sqlR = SqlRenderer.Render(new DeleteStatement(table, where, ReturningColumns(shape, entity, convention)));
+            return EmitShapedMethod(command, entity, shape, sqlR, binds, out projection);
+        }
+
+        var sql = SqlRenderer.Render(new DeleteStatement(table, where));
+        return EmitWriteMethod(command, sql, binds);
+    }
+
+    // The RETURNING column list (database names) for a result shape: Entity → all columns; Projection → the
+    // projected members; Scalar → the single member.
+    private static List<string> ReturningColumns(ReturningShape shape, EntityModel entity, NamingConvention convention) =>
+        shape.Kind == ReturningKind.Entity
+            ? entity.Properties.Select(x => Col(x.Name, x.NameOverride, convention)).ToList()
+            : shape.Members.Select(m =>
+            {
+                var prop = entity.Properties.First(x => x.Name == m);
+                return Col(prop.Name, prop.NameOverride, convention);
+            }).ToList();
+
+    // Emits a method whose statement RETURNs rows, materialized per the result shape (entity / projection /
+    // scalar) — shared by insert and by update/delete with an explicit `returning` (003 FR-017).
+    private static string EmitShapedMethod(CommandModel command, EntityModel entity, ReturningShape shape, string sql, List<string> binds, out string? projection)
+    {
+        projection = null;
+        if (shape.Kind == ReturningKind.Scalar)
         {
             var property = entity.Properties.First(x => x.Name == shape.Members[0]);
             var clr = property.IsNullable ? property.ClrType + "?" : property.ClrType;
-            var sqlScalar = $"INSERT INTO {QualifiedTable(table)} ({columns}) VALUES ({string.Join(", ", valueTokens)}) RETURNING \"{Col(property.Name, property.NameOverride, convention)}\"";
-            var read = property.IsNullable ? $"reader.IsNull(0) ? null : reader.GetValue<{property.ClrType}>(0)" : $"reader.GetValue<{property.ClrType}>(0)";
+            var read = property.IsNullable
+                ? $"reader.IsNull(0) ? null : reader.GetValue<{property.ClrType}>(0)"
+                : $"reader.GetValue<{property.ClrType}>(0)";
             var ws = OpenMethod(command, $"global::System.Threading.Tasks.ValueTask<{clr}>");
-            EmitStatement(ws, sqlScalar, binds);
+            EmitStatement(ws, sql, binds);
             ws
                 .Line($"var command = new {Abs}.Querying.CompiledCommand<{clr}>(statement, static reader => {read});")
                 .Line("return await session.ExecuteCommandAsync(command, cancellationToken).ConfigureAwait(false);")
@@ -184,17 +246,10 @@ internal static class CommandEmitter
             return ws.ToString().TrimEnd('\n');
         }
 
-        if (shape is { Kind: ReturningKind.Projection })
+        if (shape.Kind == ReturningKind.Projection)
         {
             var resultType = Naming.ToPascalCase(command.Name) + "Result";
             var members = shape.Members.ToArray();
-            var returnCols = string.Join(", ", members.Select(m =>
-            {
-                var prop = entity.Properties.First(x => x.Name == m);
-                return "\"" + Col(prop.Name, prop.NameOverride, convention) + "\"";
-            }));
-            var sqlProj = $"INSERT INTO {QualifiedTable(table)} ({columns}) VALUES ({string.Join(", ", valueTokens)}) RETURNING {returnCols}";
-
             var recordFields = members.Select(m =>
             {
                 var prop = entity.Properties.First(x => x.Name == m);
@@ -211,7 +266,7 @@ internal static class CommandEmitter
             });
 
             var wp = OpenMethod(command, $"global::System.Threading.Tasks.ValueTask<{resultType}>");
-            EmitStatement(wp, sqlProj, binds);
+            EmitStatement(wp, sql, binds);
             wp
                 .Line($"var command = new {Abs}.Querying.CompiledCommand<{resultType}>(statement, static reader => new {resultType}({string.Join(", ", args)}));")
                 .Line("return await session.ExecuteCommandAsync(command, cancellationToken).ConfigureAwait(false);")
@@ -219,10 +274,7 @@ internal static class CommandEmitter
             return wp.ToString().TrimEnd('\n');
         }
 
-        // Default / `returning alias` → full immutable entity.
-        var returning = string.Join(", ", entity.Properties.Select(x => "\"" + Col(x.Name, x.NameOverride, convention) + "\""));
-        var sql = $"INSERT INTO {QualifiedTable(table)} ({columns}) VALUES ({string.Join(", ", valueTokens)}) RETURNING {returning}";
-
+        // Entity (default) → the full immutable entity via its generated ctor.
         var w = OpenMethod(command, $"global::System.Threading.Tasks.ValueTask<{entity.Name}>");
         EmitStatement(w, sql, binds);
         w
@@ -230,33 +282,6 @@ internal static class CommandEmitter
             .Line("return await session.ExecuteCommandAsync(command, cancellationToken).ConfigureAwait(false);")
             .Close();
         return w.ToString().TrimEnd('\n');
-    }
-
-    private static string EmitUpdate(CommandModel command, EntityModel entity, string schema, NamingConvention convention)
-    {
-        var table = new TableRef(schema, Col(entity.Name, entity.NameOverride, convention));
-        var binds = new List<string>();
-        var p = 0;
-        var assignments = new List<SqlAssignment>();
-        foreach (var assignment in command.Assignments)
-        {
-            var property = entity.Properties.First(x => x.Name == assignment.Column);
-            assignments.Add(new SqlAssignment(Col(property.Name, property.NameOverride, convention), ValueToken(assignment.Value, property, ref p, binds)));
-        }
-
-        var where = BuildWhere(command, entity, convention, ref p, binds);
-        var sql = SqlRenderer.Render(new UpdateStatement(table, assignments, where));
-        return EmitWriteMethod(command, sql, binds);
-    }
-
-    private static string EmitDelete(CommandModel command, EntityModel entity, string schema, NamingConvention convention)
-    {
-        var table = new TableRef(schema, Col(entity.Name, entity.NameOverride, convention));
-        var binds = new List<string>();
-        var p = 0;
-        var where = BuildWhere(command, entity, convention, ref p, binds);
-        var sql = SqlRenderer.Render(new DeleteStatement(table, where));
-        return EmitWriteMethod(command, sql, binds);
     }
 
     // A value token for an assignment: param/literal → $n (bound, +`::jsonb` for json), native → inline SQL.

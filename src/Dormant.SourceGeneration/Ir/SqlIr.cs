@@ -34,17 +34,21 @@ internal sealed record SelectStatement(
     SqlLimit? Limit,
     SqlLimit? Offset) : SqlStatement;
 
-/// <summary>A DELETE with a WHERE clause.</summary>
-internal sealed record DeleteStatement(TableRef Table, IReadOnlyList<SqlCondition> Where) : SqlStatement;
+/// <summary>A DELETE with a WHERE clause and an optional <c>RETURNING</c> column list (003 FR-017).</summary>
+internal sealed record DeleteStatement(
+    TableRef Table,
+    IReadOnlyList<SqlCondition> Where,
+    IReadOnlyList<string>? Returning = null) : SqlStatement;
 
 /// <summary>A SET assignment in an UPDATE: <c>"column" = &lt;valueToken&gt;</c> (token already rendered, e.g. <c>$1</c>).</summary>
 internal sealed record SqlAssignment(string Column, string ValueToken);
 
-/// <summary>An UPDATE with SET assignments and a WHERE clause.</summary>
+/// <summary>An UPDATE with SET assignments, a WHERE clause, and an optional <c>RETURNING</c> list (003 FR-017).</summary>
 internal sealed record UpdateStatement(
     TableRef Table,
     IReadOnlyList<SqlAssignment> Assignments,
-    IReadOnlyList<SqlCondition> Where) : SqlStatement;
+    IReadOnlyList<SqlCondition> Where,
+    IReadOnlyList<string>? Returning = null) : SqlStatement;
 
 /// <summary>A <c>CREATE SCHEMA IF NOT EXISTS</c> for a module's database schema (FR-045).</summary>
 internal sealed record CreateSchemaStatement(string Schema) : SqlStatement;
@@ -135,6 +139,7 @@ internal static class SqlRenderer
         var sb = new System.Text.StringBuilder();
         sb.Append("DELETE FROM ").Append(RenderTable(delete.Table));
         AppendWhere(sb, delete.Where);
+        AppendReturning(sb, delete.Returning);
         return sb.ToString();
     }
 
@@ -144,7 +149,18 @@ internal static class SqlRenderer
         sb.Append("UPDATE ").Append(RenderTable(update.Table)).Append(" SET ");
         sb.Append(string.Join(", ", update.Assignments.Select(a => Quote(a.Column) + " = " + a.ValueToken)));
         AppendWhere(sb, update.Where);
+        AppendReturning(sb, update.Returning);
         return sb.ToString();
+    }
+
+    private static void AppendReturning(System.Text.StringBuilder sb, IReadOnlyList<string>? columns)
+    {
+        if (columns is null || columns.Count == 0)
+        {
+            return;
+        }
+
+        sb.Append(" RETURNING ").Append(string.Join(", ", columns.Select(Quote)));
     }
 
     private static string RenderTable(TableRef table) =>

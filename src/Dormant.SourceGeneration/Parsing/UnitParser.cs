@@ -357,20 +357,12 @@ internal sealed class UnitParser
             }
         }
 
-        // 003 (T015): an optional `returning` clause shapes the result (insert only in this slice). On
-        // update/delete it needs RETURNING in the UPDATE/DELETE IR — a deferred follow-up. Multi-command
-        // sequences and `with` bindings are also deferred (T016).
+        // 003 (T015/FR-017): an optional `returning` clause shapes the result of insert/update/delete
+        // (mirrors `select`). Multi-command sequences and `with` bindings remain deferred (T016).
         ReturningShape? returning = null;
         if (IsKeyword("returning"))
         {
             _pos++;
-            if (kind != CommandKind.Insert)
-            {
-                Error("'returning' on update/delete is not supported yet (deferred)");
-                RecoverToUnitEnd();
-                return null;
-            }
-
             returning = ParseReturning(alias);
             if (returning is null)
             {
