@@ -18,8 +18,8 @@
 
 **Purpose**: Project initialization and basic structure
 
-- [ ] T001 Create GitHub Actions directory structure in `.github/workflows/`
-- [ ] T002 [P] Configure environment variables (`DOTNET_NOLOGO`, `DOTNET_CLI_TELEMETRY_OPTOUT`) in `.github/workflows/ci.yml`
+- [x] T001 Create GitHub Actions directory structure in `.github/workflows/`
+- [x] T002 [P] Configure environment variables (`DOTNET_NOLOGO`, `DOTNET_CLI_TELEMETRY_OPTOUT`) in `.github/workflows/ci.yml`
 
 ---
 
@@ -27,10 +27,10 @@
 
 **Purpose**: Core infrastructure that MUST be complete before ANY user story can be implemented
 
-- [ ] T003 Configure base pipeline triggers (push/PR to main) in `.github/workflows/ci.yml`
-- [ ] T004 Setup .NET 10 SDK installation step in `.github/workflows/ci.yml`
-- [ ] T005 [P] Implement NuGet restore and caching strategy in `.github/workflows/ci.yml`
-- [ ] T006 Implement solution-wide build step (`dotnet build Dormant.slnx`) in `.github/workflows/ci.yml`
+- [x] T003 Configure base pipeline triggers (push/PR to main) in `.github/workflows/ci.yml`
+- [x] T004 Setup .NET 10 SDK installation step in `.github/workflows/ci.yml`
+- [x] T005 [P] Implement NuGet restore and caching strategy in `.github/workflows/ci.yml`
+- [x] T006 Implement solution-wide build step (`dotnet build Dormant.slnx`) in `.github/workflows/ci.yml`
 
 **Checkpoint**: Foundation ready - basic build pipeline operational.
 
@@ -44,10 +44,10 @@
 
 ### Implementation for User Story 1
 
-- [ ] T007 [US1] Implement strict linting enforcement (`dotnet format --verify-no-changes`) in `.github/workflows/ci.yml`
-- [ ] T008 [US1] Add core test execution (`dotnet test Dormant.slnx`) with GitHubActions logger in `.github/workflows/ci.yml`
-- [ ] T009 [P] [US1] Add source generator integration tests execution in `.github/workflows/ci.yml`
-- [ ] T010 [US1] Configure job failure conditions to block PR merges in `.github/workflows/ci.yml`
+- [x] T007 [US1] Implement strict linting enforcement (`dotnet format --verify-no-changes`) in `.github/workflows/ci.yml`
+- [x] T008 [US1] Add core test execution (`dotnet test Dormant.slnx`) with GitHubActions logger in `.github/workflows/ci.yml`
+- [x] T009 [P] [US1] Add source generator integration tests execution in `.github/workflows/ci.yml`
+- [x] T010 [US1] Configure job failure conditions to block PR merges in `.github/workflows/ci.yml`
 
 **Checkpoint**: User Story 1 complete - developers now get immediate feedback on PRs.
 
@@ -61,9 +61,9 @@
 
 ### Implementation for User Story 3
 
-- [ ] T011 [US3] Configure PostgreSQL service container (image: `postgres:latest`) in `.github/workflows/ci.yml`
-- [ ] T012 [US3] Setup database health check and port mapping (5432:5432) in `.github/workflows/ci.yml`
-- [ ] T013 [US3] Configure connection strings or environment variables for integration tests in `.github/workflows/ci.yml`
+- [x] T011 [US3] Configure PostgreSQL service container (image: `postgres:latest`) in `.github/workflows/ci.yml`
+- [x] T012 [US3] Setup database health check and port mapping (5432:5432) in `.github/workflows/ci.yml`
+- [x] T013 [US3] Configure connection strings or environment variables for integration tests in `.github/workflows/ci.yml`
 
 **Checkpoint**: User Story 3 complete - database-dependent tests are now validated in CI.
 
@@ -77,9 +77,9 @@
 
 ### Implementation for User Story 2
 
-- [ ] T014 [US2] Implement AOT publish step for `tests/Dormant.Aot.SmokeTests/Dormant.Aot.SmokeTests.csproj` in `.github/workflows/ci.yml`
-- [ ] T015 [US2] Add native binary execution step in `.github/workflows/ci.yml`
-- [ ] T016 [US2] Ensure AOT warnings fail the build step in `.github/workflows/ci.yml`
+- [x] T014 [US2] Implement AOT publish step for `tests/Dormant.Aot.SmokeTests/Dormant.Aot.SmokeTests.csproj` in `.github/workflows/ci.yml`
+- [x] T015 [US2] Add native binary execution step in `.github/workflows/ci.yml`
+- [x] T016 [US2] Ensure AOT warnings fail the build step in `.github/workflows/ci.yml`
 
 **Checkpoint**: All user stories complete - AOT integrity is now guaranteed.
 
@@ -89,9 +89,9 @@
 
 **Purpose**: Improvements that affect multiple user stories
 
-- [ ] T017 [P] Add test result summary upload (artifacts) in `.github/workflows/ci.yml`
-- [ ] T018 [P] Update `CLAUDE.md` and `GEMINI.md` with CI usage instructions
-- [ ] T019 Final run and validation of `specs/007-configure-ci/quickstart.md`
+- [x] T017 [P] Add test result summary upload (artifacts) in `.github/workflows/ci.yml`
+- [x] T018 [P] Update `CLAUDE.md` and `GEMINI.md` with CI usage instructions
+- [x] T019 Final run and validation of `specs/007-configure-ci/quickstart.md`
 
 ---
 

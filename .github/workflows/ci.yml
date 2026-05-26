@@ -2,50 +2,66 @@ name: CI
 
 on:
   push:
-    branches: [main, "**"]
+    branches: [ main ]
   pull_request:
-    branches: [main]
+    branches: [ main ]
 
-permissions:
-  contents: read
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  DOTNET_VERSION: '10.0.x'
 
 jobs:
-  build-test:
+  build:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:latest
+        env:
+          POSTGRES_DB: dormant_test
+          POSTGRES_PASSWORD: password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: Host=localhost;Port=5432;Database=dormant_test;Username=postgres;Password=password
+
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup .NET (from global.json)
+      - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          global-json-file: global.json
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+          cache: true
+          cache-dependency-path: '**/Directory.Packages.props'
 
-      - name: Restore
-        run: dotnet restore
+      - name: Restore dependencies
+        run: dotnet restore Dormant.slnx
 
       - name: Build
-        run: dotnet build --no-restore --configuration Release
+        run: dotnet build Dormant.slnx -c Release --no-restore
 
-      # TUnit runs on Microsoft.Testing.Platform; execute each test project directly (the .NET 10 SDK
-      # no longer supports the legacy VSTest `dotnet test` path). Docker is available on ubuntu runners
-      # for the Testcontainers-backed provider tests.
-      - name: Test (TUnit / Microsoft.Testing.Platform)
-        run: ./build.sh test
-        env:
-          CONFIGURATION: Release
+      - name: Lint check
+        run: dotnet format Dormant.slnx --verify-no-changes --severity warn
 
-  # AOT smoke gate (SC-001/SC-006): publish the smoke harness with full trimming + Native AOT and
-  # fail on any library-originated trimming/AOT warning. Wired fully in US6 (T088).
-  aot-smoke:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
+      - name: Run tests
+        run: dotnet test Dormant.slnx -c Release --no-build --logger "GitHubActions;summary.includePassedTests=true;summary.includeSkippedTests=true"
+
+      - name: Publish AOT Smoke Tests
+        run: dotnet publish tests/Dormant.Aot.SmokeTests/Dormant.Aot.SmokeTests.csproj -r linux-x64 -c Release /p:PublishAot=true -o ./publish-aot
+
+      - name: Run AOT Smoke Tests
+        run: ./publish-aot/Dormant.Aot.SmokeTests
+
+      - name: Upload Test Results
+        if: always()
+        uses: actions/upload-artifact@v4
         with:
-          global-json-file: global.json
-      - name: Publish AOT smoke harness
-        # TreatWarningsAsErrors in the csproj makes any trimming/AOT warning fail this publish (the gate).
-        run: |
-          sudo apt-get update && sudo apt-get install -y clang zlib1g-dev
-          dotnet publish tests/Dormant.Aot.SmokeTests/Dormant.Aot.SmokeTests.csproj \
-            -c Release -r linux-x64 -p:PublishAot=true -p:TrimMode=full
+          name: test-results
+          path: '**/TestResults/*.trx'

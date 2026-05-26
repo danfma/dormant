@@ -1,0 +1,9 @@
+# Docker ignore
+.git/
+bin/
+obj/
+publish/
+*.log
+.env*
+coverage/
+TestResults/
