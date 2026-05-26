@@ -79,6 +79,11 @@ public sealed class SchemaEmitTests
         await Assert.That(generated).DoesNotContain("INSERT INTO");
         await Assert.That(generated).DoesNotContain("TracksConcurrency");
         await Assert.That(generated).DoesNotContain("Snapshot");
+        // FR-020: each single reference adds a `<ref>_id` foreign-key column to CREATE TABLE (typed as the
+        // target's PK); collections do NOT get a FK column.
+        await Assert.That(generated).Contains("\\\"author_id\\\""); // Post.author (required single ref)
+        await Assert.That(generated).Contains("\\\"manager_id\\\""); // User.manager (optional single ref)
+        await Assert.That(generated).DoesNotContain("\\\"posts_id\\\""); // Set<Post> collection → no FK column
     }
 
     [Test]

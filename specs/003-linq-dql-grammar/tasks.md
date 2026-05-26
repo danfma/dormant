@@ -107,7 +107,7 @@ by a **`with name = (expr)` block + single terminal `select`**, and its prerequi
 (FR-020). Everything in Phases 1–8 (cutover + `returning`) is done and green. Implement FR-020 first
 (standalone, independently valuable), then the `with`-block.
 
-- [ ] T036 [US2] FR-020: in `EntityBindingEmitter`, add a `<ref>_id` column (typed as the target entity's primary-key type, nullable iff the ref is optional) to the `CREATE TABLE` for each single `ReferenceKind.Ref` member; value-column SELECT/materialize unchanged — in src/Dormant.SourceGeneration/Schema/EntityBindingEmitter.cs
+- [X] T036 [US2] FR-020: in `EntityBindingEmitter`, add a `<ref>_id` column (typed as the target entity's primary-key type, nullable iff the ref is optional) to the `CREATE TABLE` for each single `ReferenceKind.Ref` member; value-column SELECT/materialize unchanged — in src/Dormant.SourceGeneration/Schema/EntityBindingEmitter.cs
 - [ ] T037 [US2] FR-020: allow `alias.ref = <expr>` assignment in a command — parse the ref member (resolve to its `<ref>_id` column) and validate it against the entity's references — in src/Dormant.SourceGeneration/Parsing/UnitParser.cs and src/Dormant.SourceGeneration/Parsing/CommandModel.cs
 - [ ] T038 [US2] FR-020: in `CommandEmitter`, write the `<ref>_id` column from a ref-assignment value (parameter or literal), with the target PK type — in src/Dormant.SourceGeneration/Command/CommandEmitter.cs
 - [ ] T039 [P] [US2] FR-020 tests: generator asserts the `<ref>_id` column appears in `CREATE TABLE` and that an `insert` assigning the ref writes it; provider test inserts an entity with a ref and confirms the FK column is persisted — in tests/Dormant.SourceGeneration.Tests/ and tests/Dormant.Provider.PostgreSql.Tests/

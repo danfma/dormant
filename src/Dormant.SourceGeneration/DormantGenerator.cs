@@ -64,6 +64,18 @@ public sealed class DormantGenerator : IIncrementalGenerator
             // The module maps to a database schema (FR-045); its name follows the active convention.
             var schemaName = NamingConventions.Resolve(schema.ModuleName, null, generatorConfig.Naming);
 
+            // FR-020: a single ref → a `<ref>_id` FK column typed as the target entity's primary key. Map
+            // each entity name to its PK SQL type so the binding emitter can type those columns.
+            var refPkSqlTypes = new Dictionary<string, string>(StringComparer.Ordinal);
+            foreach (var e in schema.Entities)
+            {
+                var pk = System.Linq.Enumerable.FirstOrDefault(e.Properties, p => p.IsPrimary);
+                if (pk is not null)
+                {
+                    refPkSqlTypes[e.Name] = TypeMap.ToSqlType(pk.DslType);
+                }
+            }
+
             foreach (var entity in schema.Entities)
             {
                 foreach (var collision in NameResolution.FindColumnCollisions(entity, generatorConfig.Naming))
@@ -77,7 +89,7 @@ public sealed class DormantGenerator : IIncrementalGenerator
 
                 productionContext.AddSource(
                     Naming.HintName(@namespace, entity.Name + ".Binding"),
-                    EntityBindingEmitter.Emit(@namespace, entity, schemaName, generatorConfig.Naming));
+                    EntityBindingEmitter.Emit(@namespace, entity, schemaName, generatorConfig.Naming, refPkSqlTypes));
             }
         });
 
