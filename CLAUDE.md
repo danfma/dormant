@@ -1,12 +1,23 @@
 <!-- SPECKIT START -->
 For additional context about technologies, project structure, conventions, and
 important decisions for the active feature, read the current plan:
-`specs/002-immutable-command-dml/plan.md` (with `research.md`, `data-model.md`,
-`contracts/`, and `quickstart.md` in the same directory). This is a fork of
-`specs/001-orm-aot-sourcegen/` (the prior, mutable/change-tracking direction —
-retained as the return point): an **immutable, command-driven** ORM where all
-writes are authored DQL `insert`/`update`/`delete` commands (no change-tracking,
-no add-track-save), reusing 001's generator/IR/query/naming/DDL/AOT/jsonb foundation.
+`specs/003-linq-dql-grammar/plan.md` (with `research.md`, `data-model.md`,
+`contracts/`, and `quickstart.md` in the same directory). 003 is a **front-end
+grammar replacement** built on `specs/002-immutable-command-dml/` (the immutable,
+command-driven direction — its runtime semantics are preserved unchanged): the DQL
+unit surface becomes a **LINQ-/SQL-hybrid, brace-delimited grammar** with explicit
+aliases and C#/TypeScript operators. Units are `query name(...) { from E u where
+u.x == p select u }` (reads) and `mutation name(...) { insert|update|delete E u …
+[returning …] }` (writes); unit names are snake_case → PascalCase C# methods;
+entities PascalCase; type keywords lowercase (`string bool int long double decimal
+uuid datetime date json` + `optional T`). Operators: `== != < <= > >= && || !`,
+assignment `=`; members alias-qualified (`u.email`). Mutation result is inferred
+(insert→id, update/delete→affected count) and optionally shaped by `returning`
+(mirrors `select`) or a trailing read; multi-command blocks flow values via `with`.
+Removed 002 forms (`command`, `= …;`, leading-dot, `:=`, `and`/`or`) MUST NOT parse.
+Only the generator front end (lexer/parsers/models/naming + the two emitters'
+mapping) changes; the SQL IR/renderer, immutable entities, session, and provider
+are reused from 002. `specs/001-orm-aot-sourcegen/` remains the deeper return point.
 
 Key conventions: .NET 10 / C# 14; AOT-first (zero library trimming/AOT warnings,
 no runtime reflection or query compilation on hot paths, no boxing); build-time SQL

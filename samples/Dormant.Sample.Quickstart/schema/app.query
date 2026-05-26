@@ -1,0 +1,37 @@
+module app;
+
+# Authored write command → INSERT … RETURNING the immutable User.
+mutation create_user(id: uuid, email: string, created_at: datetime, version: int) {
+  insert User u {
+    u.id = id                     # no separator, one per line
+    u.email = email               # alias for .email = email
+    u.created_at = created_at     # alias for .created_at = created_at
+    u.version = version           # alias for .version = version
+  }
+}
+
+mutation set_user_name(id: uuid, name: string) {
+    update User u
+    where u.id == id
+    set {
+      u.name = name
+    }
+}
+
+# Full-entity query → IAsyncEnumerable<User> with build-time SQL.
+query users_by_email(email: string) {
+  from User u
+  where u.email == email
+  select u
+}
+
+# Flat projection → a distinct AppQueries-scoped record exposing exactly id + email.
+query get_user_contacts(since: datetime) {
+  from User u
+  where u.created_at >= since
+  order by u.email asc
+  select {
+    u.id
+    u.email
+  }
+}

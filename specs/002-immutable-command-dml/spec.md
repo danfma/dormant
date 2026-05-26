@@ -38,6 +38,15 @@ generation. `001` remains the return point.
   `with u := (insert User {…}) insert Post { author := u, … }`). v1 has **no implicit auto-link** (the child
   is not silently linked by the assigned link) and **no special back-reference token** (the provisional
   `..id` is dropped). Explicit `with` handles the majority of cases and keeps references unambiguous.
+- Q: How are primary keys generated? → A: **App-assigned** — every `insert` command supplies the `id` as a
+  parameter (no DB-side default/`gen_random_uuid()`). This is deterministic, matches the existing command
+  model, and makes nested writes simple: an inner entity's id is a known parameter that flows to the parent's
+  foreign-key column (no reliance on `RETURNING`-generated ids) (FR-018).
+- Q: How is a single reference's foreign key represented and written? → A: The generator emits a
+  **`<ref>_id` foreign-key column** on the entity's table (typed as the target's primary key, in DDL and
+  writable by commands); the FK value is supplied **by the command** (a parameter, or a `with`-bound write's
+  id), via `ref := <expr>`. The entity keeps its `Ref<T>` navigation member (read-side, Unloaded on read) —
+  there is **no shadow `{Ref}Id` property** on the entity (FR-019).
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -244,6 +253,14 @@ and reused (allocation measurement), result type unchanged.
   naming, and provider-native value types (e.g. `jsonb`) MUST be preserved from `001`.
 - **FR-017**: Provider connectivity and provider-specific behavior MUST be verified against a **real provider
   in ephemeral Docker (Testcontainers)** — never mocks — carried over from `001`.
+- **FR-018**: Primary keys MUST be **app-assigned**: every `insert` command supplies the entity's `id` as a
+  parameter. The generator MUST NOT emit a DB-side default (no `gen_random_uuid()` / `DEFAULT` on the PK
+  column), and nested writes MUST flow the inner entity's parameter-supplied id to the parent's foreign key
+  (no dependence on `RETURNING`-generated ids for back-references).
+- **FR-019**: For each single reference member (`ref: Target`), the generator MUST emit a **`<ref>_id`
+  foreign-key column** on the entity's table (typed as the target's primary key) in the DDL, writable by
+  commands via `ref := <expr>` (a parameter or a `with`-bound write's id). The entity MUST keep its `Ref<T>`
+  navigation member (read-side, Unloaded on read) and MUST NOT gain a shadow `{Ref}Id` property.
 
 ### Key Entities *(include if feature involves data)*
 
@@ -291,6 +308,9 @@ and reused (allocation measurement), result type unchanged.
 - Back-references between writes (e.g. a child referencing a parent's generated id) use an **explicit `with`
   binding** of the parent write (FR-006). v1 deliberately excludes implicit auto-linking and special
   back-reference tokens (the provisional `..id` is dropped); `with` covers the majority of cases.
+- Primary keys are **app-assigned** (supplied as a command parameter; no DB-side default) and single
+  references are persisted via a generated `<ref>_id` foreign-key column written by the command — the entity
+  exposes only its `Ref<T>` navigation member, never a shadow id property (FR-018, FR-019).
 - C# 14 / .NET 10; immutable results are realized as records (or equivalent), consistent with `001`.
 - Target user is a .NET application developer; there is no end-user UI for the ORM itself.
 
