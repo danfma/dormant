@@ -26,7 +26,7 @@ public sealed class JsonbTests
 
         await using (var session = await factory.OpenSessionAsync())
         {
-            await session.AddAsync(new Document { Id = id, Data = "{\"k\": \"v\", \"n\": 42}" });
+            await session.CreateDocument(id, "{\"k\": \"v\", \"n\": 42}");
             await session.CommitAsync();
         }
 

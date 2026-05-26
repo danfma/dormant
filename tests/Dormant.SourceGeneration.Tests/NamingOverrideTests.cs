@@ -29,9 +29,8 @@ public sealed class NamingOverrideTests
             "\n",
             driver.GetRunResult().Results.SelectMany(r => r.GeneratedSources).Select(s => s.SourceText.ToString()));
 
-        // Table override "posts" and column override "created" win; "title" still follows snake_case;
-        // "id" unchanged.
-        await Assert.That(generated)
-            .Contains("INSERT INTO \\\"shop\\\".\\\"posts\\\" (\\\"id\\\", \\\"created\\\", \\\"title\\\")");
+        // Table override "posts" and column override "created" win; "title" still follows snake_case.
+        await Assert.That(generated).Contains("CREATE TABLE IF NOT EXISTS \\\"shop\\\".\\\"posts\\\"");
+        await Assert.That(generated).Contains("\\\"created\\\"");
     }
 }

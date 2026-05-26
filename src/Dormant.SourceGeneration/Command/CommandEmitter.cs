@@ -110,21 +110,24 @@ internal static class CommandEmitter
             var property = entity.Properties.First(x => x.Name == assignment.Column);
             assignedColumns.Add("\"" + NamingConventions.Resolve(property.Name, property.NameOverride, convention) + "\"");
 
+            // PostgreSQL won't coerce text→jsonb, so a json column's bound value needs a `::jsonb` cast.
+            var cast = property.DslType == "json" ? "::jsonb" : string.Empty;
+
             switch (assignment.Value.Kind)
             {
                 case CommandValueKind.Parameter:
                     p++;
-                    valueTokens.Add("$" + p.ToString(CultureInfo.InvariantCulture));
+                    valueTokens.Add("$" + p.ToString(CultureInfo.InvariantCulture) + cast);
                     binds.Add($"writer.Write({p}, {assignment.Value.Text});");
                     break;
                 case CommandValueKind.StringLiteral:
                     p++;
-                    valueTokens.Add("$" + p.ToString(CultureInfo.InvariantCulture));
+                    valueTokens.Add("$" + p.ToString(CultureInfo.InvariantCulture) + cast);
                     binds.Add($"writer.Write({p}, {Quote(assignment.Value.Text)});");
                     break;
                 case CommandValueKind.NumberLiteral:
                     p++;
-                    valueTokens.Add("$" + p.ToString(CultureInfo.InvariantCulture));
+                    valueTokens.Add("$" + p.ToString(CultureInfo.InvariantCulture) + cast);
                     binds.Add($"writer.Write({p}, {assignment.Value.Text});");
                     break;
                 case CommandValueKind.NativeCall:

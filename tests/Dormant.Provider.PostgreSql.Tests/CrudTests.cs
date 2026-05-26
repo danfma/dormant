@@ -1,4 +1,3 @@
-using Dormant.Abstractions.Querying;
 using Dormant.Provider.PostgreSql;
 using Dormant.Provider.PostgreSql.Tests.Schema.Catalog;
 using Testcontainers.PostgreSql;
@@ -8,13 +7,13 @@ using TUnit.Core;
 
 namespace Dormant.Provider.PostgreSql.Tests;
 
-// US2 (T034): a generated entity binding + session insert + primary-key load round-trip against a
-// real PostgreSQL (Testcontainers). Exercises the no-reflection materializer, prebuilt INSERT/SELECT,
-// the module-init binding registry, and the unit-of-work session.
+// 002: authored insert command + primary-key load round-trip against real PostgreSQL (Testcontainers).
+// Exercises the no-reflection materializer, the command's INSERT … RETURNING, the binding registry, and the
+// thin session. (delete is a `delete` command in a later slice; change-tracking is gone.)
 public sealed class CrudTests
 {
     [Test]
-    public async Task Insert_then_get_by_key_round_trips()
+    public async Task Insert_command_then_get_by_key_round_trips()
     {
         await using var postgres = new PostgreSqlBuilder().WithImage("postgres:16-alpine").Build();
         await postgres.StartAsync();
@@ -27,7 +26,7 @@ public sealed class CrudTests
 
         await using (var session = await factory.OpenSessionAsync())
         {
-            await session.AddAsync(new Widget { Id = id, Name = "gizmo", Quantity = 7 });
+            await session.CreateWidget(id, "gizmo", 7);
             await session.CommitAsync();
         }
 
@@ -38,40 +37,6 @@ public sealed class CrudTests
             await Assert.That(widget).IsNotNull();
             await Assert.That(widget!.Name).IsEqualTo("gizmo");
             await Assert.That(widget.Quantity).IsEqualTo(7);
-        }
-    }
-
-    // US2 (T036): Remove + commit deletes the row.
-    [Test]
-    public async Task Remove_then_commit_deletes_the_row()
-    {
-        await using var postgres = new PostgreSqlBuilder().WithImage("postgres:16-alpine").Build();
-        await postgres.StartAsync();
-        var connectionString = postgres.GetConnectionString();
-
-        await DormantPostgres.EnsureCreatedAsync(connectionString);
-
-        await using var factory = DormantPostgres.CreateSessionFactory(connectionString);
-        var id = Guid.NewGuid();
-
-        await using (var session = await factory.OpenSessionAsync())
-        {
-            await session.AddAsync(new Widget { Id = id, Name = "doomed", Quantity = 1 });
-            await session.CommitAsync();
-        }
-
-        await using (var session = await factory.OpenSessionAsync())
-        {
-            var widget = await session.GetAsync<Widget>(id);
-            await Assert.That(widget).IsNotNull();
-            session.Remove(widget!);
-            await session.CommitAsync();
-        }
-
-        await using (var session = await factory.OpenSessionAsync())
-        {
-            var widget = await session.GetAsync<Widget>(id);
-            await Assert.That(widget).IsNull();
         }
     }
 }

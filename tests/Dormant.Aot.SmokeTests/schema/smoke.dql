@@ -1,5 +1,8 @@
 module smoke;
 
+command CreateItem(id: uuid, name: str, quantity: int, tags: json, version: int) =
+  insert Item { id := id, name := name, quantity := quantity, tags := tags, version := version };
+
 query ItemsByName(name: str) =
   select Item
   filter .name = name

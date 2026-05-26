@@ -1,8 +1,17 @@
 module catalog;
 
-# 002 fork: authored write command → INSERT … RETURNING, materializes the inserted row.
+# 002 fork: authored write commands → INSERT … RETURNING, materialize the inserted row.
 command CreateWidget(id: uuid, name: str, quantity: int) =
   insert Widget { id := id, name := name, quantity := quantity };
+
+command CreateAccount(id: uuid, balance: int, version: int) =
+  insert Account { id := id, balance := balance, version := version };
+
+command CreateStockItem(id: uuid, itemName: str) =
+  insert StockItem { id := id, itemName := itemName };
+
+command CreateDocument(id: uuid, data: json) =
+  insert Document { id := id, data := data };
 
 # Full-entity query: returns Widget with all mapped columns (FR-006).
 query WidgetsByMinQuantity(min: int) =

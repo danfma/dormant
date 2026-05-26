@@ -68,9 +68,9 @@ public sealed class EntityQueryTests
         var factory = DormantPostgres.CreateSessionFactory(connectionString);
         await using (var session = await factory.OpenSessionAsync())
         {
-            await session.AddAsync(new Widget { Id = Guid.NewGuid(), Name = "five", Quantity = 5 });
-            await session.AddAsync(new Widget { Id = Guid.NewGuid(), Name = "seven", Quantity = 7 });
-            await session.AddAsync(new Widget { Id = Guid.NewGuid(), Name = "nine", Quantity = 9 });
+            await session.CreateWidget(Guid.NewGuid(), "five", 5);
+            await session.CreateWidget(Guid.NewGuid(), "seven", 7);
+            await session.CreateWidget(Guid.NewGuid(), "nine", 9);
             await session.CommitAsync();
         }
 

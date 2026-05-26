@@ -18,7 +18,7 @@ try
     await using var session = await factory.OpenSessionAsync();
 
     var id = Guid.NewGuid();
-    await session.AddAsync(new Item { Id = id, Name = "smoke", Quantity = 1, Tags = "{\"k\":1}", Version = 0 });
+    await session.CreateItem(id, "smoke", 1, "{\"k\":1}", 0);
     await session.CommitAsync();
 
     var loaded = await session.GetAsync<Item>(id);

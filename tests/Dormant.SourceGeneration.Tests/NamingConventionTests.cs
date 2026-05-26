@@ -38,11 +38,11 @@ public sealed class NamingConventionTests
     {
         var generated = Run();
 
-        // Table and columns are snake_case in the prebuilt INSERT (schema-qualified, module → schema).
-        await Assert.That(generated)
-            .Contains("INSERT INTO \\\"shop\\\".\\\"recent_post\\\" (\\\"id\\\", \\\"created_at\\\", \\\"title\\\")");
+        // Table and columns are snake_case in the prebuilt CREATE TABLE DDL (schema-qualified, module → schema).
+        await Assert.That(generated).Contains("CREATE TABLE IF NOT EXISTS \\\"shop\\\".\\\"recent_post\\\"");
+        await Assert.That(generated).Contains("\\\"created_at\\\"");
         // C# member names are unaffected (PascalCase).
-        await Assert.That(generated).Contains("public required global::System.DateTime CreatedAt { get; set; }");
+        await Assert.That(generated).Contains("public required global::System.DateTime CreatedAt { get; init; }");
     }
 
     [Test]
@@ -53,7 +53,7 @@ public sealed class NamingConventionTests
             ["build_property.DormantNamingConvention"] = "verbatim",
         });
 
-        await Assert.That(generated)
-            .Contains("INSERT INTO \\\"shop\\\".\\\"RecentPost\\\" (\\\"id\\\", \\\"createdAt\\\", \\\"title\\\")");
+        await Assert.That(generated).Contains("CREATE TABLE IF NOT EXISTS \\\"shop\\\".\\\"RecentPost\\\"");
+        await Assert.That(generated).Contains("\\\"createdAt\\\"");
     }
 }

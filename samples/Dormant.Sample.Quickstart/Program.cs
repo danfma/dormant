@@ -33,7 +33,7 @@ await using var factory = DormantPostgres.CreateSessionFactory(connectionString)
 var id = Guid.NewGuid();
 await using (var session = await factory.OpenSessionAsync())
 {
-    await session.AddAsync(new User { Id = id, Email = "ada@example.com", CreatedAt = DateTime.UtcNow, Version = 1 });
+    await session.CreateUser(id, "ada@example.com", DateTime.UtcNow, 1);
     await session.CommitAsync();
 }
 

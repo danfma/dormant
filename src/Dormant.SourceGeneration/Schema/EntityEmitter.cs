@@ -41,11 +41,11 @@ internal static class EntityEmitter
             var name = Naming.ToPascalCase(property.Name);
             if (property.IsNullable)
             {
-                writer.Line($"public {property.ClrType}? {name} {{ get; set; }}");
+                writer.Line($"public {property.ClrType}? {name} {{ get; init; }}");
             }
             else
             {
-                writer.Line($"public required {property.ClrType} {name} {{ get; set; }}");
+                writer.Line($"public required {property.ClrType} {name} {{ get; init; }}");
             }
         }
 
@@ -101,26 +101,26 @@ internal static class EntityEmitter
         switch (reference.Kind)
         {
             case ReferenceKind.Ref when reference.IsRequired:
-                writer.Line($"public required {Ns}.Ref<{target}> {name} {{ get; set; }}");
+                writer.Line($"public required {Ns}.Ref<{target}> {name} {{ get; init; }}");
                 break;
             case ReferenceKind.Ref:
-                writer.Line($"public {Ns}.Ref<{target}?> {name} {{ get; set; }} = {Ns}.Ref<{target}?>.Unloaded;");
+                writer.Line($"public {Ns}.Ref<{target}?> {name} {{ get; init; }} = {Ns}.Ref<{target}?>.Unloaded;");
                 break;
             case ReferenceKind.Set:
-                writer.Line($"public {Ns}.RefSet<{target}> {name} {{ get; set; }} = {Ns}.RefSet<{target}>.Unloaded;");
+                writer.Line($"public {Ns}.RefSet<{target}> {name} {{ get; init; }} = {Ns}.RefSet<{target}>.Unloaded;");
                 break;
             case ReferenceKind.List:
-                writer.Line($"public {Ns}.RefList<{target}> {name} {{ get; set; }} = {Ns}.RefList<{target}>.Unloaded;");
+                writer.Line($"public {Ns}.RefList<{target}> {name} {{ get; init; }} = {Ns}.RefList<{target}>.Unloaded;");
                 break;
             case ReferenceKind.Bag:
-                writer.Line($"public {Ns}.RefBag<{target}> {name} {{ get; set; }} = {Ns}.RefBag<{target}>.Unloaded;");
+                writer.Line($"public {Ns}.RefBag<{target}> {name} {{ get; init; }} = {Ns}.RefBag<{target}>.Unloaded;");
                 break;
             case ReferenceKind.Map:
                 var keyClr = TypeMap.TryMap(reference.KeyType ?? string.Empty, out var mapped)
                     ? mapped
                     : reference.KeyType;
                 writer.Line(
-                    $"public {Ns}.RefMap<{keyClr}, {target}> {name} {{ get; set; }} = {Ns}.RefMap<{keyClr}, {target}>.Unloaded;");
+                    $"public {Ns}.RefMap<{keyClr}, {target}> {name} {{ get; init; }} = {Ns}.RefMap<{keyClr}, {target}>.Unloaded;");
                 break;
         }
     }

@@ -47,15 +47,15 @@ public sealed class SchemaEmitTests
         await Assert.That(count).IsEqualTo(4);
         await Assert.That(generated).Contains("public partial class User");
         await Assert.That(generated).Contains("public partial class Post");
-        await Assert.That(generated).Contains("public required global::System.Guid Id { get; set; }");
-        await Assert.That(generated).Contains("public required string Email { get; set; }");
-        await Assert.That(generated).Contains("public string? Bio { get; set; }");
+        await Assert.That(generated).Contains("public required global::System.Guid Id { get; init; }");
+        await Assert.That(generated).Contains("public required string Email { get; init; }");
+        await Assert.That(generated).Contains("public string? Bio { get; init; }");
         // Optional single ref → Ref<User?> with Unloaded initializer (FR-047/048/049).
-        await Assert.That(generated).Contains("global::Dormant.Abstractions.Entities.Ref<User?> Manager { get; set; } = global::Dormant.Abstractions.Entities.Ref<User?>.Unloaded;");
+        await Assert.That(generated).Contains("global::Dormant.Abstractions.Entities.Ref<User?> Manager { get; init; } = global::Dormant.Abstractions.Entities.Ref<User?>.Unloaded;");
         // Collection → RefSet with Unloaded initializer, never = [] (FR-049).
-        await Assert.That(generated).Contains("global::Dormant.Abstractions.Entities.RefSet<Post> Posts { get; set; } = global::Dormant.Abstractions.Entities.RefSet<Post>.Unloaded;");
+        await Assert.That(generated).Contains("global::Dormant.Abstractions.Entities.RefSet<Post> Posts { get; init; } = global::Dormant.Abstractions.Entities.RefSet<Post>.Unloaded;");
         // Required single ref → required Ref<User> (FR-047/048).
-        await Assert.That(generated).Contains("public required global::Dormant.Abstractions.Entities.Ref<User> Author { get; set; }");
+        await Assert.That(generated).Contains("public required global::Dormant.Abstractions.Entities.Ref<User> Author { get; init; }");
         // PK identity equality emitted (FR-051).
         await Assert.That(generated).Contains("public bool Equals(User? other)");
         await Assert.That(generated).Contains(": global::System.IEquatable<User>");
@@ -65,24 +65,20 @@ public sealed class SchemaEmitTests
         await Assert.That(generated).Contains("internal User(global::Dormant.Abstractions.Querying.IFieldReader reader)");
         await Assert.That(generated).Contains("public User() { }");
         await Assert.That(generated).DoesNotContain("UnsafeAccessor");
-        // Per-entity binding (T044/US2): IEntityBinding, module-init registration, materialize delegates
-        // to the generated ctor, and prebuilt INSERT.
+        // 002: entities are IMMUTABLE — init-only, no public setters.
+        await Assert.That(generated).Contains("public required string Email { get; init; }");
+        await Assert.That(generated).DoesNotContain("get; set;");
+        // Per-entity binding (002): read + schema metadata only — Materialize, SelectByKey, Schema,
+        // CreateTableSql. No INSERT/UPDATE/DELETE/Snapshot/change-tracking (writes are commands).
         await Assert.That(generated).Contains("internal sealed class UserBinding : global::Dormant.Abstractions.Entities.IEntityBinding<User>");
         await Assert.That(generated).Contains("global::System.Runtime.CompilerServices.ModuleInitializer");
         await Assert.That(generated).Contains("public User Materialize(global::Dormant.Abstractions.Querying.IFieldReader reader)");
         await Assert.That(generated).Contains("return new User(reader);");
-        await Assert.That(generated).Contains("INSERT INTO");
-        // Change-tracking (T043/T045/T046): snapshot struct + diff Update (changed cols only) + Delete.
-        await Assert.That(generated).Contains("internal readonly record struct UserSnapshot(");
-        await Assert.That(generated).Contains("public object Snapshot(object entity)");
-        await Assert.That(generated).Contains("public global::Dormant.Abstractions.Querying.PreparedStatement? Update(object entity, object snapshot)");
-        await Assert.That(generated).Contains("public global::Dormant.Abstractions.Querying.PreparedStatement Delete(object entity)");
-        // User carries `version: int concurrency` → token bump in SET + match in WHERE (FR-015).
-        await Assert.That(generated).Contains("public bool TracksConcurrency => true;");
-        await Assert.That(generated).Contains("var newToken = s.Version + 1;");
-        await Assert.That(generated).Contains("DELETE FROM \\\"app\\\".\\\"user\\\" WHERE \\\"id\\\" = $1 AND \\\"version\\\" = $2");
-        // Post has no concurrency token.
-        await Assert.That(generated).Contains("internal readonly record struct PostSnapshot(");
+        await Assert.That(generated).Contains("public string CreateTableSql =>");
+        await Assert.That(generated).Contains("CREATE TABLE IF NOT EXISTS \\\"app\\\".\\\"user\\\"");
+        await Assert.That(generated).DoesNotContain("INSERT INTO");
+        await Assert.That(generated).DoesNotContain("TracksConcurrency");
+        await Assert.That(generated).DoesNotContain("Snapshot");
     }
 
     [Test]

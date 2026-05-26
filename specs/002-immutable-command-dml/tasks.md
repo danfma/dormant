@@ -23,10 +23,10 @@ commands; removes the mutable session + change-tracking). Paths below are reused
 > reshape replace the mutable API cleanly. Transitional state: mutable API + commands coexist until the next
 > pass removes the former.
 
-- [ ] T003 **[DEFERRED next pass — see sequencing note]** Emit **immutable** entities in `src/Dormant.SourceGeneration/Schema/EntityEmitter.cs`: init-only/positional members, **no public setters**, no snapshot; retain the no-reflection materialization ctor + PK identity equality + `Ref*` read-side members (FR-001)
-- [ ] T004 **[DEFERRED next pass]** Remove the change-tracking write/snapshot members from the entity binding in `src/Dormant.SourceGeneration/Schema/EntityBindingEmitter.cs` + `src/Dormant.Abstractions/Entities/IEntityBinding.cs` (drop `Insert`/`Update`/`Delete`/`Snapshot`/`TracksConcurrency`); keep `Materialize` + `SelectByKey` (reads) + `Schema`/`CreateTableSql` (DDL) (FR-003)
-- [ ] T005 **[DEFERRED next pass]** Reduce `ISession` to transaction + `GetAsync<T>` + `DisposeAsync`; **remove** `AddAsync`/`Remove` + mutable members (per contracts/public-api.md) (FR-010) _(additive `ExecuteCommandAsync` already added)_
-- [ ] T006 **[DEFERRED next pass]** Reduce `src/Dormant.Core/Persistence/Session.cs` to a thin unit-of-work: delete `_added`/`_tracked`/`_removed`, snapshot diff, UPDATE/DELETE-by-diff (FR-003/FR-010)
+- [X] T003 Emit **immutable** entities in `src/Dormant.SourceGeneration/Schema/EntityEmitter.cs`: init-only/positional members, **no public setters**, no snapshot; retain the no-reflection materialization ctor + PK identity equality + `Ref*` read-side members (FR-001)
+- [X] T004 Remove the change-tracking write/snapshot members from the entity binding in `src/Dormant.SourceGeneration/Schema/EntityBindingEmitter.cs` + `src/Dormant.Abstractions/Entities/IEntityBinding.cs` (drop `Insert`/`Update`/`Delete`/`Snapshot`/`TracksConcurrency`); keep `Materialize` + `SelectByKey` (reads) + `Schema`/`CreateTableSql` (DDL) (FR-003)
+- [X] T005 Reduce `ISession` to transaction + `GetAsync<T>` + `DisposeAsync`; **remove** `AddAsync`/`Remove` + mutable members (per contracts/public-api.md) (FR-010) _(additive `ExecuteCommandAsync` already added)_
+- [X] T006 Reduce `src/Dormant.Core/Persistence/Session.cs` to a thin unit-of-work: delete `_added`/`_tracked`/`_removed`, snapshot diff, UPDATE/DELETE-by-diff (FR-003/FR-010)
 - [X] T007 Add `CompiledCommand<TResult>` in `src/Dormant.Abstractions/Querying/CompiledCommand.cs` (prebuilt statement + no-boxing binder + result materializer) (FR-005/FR-012) _(+ `ISession.ExecuteCommandAsync` + `Session` impl)_
 - [ ] T008 Extend the SQL IR in `src/Dormant.SourceGeneration/Ir/SqlIr.cs` with `UpdateStatement`, `DeleteStatement`, a `Returning` clause, and a `CteStatement` (ordered `WITH` steps + final) (FR-004) _(DEFERRED to US2/US6: US1's INSERT…RETURNING SQL is built directly in `CommandEmitter`; CTE nodes land with nested writes)_
 - [X] T009 Add the command AST in `src/Dormant.SourceGeneration/Parsing/CommandModel.cs` (`CommandFile`, `CommandModel`, `Assignment`, `CommandValue`) equatable for caching _(WriteNode tree + WithBinding land with nested/`with` in US2/US3)_
@@ -78,8 +78,8 @@ commands; removes the mutable session + change-tracking). Paths below are reused
 **Independent Test**: run an authored `select`; result is immutable + exactly the requested shape; accessing a non-selected field does not compile.
 
 - [ ] T025 [P] [US4] Integration: query returns immutable entity + flat projection; field round-trips in `tests/Dormant.Provider.PostgreSql.Tests/ImmutableReadTests.cs`
-- [ ] T026 [US4] Confirm/adjust the carried-over query emit (`QueryEmitter`) to return the immutable entity/record types (no setters) and reuse a `CompiledQuery<T>` definition (FR-009/FR-012)
-- [ ] T027 [US4] Confirm `GetAsync<T>` returns the immutable instance via the read identity map (one instance per key) in `src/Dormant.Core/Persistence/Session.cs` (FR-010)
+- [X] T026 [US4] Confirm/adjust the carried-over query emit (`QueryEmitter`) to return the immutable entity/record types (no setters) and reuse a `CompiledQuery<T>` definition (FR-009/FR-012)
+- [X] T027 [US4] Confirm `GetAsync<T>` returns the immutable instance via the read identity map (one instance per key) in `src/Dormant.Core/Persistence/Session.cs` (FR-010)
 
 **Checkpoint**: reads are immutable + build-time-typed; no save-back API.
 
@@ -89,8 +89,8 @@ commands; removes the mutable session + change-tracking). Paths below are reused
 **Independent Test**: run two commands + a query in one transaction, commit atomically; same key read twice returns the same instance; no dirty-tracking.
 
 - [ ] T028 [P] [US5] Integration: multi-command transaction atomicity (commit all / rollback none) + read identity map in `tests/Dormant.Provider.PostgreSql.Tests/SessionTransactionTests.cs`
-- [ ] T029 [US5] Finalize `SessionFactory`/`Session` lifecycle (open → execute → commit/rollback → dispose) + identity-map population on read in `src/Dormant.Core/Persistence/` (FR-010)
-- [ ] T030 [US5] Delete obsolete `001` change-tracking tests and rewrite the CRUD-shaped ones as command-based (`tests/Dormant.Provider.PostgreSql.Tests/`: remove ChangeTracking/Concurrency-by-snapshot; migrate Crud→command) (FR-003)
+- [X] T029 [US5] Finalize `SessionFactory`/`Session` lifecycle (open → execute → commit/rollback → dispose) + identity-map population on read in `src/Dormant.Core/Persistence/` (FR-010)
+- [X] T030 [US5] Delete obsolete `001` change-tracking tests and rewrite the CRUD-shaped ones as command-based (`tests/Dormant.Provider.PostgreSql.Tests/`: remove ChangeTracking/Concurrency-by-snapshot; migrate Crud→command) (FR-003)
 
 **Checkpoint**: session is thin; no change-tracking remains; obsolete tests removed/migrated.
 

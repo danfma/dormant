@@ -28,7 +28,7 @@ public sealed class MigrationApplyTests
 
         await using (var session = await factory.OpenSessionAsync())
         {
-            await session.AddAsync(new Widget { Id = id, Name = "applied", Quantity = 3 });
+            await session.CreateWidget(id, "applied", 3);
             await session.CommitAsync();
         }
 

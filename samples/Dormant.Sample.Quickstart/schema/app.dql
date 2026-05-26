@@ -1,5 +1,9 @@
 module app;
 
+# Authored write command → INSERT … RETURNING the immutable User.
+command CreateUser(id: uuid, email: str, created_at: datetime, version: int) =
+  insert User { id := id, email := email, created_at := created_at, version := version };
+
 # Full-entity query → IAsyncEnumerable<User> with build-time SQL.
 query UsersByEmail(email: str) =
   select User

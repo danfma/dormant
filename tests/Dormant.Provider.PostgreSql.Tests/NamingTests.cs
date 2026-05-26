@@ -28,7 +28,7 @@ public sealed class NamingTests
 
         await using (var session = await factory.OpenSessionAsync())
         {
-            await session.AddAsync(new StockItem { Id = id, ItemName = "bolt" });
+            await session.CreateStockItem(id, "bolt");
             await session.CommitAsync();
         }
 
