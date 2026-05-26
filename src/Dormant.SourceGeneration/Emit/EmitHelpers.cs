@@ -35,39 +35,10 @@ internal static class TypeMap
     };
 
     /// <summary>Attempts to map a DormantQL value type to a CLR type.</summary>
-    public static bool TryMap(string dslType, out string clrType) =>
-        Map.TryGetValue(dslType, out clrType!);
+    public static bool TryMap(string dslType, out string clrType) => Map.TryGetValue(dslType, out clrType!);
 
-    // DormantQL value type → PostgreSQL column type, for generated DDL (FR-020). PostgreSQL-specific;
-    // a provider-neutral dialect abstraction is a later concern.
-    private static readonly Dictionary<string, string> SqlMap = new(System.StringComparer.Ordinal)
-    {
-        // 003 lowercase type keywords.
-        ["string"] = "text",
-        ["long"] = "bigint",
-        ["double"] = "double precision",
-        ["date"] = "date",
-        // Carried 002 type keywords.
-        ["str"] = "text",
-        ["bool"] = "boolean",
-        ["int16"] = "smallint",
-        ["int32"] = "integer",
-        ["int"] = "integer",
-        ["int64"] = "bigint",
-        ["float32"] = "real",
-        ["float64"] = "double precision",
-        ["decimal"] = "numeric",
-        ["bigint"] = "numeric",
-        ["uuid"] = "uuid",
-        ["datetime"] = "timestamptz",
-        ["duration"] = "interval",
-        ["bytes"] = "bytea",
-        ["json"] = "jsonb",
-    };
-
-    /// <summary>Maps a DormantQL value type to its PostgreSQL column type (falls back to <c>text</c>).</summary>
-    public static string ToSqlType(string dslType) =>
-        SqlMap.TryGetValue(dslType, out var sql) ? sql : "text";
+    // DormantQL value type → SQL column type is now per-dialect (005 D6); each
+    // Ir.Dialects.ISqlDialectRenderer.TypeName owns its mapping. The DDL IR carries the DormantQL type.
 }
 
 /// <summary>Deterministic naming helpers (ordinal, culture-invariant) for generated code (research §5).</summary>
@@ -99,12 +70,7 @@ internal static class Naming
     /// <c>schema/app.dqls</c> in <c>Dormant.Sample.Quickstart</c> → <c>Dormant.Sample.Quickstart.Schema.App</c>).
     /// Falls back gracefully when the project's root namespace or directory is unknown.
     /// </summary>
-    public static string ComputeNamespace(
-        string? rootNamespace,
-        string? projectDir,
-        string filePath,
-        string moduleName
-    )
+    public static string ComputeNamespace(string? rootNamespace, string? projectDir, string filePath, string moduleName)
     {
         var parts = new List<string>();
 
@@ -114,10 +80,8 @@ internal static class Naming
         }
 
         var dir = Path.GetDirectoryName(filePath) ?? string.Empty;
-        if (
-            !string.IsNullOrEmpty(projectDir)
-            && dir.StartsWith(projectDir!.TrimEnd('/', '\\'), StringComparison.Ordinal)
-        )
+        if (!string.IsNullOrEmpty(projectDir) &&
+            dir.StartsWith(projectDir!.TrimEnd('/', '\\'), StringComparison.Ordinal))
         {
             dir = dir.Substring(projectDir!.TrimEnd('/', '\\').Length);
         }

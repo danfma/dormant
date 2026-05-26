@@ -6,6 +6,7 @@
     <Project Path="src/Dormant.Abstractions/Dormant.Abstractions.csproj" />
     <Project Path="src/Dormant.Core/Dormant.Core.csproj" />
     <Project Path="src/Dormant.Provider.PostgreSql/Dormant.Provider.PostgreSql.csproj" />
+    <Project Path="src/Dormant.Provider.Sqlite/Dormant.Provider.Sqlite.csproj" />
     <Project Path="src/Dormant.SourceGeneration/Dormant.SourceGeneration.csproj" />
     <Project Path="src/Dormant.Spatial.PostgreSql/Dormant.Spatial.PostgreSql.csproj" />
     <Project Path="src/Dormant.Tool/Dormant.Tool.csproj" />
@@ -15,6 +16,7 @@
     <Project Path="tests/Dormant.Benchmarks/Dormant.Benchmarks.csproj" />
     <Project Path="tests/Dormant.Core.Tests/Dormant.Core.Tests.csproj" />
     <Project Path="tests/Dormant.Provider.PostgreSql.Tests/Dormant.Provider.PostgreSql.Tests.csproj" />
+    <Project Path="tests/Dormant.Providers.ConformanceTests/Dormant.Providers.ConformanceTests.csproj" />
     <Project Path="tests/Dormant.SourceGeneration.Tests/Dormant.SourceGeneration.Tests.csproj" />
     <Project Path="tests/Dormant.Spatial.PostgreSql.Tests/Dormant.Spatial.PostgreSql.Tests.csproj" />
   </Folder>

@@ -18,6 +18,13 @@
     <PackageVersion Include="NetTopologySuite" Version="2.5.0" />
   </ItemGroup>
 
+  <!-- SQLite provider (AOT-friendly: Microsoft.Data.Sqlite.Core + the static e_sqlite3 bundle, explicit
+       Batteries_V2.Init). Core 10.0.8 pins SQLitePCLRaw.core 2.1.11, so the bundle matches that line. -->
+  <ItemGroup>
+    <PackageVersion Include="Microsoft.Data.Sqlite.Core" Version="10.0.8" />
+    <PackageVersion Include="SQLitePCLRaw.bundle_e_sqlite3" Version="2.1.11" />
+  </ItemGroup>
+
   <!-- Test / benchmark tooling. TUnit (source-generated, AOT-native) on Microsoft.Testing.Platform. -->
   <ItemGroup>
     <PackageVersion Include="TUnit" Version="1.45.29" />

@@ -39,29 +39,21 @@ public sealed class NamingConventionTests
         var generated = Run();
 
         // Table and columns are snake_case in the prebuilt CREATE TABLE DDL (schema-qualified, module → schema).
-        await Assert
-            .That(generated)
-            .Contains("CREATE TABLE IF NOT EXISTS \\\"shop\\\".\\\"recent_post\\\"");
-        await Assert.That(generated).Contains("\\\"created_at\\\"");
+        await Assert.That(generated).Contains("CREATE TABLE IF NOT EXISTS \"shop\".\"recent_post\"");
+        await Assert.That(generated).Contains("\"created_at\"");
         // C# member names are unaffected (PascalCase).
-        await Assert
-            .That(generated)
-            .Contains("public required global::System.DateTime CreatedAt { get; init; }");
+        await Assert.That(generated).Contains("public required global::System.DateTime CreatedAt { get; init; }");
     }
 
     [Test]
     public async Task Verbatim_convention_preserves_authored_identifiers()
     {
-        var generated = Run(
-            new Dictionary<string, string>
-            {
-                ["build_property.DormantNamingConvention"] = "verbatim",
-            }
-        );
+        var generated = Run(new Dictionary<string, string>
+        {
+            ["build_property.DormantNamingConvention"] = "verbatim",
+        });
 
-        await Assert
-            .That(generated)
-            .Contains("CREATE TABLE IF NOT EXISTS \\\"shop\\\".\\\"RecentPost\\\"");
-        await Assert.That(generated).Contains("\\\"createdAt\\\"");
+        await Assert.That(generated).Contains("CREATE TABLE IF NOT EXISTS \"shop\".\"RecentPost\"");
+        await Assert.That(generated).Contains("\"createdAt\"");
     }
 }

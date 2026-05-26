@@ -186,8 +186,12 @@ constrained by — equal in priority to SQLite itself.
   no SQL-text assumption in the core (verifiable by inspecting the boundary contract).
 - **SC-005**: Test runs against SQLite (in-memory) require **no Docker daemon** and complete a representative
   CRUD + query round-trip in a fraction of the PostgreSQL/Testcontainers time.
-- **SC-006**: Adding a provider required **0** changes to the public core API / DSL / generated-code contract
-  (verifiable: only the new adapter packages + the dialect layer changed).
+- **SC-006**: Adding a **provider** (a new dialect) requires **0** changes to the consumer-facing surface —
+  the public core API, the DSL, and the generated **method signatures** consumers bind to (verifiable:
+  adding the SQLite dialect changed only the generator's dialect set + the new adapter package). The
+  one-time dialect-framework seam that introduces per-dialect variant selection alters generated-code
+  *internals* additively (within-MAJOR; PostgreSQL output byte-identical) — it does not change the consumer
+  contract. This distinction is what FR-008 protects.
 
 ## Assumptions
 

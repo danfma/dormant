@@ -1,0 +1,49 @@
+module catalog;
+
+# Insert … RETURNING the full inserted entity.
+mutation create_widget(id: uuid, name: string, quantity: int) {
+  insert Widget w {
+    w.id = id
+    w.name = name
+    w.quantity = quantity
+  }
+}
+
+# JSON value round-trip (stored as jsonb on PostgreSQL, TEXT on SQLite).
+mutation create_document(id: uuid, data: json) {
+  insert Document d {
+    d.id = id
+    d.data = data
+  }
+}
+
+# with-block (FR-021/FR-022): bind an inserted Author, then insert an Article whose `writer` FK flows from
+# the bound author id. Each binding is its own statement in the transaction. Returns the article id.
+mutation create_author_with_article(aid: uuid, aname: string, artid: uuid, title: string) {
+  with a = (insert Author x {
+    x.id = aid
+    x.name = aname
+  })
+  insert Article r {
+    r.id = artid
+    r.title = title
+    r.writer = a
+  }
+  returning r.id
+}
+
+# Static full-entity query.
+query widgets_by_name(name: string) {
+  from Widget w
+  where w.name == name
+  select w
+}
+
+# Optional parameters (dynamic fragment selection): each filter is included only when supplied; the
+# result type is identical for every combination.
+query search_widgets(minQuantity: optional int, name: optional string) {
+  from Widget w
+  where w.quantity >= minQuantity && w.name == name
+  order by w.name asc
+  select w
+}

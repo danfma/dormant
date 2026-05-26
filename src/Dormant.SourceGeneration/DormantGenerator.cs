@@ -1,8 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Dormant.SourceGeneration.Command;
 using Dormant.SourceGeneration.Diagnostics;
+using Dormant.SourceGeneration.Command;
 using Dormant.SourceGeneration.Emit;
 using Dormant.SourceGeneration.Parsing;
 using Dormant.SourceGeneration.Query;
@@ -23,132 +23,83 @@ public sealed class DormantGenerator : IIncrementalGenerator
     /// <inheritdoc/>
     public void Initialize(IncrementalGeneratorInitializationContext context)
     {
-        var config = context
-            .AnalyzerConfigOptionsProvider.Select(
-                static (provider, _) =>
-                {
-                    provider.GlobalOptions.TryGetValue(
-                        "build_property.RootNamespace",
-                        out var rootNamespace
-                    );
-                    provider.GlobalOptions.TryGetValue(
-                        "build_property.ProjectDir",
-                        out var projectDir
-                    );
-                    provider.GlobalOptions.TryGetValue(
-                        "build_property.DormantNamingConvention",
-                        out var naming
-                    );
-                    return new GeneratorConfig(
-                        rootNamespace,
-                        projectDir,
-                        NamingConventions.Parse(naming)
-                    );
-                }
-            )
+        var config = context.AnalyzerConfigOptionsProvider
+            .Select(static (provider, _) =>
+            {
+                provider.GlobalOptions.TryGetValue("build_property.RootNamespace", out var rootNamespace);
+                provider.GlobalOptions.TryGetValue("build_property.ProjectDir", out var projectDir);
+                provider.GlobalOptions.TryGetValue("build_property.DormantNamingConvention", out var naming);
+                return new GeneratorConfig(rootNamespace, projectDir, NamingConventions.Parse(naming));
+            })
             .WithTrackingName(TrackingNames.Config);
 
-        var schemas = context
-            .AdditionalTextsProvider.Where(static text =>
-                text.Path.EndsWith(".dqls", StringComparison.Ordinal)
-            )
-            .Select(
-                static (text, cancellationToken) =>
-                    new DslFile(
-                        text.Path,
-                        text.GetText(cancellationToken)?.ToString() ?? string.Empty
-                    )
-            )
+        var schemas = context.AdditionalTextsProvider
+            .Where(static text => text.Path.EndsWith(".dqls", StringComparison.Ordinal))
+            .Select(static (text, cancellationToken) =>
+                new DslFile(text.Path, text.GetText(cancellationToken)?.ToString() ?? string.Empty))
             .WithTrackingName(TrackingNames.LoadDslFiles)
             .Select(static (file, _) => BuildSchema(file))
             .WithTrackingName(TrackingNames.ParseSchema);
 
-        context.RegisterSourceOutput(
-            schemas.Combine(config),
-            static (productionContext, pair) =>
+        context.RegisterSourceOutput(schemas.Combine(config), static (productionContext, pair) =>
+        {
+            var (schema, generatorConfig) = pair;
+
+            foreach (var diagnostic in schema.Diagnostics)
             {
-                var (schema, generatorConfig) = pair;
+                productionContext.ReportDiagnostic(diagnostic.ToDiagnostic());
+            }
 
-                foreach (var diagnostic in schema.Diagnostics)
+            if (!schema.IsValid)
+            {
+                return;
+            }
+
+            var @namespace = Naming.ComputeNamespace(
+                generatorConfig.RootNamespace,
+                generatorConfig.ProjectDir,
+                schema.FilePath,
+                schema.ModuleName);
+
+            // The module maps to a database schema (FR-045); its name follows the active convention.
+            var schemaName = NamingConventions.Resolve(schema.ModuleName, null, generatorConfig.Naming);
+
+            // FR-020: a single ref → a `<ref>_id` FK column typed as the target entity's primary key. Map
+            // each entity name to its PK DormantQL type so the binding emitter can type those columns; the
+            // per-dialect renderer maps the DormantQL type to the engine's SQL type (005 D6).
+            var refPkDslTypes = new Dictionary<string, string>(StringComparer.Ordinal);
+            foreach (var e in schema.Entities)
+            {
+                var pk = System.Linq.Enumerable.FirstOrDefault(e.Properties, p => p.IsPrimary);
+                if (pk is not null)
                 {
-                    productionContext.ReportDiagnostic(diagnostic.ToDiagnostic());
-                }
-
-                if (!schema.IsValid)
-                {
-                    return;
-                }
-
-                var @namespace = Naming.ComputeNamespace(
-                    generatorConfig.RootNamespace,
-                    generatorConfig.ProjectDir,
-                    schema.FilePath,
-                    schema.ModuleName
-                );
-
-                // The module maps to a database schema (FR-045); its name follows the active convention.
-                var schemaName = NamingConventions.Resolve(
-                    schema.ModuleName,
-                    null,
-                    generatorConfig.Naming
-                );
-
-                // FR-020: a single ref → a `<ref>_id` FK column typed as the target entity's primary key. Map
-                // each entity name to its PK SQL type so the binding emitter can type those columns.
-                var refPkSqlTypes = new Dictionary<string, string>(StringComparer.Ordinal);
-                foreach (var e in schema.Entities)
-                {
-                    var pk = System.Linq.Enumerable.FirstOrDefault(e.Properties, p => p.IsPrimary);
-                    if (pk is not null)
-                    {
-                        refPkSqlTypes[e.Name] = TypeMap.ToSqlType(pk.DslType);
-                    }
-                }
-
-                foreach (var entity in schema.Entities)
-                {
-                    foreach (
-                        var collision in NameResolution.FindColumnCollisions(
-                            entity,
-                            generatorConfig.Naming
-                        )
-                    )
-                    {
-                        productionContext.ReportDiagnostic(collision.ToDiagnostic());
-                    }
-
-                    productionContext.AddSource(
-                        Naming.HintName(@namespace, entity.Name),
-                        EntityEmitter.Emit(@namespace, entity)
-                    );
-
-                    productionContext.AddSource(
-                        Naming.HintName(@namespace, entity.Name + ".Binding"),
-                        EntityBindingEmitter.Emit(
-                            @namespace,
-                            entity,
-                            schemaName,
-                            generatorConfig.Naming,
-                            refPkSqlTypes
-                        )
-                    );
+                    refPkDslTypes[e.Name] = pk.DslType;
                 }
             }
-        );
+
+            foreach (var entity in schema.Entities)
+            {
+                foreach (var collision in NameResolution.FindColumnCollisions(entity, generatorConfig.Naming))
+                {
+                    productionContext.ReportDiagnostic(collision.ToDiagnostic());
+                }
+
+                productionContext.AddSource(
+                    Naming.HintName(@namespace, entity.Name),
+                    EntityEmitter.Emit(@namespace, entity));
+
+                productionContext.AddSource(
+                    Naming.HintName(@namespace, entity.Name + ".Binding"),
+                    EntityBindingEmitter.Emit(@namespace, entity, schemaName, generatorConfig.Naming, refPkDslTypes));
+            }
+        });
 
         // Query files (.dql) compile to ISession extension methods carrying build-time SQL (US3). They
         // resolve their selected entity against the full set of parsed schemas (combined here).
-        var queries = context
-            .AdditionalTextsProvider.Where(static text =>
-                text.Path.EndsWith(".dql", StringComparison.Ordinal)
-            )
-            .Select(
-                static (text, cancellationToken) =>
-                    new DslFile(
-                        text.Path,
-                        text.GetText(cancellationToken)?.ToString() ?? string.Empty
-                    )
-            )
+        var queries = context.AdditionalTextsProvider
+            .Where(static text => text.Path.EndsWith(".dql", StringComparison.Ordinal))
+            .Select(static (text, cancellationToken) =>
+                new DslFile(text.Path, text.GetText(cancellationToken)?.ToString() ?? string.Empty))
             .WithTrackingName(TrackingNames.LoadQueryFiles)
             .Select(static (file, _) => BuildQueries(file))
             .WithTrackingName(TrackingNames.ParseQueries);
@@ -171,16 +122,10 @@ public sealed class DormantGenerator : IIncrementalGenerator
 
                 // Map each entity to its model + the database schema (module) it belongs to, so query SQL
                 // can schema-qualify the table (FR-045).
-                var entities = new Dictionary<string, (EntityModel Entity, string Schema)>(
-                    StringComparer.Ordinal
-                );
+                var entities = new Dictionary<string, (EntityModel Entity, string Schema)>(StringComparer.Ordinal);
                 foreach (var schema in allSchemas)
                 {
-                    var schemaName = NamingConventions.Resolve(
-                        schema.ModuleName,
-                        null,
-                        generatorConfig.Naming
-                    );
+                    var schemaName = NamingConventions.Resolve(schema.ModuleName, null, generatorConfig.Naming);
                     foreach (var entity in schema.Entities)
                     {
                         entities[entity.Name] = (entity, schemaName);
@@ -191,15 +136,9 @@ public sealed class DormantGenerator : IIncrementalGenerator
                     generatorConfig.RootNamespace,
                     generatorConfig.ProjectDir,
                     queryFile.FilePath,
-                    queryFile.ModuleName
-                );
+                    queryFile.ModuleName);
 
-                var (source, diagnostics) = QueryEmitter.Emit(
-                    @namespace,
-                    queryFile,
-                    entities,
-                    generatorConfig.Naming
-                );
+                var (source, diagnostics) = QueryEmitter.Emit(@namespace, queryFile, entities, generatorConfig.Naming);
 
                 foreach (var diagnostic in diagnostics)
                 {
@@ -210,27 +149,16 @@ public sealed class DormantGenerator : IIncrementalGenerator
                 {
                     var className = Naming.ToPascalCase(queryFile.ModuleName) + "Queries";
                     var fileName = System.IO.Path.GetFileNameWithoutExtension(queryFile.FilePath);
-                    productionContext.AddSource(
-                        $"{@namespace}.{className}.{fileName}.g.cs",
-                        source
-                    );
+                    productionContext.AddSource($"{@namespace}.{className}.{fileName}.g.cs", source);
                 }
-            }
-        );
+            });
 
         // Command files (.dql) compile to ISession write-command extension methods carrying build-time SQL
         // (002 fork, FR-002). Same files as queries; the command parser extracts `command` blocks.
-        var commands = context
-            .AdditionalTextsProvider.Where(static text =>
-                text.Path.EndsWith(".dql", StringComparison.Ordinal)
-            )
-            .Select(
-                static (text, cancellationToken) =>
-                    new DslFile(
-                        text.Path,
-                        text.GetText(cancellationToken)?.ToString() ?? string.Empty
-                    )
-            )
+        var commands = context.AdditionalTextsProvider
+            .Where(static text => text.Path.EndsWith(".dql", StringComparison.Ordinal))
+            .Select(static (text, cancellationToken) =>
+                new DslFile(text.Path, text.GetText(cancellationToken)?.ToString() ?? string.Empty))
             .WithTrackingName(TrackingNames.LoadCommandFiles)
             .Select(static (file, _) => BuildCommands(file))
             .WithTrackingName(TrackingNames.ParseCommands);
@@ -251,16 +179,10 @@ public sealed class DormantGenerator : IIncrementalGenerator
                     return;
                 }
 
-                var entities = new Dictionary<string, (EntityModel Entity, string Schema)>(
-                    StringComparer.Ordinal
-                );
+                var entities = new Dictionary<string, (EntityModel Entity, string Schema)>(StringComparer.Ordinal);
                 foreach (var schema in allSchemas)
                 {
-                    var schemaName = NamingConventions.Resolve(
-                        schema.ModuleName,
-                        null,
-                        generatorConfig.Naming
-                    );
+                    var schemaName = NamingConventions.Resolve(schema.ModuleName, null, generatorConfig.Naming);
                     foreach (var entity in schema.Entities)
                     {
                         entities[entity.Name] = (entity, schemaName);
@@ -271,15 +193,9 @@ public sealed class DormantGenerator : IIncrementalGenerator
                     generatorConfig.RootNamespace,
                     generatorConfig.ProjectDir,
                     commandFile.FilePath,
-                    commandFile.ModuleName
-                );
+                    commandFile.ModuleName);
 
-                var (source, diagnostics) = CommandEmitter.Emit(
-                    @namespace,
-                    commandFile,
-                    entities,
-                    generatorConfig.Naming
-                );
+                var (source, diagnostics) = CommandEmitter.Emit(@namespace, commandFile, entities, generatorConfig.Naming);
 
                 foreach (var diagnostic in diagnostics)
                 {
@@ -290,13 +206,9 @@ public sealed class DormantGenerator : IIncrementalGenerator
                 {
                     var className = Naming.ToPascalCase(commandFile.ModuleName) + "Commands";
                     var fileName = System.IO.Path.GetFileNameWithoutExtension(commandFile.FilePath);
-                    productionContext.AddSource(
-                        $"{@namespace}.{className}.{fileName}.commands.g.cs",
-                        source
-                    );
+                    productionContext.AddSource($"{@namespace}.{className}.{fileName}.commands.g.cs", source);
                 }
-            }
-        );
+            });
     }
 
     private static SchemaModel BuildSchema(DslFile file)
@@ -309,8 +221,7 @@ public sealed class DormantGenerator : IIncrementalGenerator
             parse.ModuleName,
             file.Path,
             new EquatableArray<EntityModel>([.. parse.Entities]),
-            new EquatableArray<DiagnosticInfo>([.. diagnostics])
-        );
+            new EquatableArray<DiagnosticInfo>([.. diagnostics]));
     }
 
     // 003: one unified pass per .dql produces both reads and writes; we project to QueryFile/CommandFile so
@@ -323,8 +234,7 @@ public sealed class DormantGenerator : IIncrementalGenerator
             parse.ModuleName,
             file.Path,
             new EquatableArray<QueryModel>([.. parse.Queries]),
-            new EquatableArray<DiagnosticInfo>([.. parse.Diagnostics])
-        );
+            new EquatableArray<DiagnosticInfo>([.. parse.Diagnostics]));
     }
 
     private static CommandFile BuildCommands(DslFile file)
@@ -334,8 +244,7 @@ public sealed class DormantGenerator : IIncrementalGenerator
             parse.ModuleName,
             file.Path,
             new EquatableArray<CommandModel>([.. parse.Commands]),
-            new EquatableArray<DiagnosticInfo>(System.Array.Empty<DiagnosticInfo>())
-        );
+            new EquatableArray<DiagnosticInfo>(System.Array.Empty<DiagnosticInfo>()));
     }
 }
 
@@ -351,8 +260,7 @@ internal readonly record struct DslFile(string Path, string Text);
 internal readonly record struct GeneratorConfig(
     string? RootNamespace,
     string? ProjectDir,
-    NamingConvention Naming
-);
+    NamingConvention Naming);
 
 /// <summary>Stable pipeline step names used by cacheability tests (research §8).</summary>
 internal static class TrackingNames
