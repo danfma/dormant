@@ -26,7 +26,8 @@ internal static class QueryEmitter
         string @namespace,
         QueryFile file,
         IReadOnlyDictionary<string, (EntityModel Entity, string Schema)> entities,
-        NamingConvention convention)
+        NamingConvention convention
+    )
     {
         var diagnostics = new List<DiagnosticInfo>();
         var bodies = new List<string>();
@@ -36,8 +37,14 @@ internal static class QueryEmitter
         {
             if (!entities.TryGetValue(query.RootEntity, out var entry))
             {
-                diagnostics.Add(Diag(
-                    DiagnosticDescriptors.UnknownQueryEntity, file.FilePath, query.Name, query.RootEntity));
+                diagnostics.Add(
+                    Diag(
+                        DiagnosticDescriptors.UnknownQueryEntity,
+                        file.FilePath,
+                        query.Name,
+                        query.RootEntity
+                    )
+                );
                 continue;
             }
 
@@ -46,7 +53,9 @@ internal static class QueryEmitter
                 continue;
             }
 
-            bodies.Add(EmitMethod(query, entry.Entity, entry.Schema, convention, out var projection));
+            bodies.Add(
+                EmitMethod(query, entry.Entity, entry.Schema, convention, out var projection)
+            );
             if (projection is not null)
             {
                 projections.Add(projection);
@@ -93,18 +102,32 @@ internal static class QueryEmitter
         QueryModel query,
         EntityModel entity,
         string filePath,
-        List<DiagnosticInfo> diagnostics)
+        List<DiagnosticInfo> diagnostics
+    )
     {
         var ok = true;
-        var columns = new HashSet<string>(entity.Properties.Select(p => p.Name), System.StringComparer.Ordinal);
-        var parameters = new HashSet<string>(query.Parameters.Select(p => p.Name), System.StringComparer.Ordinal);
+        var columns = new HashSet<string>(
+            entity.Properties.Select(p => p.Name),
+            System.StringComparer.Ordinal
+        );
+        var parameters = new HashSet<string>(
+            query.Parameters.Select(p => p.Name),
+            System.StringComparer.Ordinal
+        );
 
         void Column(string column)
         {
             if (!columns.Contains(column))
             {
-                diagnostics.Add(Diag(
-                    DiagnosticDescriptors.UnknownQueryColumn, filePath, query.Name, column, entity.Name));
+                diagnostics.Add(
+                    Diag(
+                        DiagnosticDescriptors.UnknownQueryColumn,
+                        filePath,
+                        query.Name,
+                        column,
+                        entity.Name
+                    )
+                );
                 ok = false;
             }
         }
@@ -113,8 +136,14 @@ internal static class QueryEmitter
         {
             if (!parameters.Contains(parameter))
             {
-                diagnostics.Add(Diag(
-                    DiagnosticDescriptors.UnknownQueryParameter, filePath, query.Name, parameter));
+                diagnostics.Add(
+                    Diag(
+                        DiagnosticDescriptors.UnknownQueryParameter,
+                        filePath,
+                        query.Name,
+                        parameter
+                    )
+                );
                 ok = false;
             }
         }
@@ -148,7 +177,13 @@ internal static class QueryEmitter
         return ok;
     }
 
-    private static string EmitMethod(QueryModel query, EntityModel entity, string schema, NamingConvention convention, out string? projection)
+    private static string EmitMethod(
+        QueryModel query,
+        EntityModel entity,
+        string schema,
+        NamingConvention convention,
+        out string? projection
+    )
     {
         // 003: the authored snake_case unit name becomes a PascalCase C# method; the projection record
         // mirrors it ({Method}Result).
@@ -172,18 +207,24 @@ internal static class QueryEmitter
         // become nullable and default to null (FR-012/FR-031).
         var declared = string.Join(
             ", ",
-            query.Parameters
-                .OrderBy(p => p.IsOptional)
-                .Select(p => p.IsOptional ? $"{p.ClrType}? {p.Name} = default" : $"{p.ClrType} {p.Name}"));
+            query
+                .Parameters.OrderBy(p => p.IsOptional)
+                .Select(p =>
+                    p.IsOptional ? $"{p.ClrType}? {p.Name} = default" : $"{p.ClrType} {p.Name}"
+                )
+        );
         var parameterList = declared.Length > 0 ? declared + ", " : string.Empty;
 
         var optionalNames = new HashSet<string>(
-            query.Parameters.Where(p => p.IsOptional).Select(p => p.Name), System.StringComparer.Ordinal);
+            query.Parameters.Where(p => p.IsOptional).Select(p => p.Name),
+            System.StringComparer.Ordinal
+        );
         var dynamic = query.Filters.Any(f => optionalNames.Contains(f.ParameterName));
 
         // Inside the extension block the receiver `session` is implicit — no `this` parameter.
-        var writer = new SourceWriter()
-            .Open($"public global::System.Collections.Generic.IAsyncEnumerable<{resultType}> {methodName}({parameterList}global::System.Threading.CancellationToken cancellationToken = default)");
+        var writer = new SourceWriter().Open(
+            $"public global::System.Collections.Generic.IAsyncEnumerable<{resultType}> {methodName}({parameterList}global::System.Threading.CancellationToken cancellationToken = default)"
+        );
 
         if (dynamic)
         {
@@ -195,7 +236,9 @@ internal static class QueryEmitter
         }
 
         writer
-            .Line($"var query = new {Abs}.Querying.CompiledQuery<{resultType}>(statement, {materializer});")
+            .Line(
+                $"var query = new {Abs}.Querying.CompiledQuery<{resultType}>(statement, {materializer});"
+            )
             .Line("return session.QueryAsync(query, cancellationToken);")
             .Close();
 
@@ -205,16 +248,19 @@ internal static class QueryEmitter
     // No optional filters: the SQL is fully known at build time (one IR-rendered variant per dialect,
     // selected by session.Dialect) with a fixed bind order.
     private static void EmitStaticStatement(
-        SourceWriter writer, QueryModel query, EntityModel entity, string schema, NamingConvention convention)
+        SourceWriter writer,
+        QueryModel query,
+        EntityModel entity,
+        string schema,
+        NamingConvention convention
+    )
     {
         var parameterOrder = new List<string>();
         var select = BuildSelect(query, entity, schema, convention, parameterOrder);
 
         writer.Line($"var statement = new {Abs}.Querying.PreparedStatement(");
         DialectSwitch.WriteStatementArg(writer, "    ", "session.Dialect", select, ",");
-        writer
-            .Line("    writer =>")
-            .Line("    {");
+        writer.Line("    writer =>").Line("    {");
 
         for (var i = 0; i < parameterOrder.Count; i++)
         {
@@ -233,12 +279,16 @@ internal static class QueryEmitter
         EntityModel entity,
         string schema,
         NamingConvention convention,
-        HashSet<string> optionalNames)
+        HashSet<string> optionalNames
+    )
     {
-        var colNames = (query.IsProjection
-            ? query.ProjectionFields.Select(f => ColByName(entity, f, convention))
-            : entity.Properties.Select(p => NamingConventions.Resolve(p.Name, p.NameOverride, convention)))
-            .ToList();
+        var colNames = (
+            query.IsProjection
+                ? query.ProjectionFields.Select(f => ColByName(entity, f, convention))
+                : entity.Properties.Select(p =>
+                    NamingConventions.Resolve(p.Name, p.NameOverride, convention)
+                )
+        ).ToList();
         var tableName = NamingConventions.Resolve(entity.Name, entity.NameOverride, convention);
 
         // The static seed (SELECT cols FROM table) varies by dialect (table qualification); the dynamic WHERE
@@ -249,8 +299,13 @@ internal static class QueryEmitter
             writer,
             "    ",
             "session.Dialect",
-            r => "SELECT " + string.Join(", ", colNames.Select(r.Quote)) + " FROM " + r.QualifyTable(schema, tableName),
-            ");");
+            r =>
+                "SELECT "
+                + string.Join(", ", colNames.Select(r.Quote))
+                + " FROM "
+                + r.QualifyTable(schema, tableName),
+            ");"
+        );
         writer
             .Line("int p = 0;")
             .Line("var conds = new global::System.Collections.Generic.List<string>();");
@@ -259,7 +314,8 @@ internal static class QueryEmitter
         // Required filters always contribute; optional filters only when their parameter is non-null.
         foreach (var filter in query.Filters)
         {
-            var fragment = $"\"{Lit(ColByName(entity, filter.Column, convention))} {OperatorSql(filter.Op)} \" + Ph(++p)";
+            var fragment =
+                $"\"{Lit(ColByName(entity, filter.Column, convention))} {OperatorSql(filter.Op)} \" + Ph(++p)";
             if (optionalNames.Contains(filter.ParameterName))
             {
                 writer.Line($"if ({filter.ParameterName} != null) {{ conds.Add({fragment}); }}");
@@ -270,12 +326,18 @@ internal static class QueryEmitter
             }
         }
 
-        writer.Line("if (conds.Count > 0) { sql.Append(\" WHERE \").Append(string.Join(\" AND \", conds)); }");
+        writer.Line(
+            "if (conds.Count > 0) { sql.Append(\" WHERE \").Append(string.Join(\" AND \", conds)); }"
+        );
 
         if (query.OrderBy.Count > 0)
         {
             var orderLit = string.Join(
-                ", ", query.OrderBy.Select(t => Lit(ColByName(entity, t.Column, convention)) + (t.Descending ? " DESC" : " ASC")));
+                ", ",
+                query.OrderBy.Select(t =>
+                    Lit(ColByName(entity, t.Column, convention)) + (t.Descending ? " DESC" : " ASC")
+                )
+            );
             writer.Line($"sql.Append(\" ORDER BY {orderLit}\");");
         }
 
@@ -292,7 +354,9 @@ internal static class QueryEmitter
             var value = BindExpression(filter.ParameterName, query);
             if (optionalNames.Contains(filter.ParameterName))
             {
-                writer.Line($"    if ({filter.ParameterName} != null) {{ writer.Write(++i, {value}); }}");
+                writer.Line(
+                    $"    if ({filter.ParameterName} != null) {{ writer.Write(++i, {value}); }}"
+                );
             }
             else
             {
@@ -313,10 +377,14 @@ internal static class QueryEmitter
         writer.Line("{");
         foreach (var renderer in Ir.Dialects.DialectRenderers.All)
         {
-            writer.Line($"    global::Dormant.Abstractions.Providers.DialectId.{renderer.EnumMember} => {renderer.DynamicPlaceholderExpr("n")},");
+            writer.Line(
+                $"    global::Dormant.Abstractions.Providers.DialectId.{renderer.EnumMember} => {renderer.DynamicPlaceholderExpr("n")},"
+            );
         }
 
-        writer.Line("    _ => throw new global::System.NotSupportedException(\"Dormant: no SQL variant for dialect \" + session.Dialect + \".\"),");
+        writer.Line(
+            "    _ => throw new global::System.NotSupportedException(\"Dormant: no SQL variant for dialect \" + session.Dialect + \".\"),"
+        );
         writer.Line("};");
     }
 
@@ -334,11 +402,17 @@ internal static class QueryEmitter
         }
         else
         {
-            writer.Line($"sql.Append(\" {keyword} {limit.Literal.ToString(System.Globalization.CultureInfo.InvariantCulture)}\");");
+            writer.Line(
+                $"sql.Append(\" {keyword} {limit.Literal.ToString(System.Globalization.CultureInfo.InvariantCulture)}\");"
+            );
         }
     }
 
-    private static void EmitDynamicLimitBind(SourceWriter writer, LimitValue? limit, QueryModel query)
+    private static void EmitDynamicLimitBind(
+        SourceWriter writer,
+        LimitValue? limit,
+        QueryModel query
+    )
     {
         if (limit is { IsParameter: true })
         {
@@ -359,8 +433,7 @@ internal static class QueryEmitter
         return parameterName;
     }
 
-    private static bool IsValueType(string clrType) =>
-        clrType is not ("string" or "byte[]");
+    private static bool IsValueType(string clrType) => clrType is not ("string" or "byte[]");
 
     // C#-source representation of a quoted SQL identifier (the chars \"name\") for runtime StringBuilder seeds.
     private static string Lit(string identifier) => "\\\"" + identifier + "\\\"";
@@ -368,31 +441,53 @@ internal static class QueryEmitter
     // Builds the SELECT as a structured IR node (FR-059) and renders it; populates parameterOrder (the
     // bind-callback order) as positional parameters are assigned. Database names resolved via the active
     // convention / per-unit overrides (FR-052/FR-054/FR-055).
-    private static SelectStatement BuildSelect(QueryModel query, EntityModel entity, string schema, NamingConvention convention, List<string> parameterOrder)
+    private static SelectStatement BuildSelect(
+        QueryModel query,
+        EntityModel entity,
+        string schema,
+        NamingConvention convention,
+        List<string> parameterOrder
+    )
     {
         var columns = query.IsProjection
             ? query.ProjectionFields.Select(f => ColByName(entity, f, convention)).ToList()
-            : entity.Properties.Select(p => NamingConventions.Resolve(p.Name, p.NameOverride, convention)).ToList();
+            : entity
+                .Properties.Select(p =>
+                    NamingConventions.Resolve(p.Name, p.NameOverride, convention)
+                )
+                .ToList();
 
         var where = new List<SqlCondition>(query.Filters.Count);
         foreach (var filter in query.Filters)
         {
             parameterOrder.Add(filter.ParameterName);
-            where.Add(new SqlCondition(
-                ColByName(entity, filter.Column, convention), OperatorSql(filter.Op), parameterOrder.Count));
+            where.Add(
+                new SqlCondition(
+                    ColByName(entity, filter.Column, convention),
+                    OperatorSql(filter.Op),
+                    parameterOrder.Count
+                )
+            );
         }
 
-        var orderBy = query.OrderBy
-            .Select(t => new SqlOrder(ColByName(entity, t.Column, convention), t.Descending))
+        var orderBy = query
+            .OrderBy.Select(t => new SqlOrder(
+                ColByName(entity, t.Column, convention),
+                t.Descending
+            ))
             .ToList();
 
         return new SelectStatement(
-            new TableRef(schema, NamingConventions.Resolve(entity.Name, entity.NameOverride, convention)),
+            new TableRef(
+                schema,
+                NamingConventions.Resolve(entity.Name, entity.NameOverride, convention)
+            ),
             columns,
             where,
             orderBy,
             ToLimit(query.Limit, parameterOrder),
-            ToLimit(query.Offset, parameterOrder));
+            ToLimit(query.Offset, parameterOrder)
+        );
     }
 
     private static SqlLimit? ToLimit(LimitValue? value, List<string> parameterOrder)
@@ -411,7 +506,11 @@ internal static class QueryEmitter
         return new SqlLimit(IsParameter: true, parameterOrder.Count, Literal: 0);
     }
 
-    private static string BuildProjectionRecord(string resultType, QueryModel query, EntityModel entity)
+    private static string BuildProjectionRecord(
+        string resultType,
+        QueryModel query,
+        EntityModel entity
+    )
     {
         var fields = query.ProjectionFields.Select(field =>
         {
@@ -422,31 +521,36 @@ internal static class QueryEmitter
         return $"public sealed record {resultType}({string.Join(", ", fields)});";
     }
 
-    private static string BuildProjectionMaterializer(string resultType, QueryModel query, EntityModel entity)
+    private static string BuildProjectionMaterializer(
+        string resultType,
+        QueryModel query,
+        EntityModel entity
+    )
     {
-        var args = query.ProjectionFields.Select((field, i) =>
-        {
-            var property = entity.Properties.First(p => p.Name == field);
-            var read = $"reader.GetValue<{property.ClrType}>({i})";
-            return property.IsNullable
-                ? $"reader.IsNull({i}) ? null : {read}"
-                : read;
-        });
+        var args = query.ProjectionFields.Select(
+            (field, i) =>
+            {
+                var property = entity.Properties.First(p => p.Name == field);
+                var read = $"reader.GetValue<{property.ClrType}>({i})";
+                return property.IsNullable ? $"reader.IsNull({i}) ? null : {read}" : read;
+            }
+        );
         return $"static reader => new {resultType}({string.Join(", ", args)})";
     }
 
-    private static string OperatorSql(CompareOp op) => op switch
-    {
-        CompareOp.Eq => "=",
-        CompareOp.Neq => "<>",
-        CompareOp.Lt => "<",
-        CompareOp.Gt => ">",
-        CompareOp.Le => "<=",
-        CompareOp.Ge => ">=",
-        CompareOp.Like => "LIKE",
-        CompareOp.ILike => "ILIKE",
-        _ => "=",
-    };
+    private static string OperatorSql(CompareOp op) =>
+        op switch
+        {
+            CompareOp.Eq => "=",
+            CompareOp.Neq => "<>",
+            CompareOp.Lt => "<",
+            CompareOp.Gt => ">",
+            CompareOp.Le => "<=",
+            CompareOp.Ge => ">=",
+            CompareOp.Like => "LIKE",
+            CompareOp.ILike => "ILIKE",
+            _ => "=",
+        };
 
     // Resolves a column's database name from its DSL name, honoring the property's explicit override.
     private static string ColByName(EntityModel entity, string dslName, NamingConvention convention)
@@ -460,6 +564,11 @@ internal static class QueryEmitter
     private static DiagnosticInfo Diag(
         Microsoft.CodeAnalysis.DiagnosticDescriptor descriptor,
         string filePath,
-        params string[] args) =>
-        new(descriptor, new LocationInfo(filePath, default, default), new EquatableArray<string>(args));
+        params string[] args
+    ) =>
+        new(
+            descriptor,
+            new LocationInfo(filePath, default, default),
+            new EquatableArray<string>(args)
+        );
 }

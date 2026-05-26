@@ -15,7 +15,8 @@ internal sealed class SqliteSession(SqliteConnection connection) : IDbSession
     public DialectId Dialect => DialectId.Sqlite;
 
     public async ValueTask BeginAsync(CancellationToken cancellationToken = default) =>
-        _transaction = (SqliteTransaction)await connection.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
+        _transaction = (SqliteTransaction)
+            await connection.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
 
     public async ValueTask CommitAsync(CancellationToken cancellationToken = default)
     {
@@ -35,7 +36,8 @@ internal sealed class SqliteSession(SqliteConnection connection) : IDbSession
 
     public async ValueTask<int> ExecuteAsync(
         PreparedStatement statement,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default
+    )
     {
         await using var command = CreateCommand(statement);
         return await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
@@ -44,10 +46,12 @@ internal sealed class SqliteSession(SqliteConnection connection) : IDbSession
     public async IAsyncEnumerable<TRow> QueryAsync<TRow>(
         PreparedStatement statement,
         RowMaterializer<TRow> materialize,
-        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+        [EnumeratorCancellation] CancellationToken cancellationToken = default
+    )
     {
         await using var command = CreateCommand(statement);
-        await using var reader = (SqliteDataReader)await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
+        await using var reader = (SqliteDataReader)
+            await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
         var fieldReader = new SqliteFieldReader(reader);
 
         while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))

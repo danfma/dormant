@@ -38,31 +38,36 @@ internal abstract class SqlDialectRendererBase : ISqlDialectRenderer
     public virtual string QualifyTable(string? schema, string name) =>
         schema is null ? Quote(name) : Quote(schema) + "." + Quote(name);
 
-    public string Render(SqlStatement statement) => statement switch
-    {
-        InsertStatement insert => RenderInsert(insert),
-        SelectStatement select => RenderSelect(select),
-        DeleteStatement delete => RenderDelete(delete),
-        UpdateStatement update => RenderUpdate(update),
-        CreateSchemaStatement createSchema => RendersCreateSchema
-            ? "CREATE SCHEMA IF NOT EXISTS " + Quote(createSchema.Schema)
-            : string.Empty,
-        CreateTableStatement createTable => RenderCreateTable(createTable),
-        _ => throw new System.NotSupportedException($"Unknown statement: {statement.GetType().Name}"),
-    };
+    public string Render(SqlStatement statement) =>
+        statement switch
+        {
+            InsertStatement insert => RenderInsert(insert),
+            SelectStatement select => RenderSelect(select),
+            DeleteStatement delete => RenderDelete(delete),
+            UpdateStatement update => RenderUpdate(update),
+            CreateSchemaStatement createSchema => RendersCreateSchema
+                ? "CREATE SCHEMA IF NOT EXISTS " + Quote(createSchema.Schema)
+                : string.Empty,
+            CreateTableStatement createTable => RenderCreateTable(createTable),
+            _ => throw new System.NotSupportedException(
+                $"Unknown statement: {statement.GetType().Name}"
+            ),
+        };
 
-    protected string RenderValue(SqlValue value) => value switch
-    {
-        ParamValue p => Placeholder(p.Index) + (p.Json ? JsonCast : string.Empty),
-        NativeValue n => NativeFunc(n.Func),
-        _ => throw new System.NotSupportedException($"Unknown value: {value.GetType().Name}"),
-    };
+    protected string RenderValue(SqlValue value) =>
+        value switch
+        {
+            ParamValue p => Placeholder(p.Index) + (p.Json ? JsonCast : string.Empty),
+            NativeValue n => NativeFunc(n.Func),
+            _ => throw new System.NotSupportedException($"Unknown value: {value.GetType().Name}"),
+        };
 
     private string RenderInsert(InsertStatement insert)
     {
         var columns = string.Join(", ", insert.Columns.Select(Quote));
         var values = string.Join(", ", insert.Values.Select(RenderValue));
-        var sql = $"INSERT INTO {QualifyTable(insert.Table.Schema, insert.Table.Name)} ({columns}) VALUES ({values})";
+        var sql =
+            $"INSERT INTO {QualifyTable(insert.Table.Schema, insert.Table.Name)} ({columns}) VALUES ({values})";
         if (insert.Returning is { Count: > 0 })
         {
             sql += " RETURNING " + string.Join(", ", insert.Returning.Select(Quote));
@@ -89,7 +94,8 @@ internal abstract class SqlDialectRendererBase : ISqlDialectRenderer
                 }
 
                 return parts;
-            }));
+            })
+        );
         return $"CREATE TABLE IF NOT EXISTS {QualifyTable(createTable.Table.Schema, createTable.Table.Name)} ({columns})";
     }
 
@@ -103,9 +109,12 @@ internal abstract class SqlDialectRendererBase : ISqlDialectRenderer
         if (select.OrderBy.Count > 0)
         {
             sb.Append(" ORDER BY ");
-            sb.Append(string.Join(
-                ", ",
-                select.OrderBy.Select(o => Quote(o.Column) + (o.Descending ? " DESC" : " ASC"))));
+            sb.Append(
+                string.Join(
+                    ", ",
+                    select.OrderBy.Select(o => Quote(o.Column) + (o.Descending ? " DESC" : " ASC"))
+                )
+            );
         }
 
         AppendLimit(sb, "LIMIT", select.Limit);
@@ -125,8 +134,15 @@ internal abstract class SqlDialectRendererBase : ISqlDialectRenderer
     private string RenderUpdate(UpdateStatement update)
     {
         var sb = new StringBuilder();
-        sb.Append("UPDATE ").Append(QualifyTable(update.Table.Schema, update.Table.Name)).Append(" SET ");
-        sb.Append(string.Join(", ", update.Assignments.Select(a => Quote(a.Column) + " = " + RenderValue(a.Value))));
+        sb.Append("UPDATE ")
+            .Append(QualifyTable(update.Table.Schema, update.Table.Name))
+            .Append(" SET ");
+        sb.Append(
+            string.Join(
+                ", ",
+                update.Assignments.Select(a => Quote(a.Column) + " = " + RenderValue(a.Value))
+            )
+        );
         AppendWhere(sb, update.Where);
         AppendReturning(sb, update.Returning);
         return sb.ToString();
@@ -150,9 +166,14 @@ internal abstract class SqlDialectRendererBase : ISqlDialectRenderer
         }
 
         sb.Append(" WHERE ");
-        sb.Append(string.Join(
-            " AND ",
-            where.Select(c => $"{Quote(c.Column)} {MapOperator(c.Operator)} {Placeholder(c.ParameterIndex)}")));
+        sb.Append(
+            string.Join(
+                " AND ",
+                where.Select(c =>
+                    $"{Quote(c.Column)} {MapOperator(c.Operator)} {Placeholder(c.ParameterIndex)}"
+                )
+            )
+        );
     }
 
     private void AppendLimit(StringBuilder sb, string keyword, SqlLimit? limit)
@@ -163,8 +184,10 @@ internal abstract class SqlDialectRendererBase : ISqlDialectRenderer
         }
 
         sb.Append(' ').Append(keyword).Append(' ');
-        sb.Append(limit.IsParameter
-            ? Placeholder(limit.ParameterIndex)
-            : limit.Literal.ToString(CultureInfo.InvariantCulture));
+        sb.Append(
+            limit.IsParameter
+                ? Placeholder(limit.ParameterIndex)
+                : limit.Literal.ToString(CultureInfo.InvariantCulture)
+        );
     }
 }

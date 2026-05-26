@@ -33,21 +33,29 @@ internal sealed class ProviderHarness : IAsyncDisposable
                 await container.StartAsync();
                 var connectionString = container.GetConnectionString();
                 await DormantPostgres.EnsureCreatedAsync(connectionString);
-                return new ProviderHarness(DormantPostgres.CreateSessionFactory(connectionString), container);
+                return new ProviderHarness(
+                    DormantPostgres.CreateSessionFactory(connectionString),
+                    container
+                );
             }
 
             case "sqlite":
             {
                 // A unique shared in-memory database; the factory's data source keeps it alive while the
                 // schema is applied (via a sibling connection on the shared cache) and the sessions run.
-                var connectionString = $"Data Source=conf_{Guid.NewGuid():N};Mode=Memory;Cache=Shared";
+                var connectionString =
+                    $"Data Source=conf_{Guid.NewGuid():N};Mode=Memory;Cache=Shared";
                 var factory = DormantSqlite.CreateSessionFactory(connectionString);
                 await DormantSqlite.EnsureCreatedAsync(connectionString);
                 return new ProviderHarness(factory, container: null);
             }
 
             default:
-                throw new ArgumentOutOfRangeException(nameof(provider), provider, "Unknown provider.");
+                throw new ArgumentOutOfRangeException(
+                    nameof(provider),
+                    provider,
+                    "Unknown provider."
+                );
         }
     }
 

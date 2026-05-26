@@ -1,5 +1,4 @@
 <Project Sdk="Microsoft.NET.Sdk">
-
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <Description>Dormant ORM — SQLite provider adapter (Microsoft.Data.Sqlite.Core slim path, dialect, file + in-memory; AOT-friendly).</Description>
@@ -14,5 +13,4 @@
     <PackageReference Include="Microsoft.Data.Sqlite.Core" />
     <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" />
   </ItemGroup>
-
 </Project>

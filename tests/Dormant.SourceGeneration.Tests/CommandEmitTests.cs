@@ -36,11 +36,16 @@ public sealed class CommandEmitTests
     {
         var driver = GeneratorTestHarness.CreateDriver(
             new TestAdditionalText("schema/catalog.dqls", Schema),
-            new TestAdditionalText("schema/catalog.dql", Commands));
+            new TestAdditionalText("schema/catalog.dql", Commands)
+        );
         driver = driver.RunGenerators(CSharpCompilation.Create("Tests"));
         return string.Join(
             "\n",
-            driver.GetRunResult().Results.SelectMany(r => r.GeneratedSources).Select(s => s.SourceText.ToString()));
+            driver
+                .GetRunResult()
+                .Results.SelectMany(r => r.GeneratedSources)
+                .Select(s => s.SourceText.ToString())
+        );
     }
 
     [Test]
@@ -49,25 +54,44 @@ public sealed class CommandEmitTests
         var generated = Run();
 
         await Assert.That(generated).Contains("public static partial class CatalogCommands");
-        await Assert.That(generated).Contains("extension(global::Dormant.Abstractions.Sessions.ISession session)");
-        await Assert.That(generated)
-            .Contains("global::System.Threading.Tasks.ValueTask<Widget> CreateWidget(global::System.Guid id, string name, int quantity,");
+        await Assert
+            .That(generated)
+            .Contains("extension(global::Dormant.Abstractions.Sessions.ISession session)");
+        await Assert
+            .That(generated)
+            .Contains(
+                "global::System.Threading.Tasks.ValueTask<Widget> CreateWidget(global::System.Guid id, string name, int quantity,"
+            );
         // Build-time, schema-qualified INSERT … RETURNING.
-        await Assert.That(generated)
-            .Contains("INSERT INTO \"catalog\".\"widget\" (\"id\", \"name\", \"quantity\") VALUES ($1, $2, $3) RETURNING \"id\", \"name\", \"quantity\"");
-        await Assert.That(generated).Contains("new global::Dormant.Abstractions.Querying.CompiledCommand<Widget>(statement, static reader => new Widget(reader))");
-        await Assert.That(generated).Contains("session.ExecuteCommandAsync(command, cancellationToken)");
+        await Assert
+            .That(generated)
+            .Contains(
+                "INSERT INTO \"catalog\".\"widget\" (\"id\", \"name\", \"quantity\") VALUES ($1, $2, $3) RETURNING \"id\", \"name\", \"quantity\""
+            );
+        await Assert
+            .That(generated)
+            .Contains(
+                "new global::Dormant.Abstractions.Querying.CompiledCommand<Widget>(statement, static reader => new Widget(reader))"
+            );
+        await Assert
+            .That(generated)
+            .Contains("session.ExecuteCommandAsync(command, cancellationToken)");
     }
 
     private static string RunWith(string commands)
     {
         var driver = GeneratorTestHarness.CreateDriver(
             new TestAdditionalText("schema/catalog.dqls", Schema),
-            new TestAdditionalText("schema/catalog.dql", commands));
+            new TestAdditionalText("schema/catalog.dql", commands)
+        );
         driver = driver.RunGenerators(CSharpCompilation.Create("Tests"));
         return string.Join(
             "\n",
-            driver.GetRunResult().Results.SelectMany(r => r.GeneratedSources).Select(s => s.SourceText.ToString()));
+            driver
+                .GetRunResult()
+                .Results.SelectMany(r => r.GeneratedSources)
+                .Select(s => s.SourceText.ToString())
+        );
     }
 
     // 003 T015/FR-017: `returning alias` shapes the result as the full entity (the default shape, made explicit).
@@ -75,9 +99,12 @@ public sealed class CommandEmitTests
     public async Task Insert_returning_entity_emits_entity_result()
     {
         var generated = RunWith(
-            "module catalog;\nmutation create_widget(id: uuid, name: string, quantity: int) { insert Widget w { w.id = id w.name = name w.quantity = quantity } returning w }");
+            "module catalog;\nmutation create_widget(id: uuid, name: string, quantity: int) { insert Widget w { w.id = id w.name = name w.quantity = quantity } returning w }"
+        );
 
-        await Assert.That(generated).Contains("global::System.Threading.Tasks.ValueTask<Widget> CreateWidget(");
+        await Assert
+            .That(generated)
+            .Contains("global::System.Threading.Tasks.ValueTask<Widget> CreateWidget(");
         await Assert.That(generated).Contains("RETURNING \"id\", \"name\", \"quantity\"");
     }
 
@@ -86,9 +113,14 @@ public sealed class CommandEmitTests
     public async Task Insert_returning_scalar_emits_scalar_result()
     {
         var generated = RunWith(
-            "module catalog;\nmutation create_widget(id: uuid, name: string, quantity: int) { insert Widget w { w.id = id w.name = name w.quantity = quantity } returning w.id }");
+            "module catalog;\nmutation create_widget(id: uuid, name: string, quantity: int) { insert Widget w { w.id = id w.name = name w.quantity = quantity } returning w.id }"
+        );
 
-        await Assert.That(generated).Contains("global::System.Threading.Tasks.ValueTask<global::System.Guid> CreateWidget(");
+        await Assert
+            .That(generated)
+            .Contains(
+                "global::System.Threading.Tasks.ValueTask<global::System.Guid> CreateWidget("
+            );
         await Assert.That(generated).Contains("VALUES ($1, $2, $3) RETURNING \"id\"");
         await Assert.That(generated).Contains("reader.GetValue<global::System.Guid>(0)");
     }
@@ -98,10 +130,17 @@ public sealed class CommandEmitTests
     public async Task Insert_returning_projection_emits_distinct_record()
     {
         var generated = RunWith(
-            "module catalog;\nmutation create_widget(id: uuid, name: string, quantity: int) { insert Widget w { w.id = id w.name = name w.quantity = quantity } returning { w.id, w.name } }");
+            "module catalog;\nmutation create_widget(id: uuid, name: string, quantity: int) { insert Widget w { w.id = id w.name = name w.quantity = quantity } returning { w.id, w.name } }"
+        );
 
-        await Assert.That(generated).Contains("public sealed record CreateWidgetResult(global::System.Guid Id, string Name);");
-        await Assert.That(generated).Contains("global::System.Threading.Tasks.ValueTask<CreateWidgetResult> CreateWidget(");
+        await Assert
+            .That(generated)
+            .Contains(
+                "public sealed record CreateWidgetResult(global::System.Guid Id, string Name);"
+            );
+        await Assert
+            .That(generated)
+            .Contains("global::System.Threading.Tasks.ValueTask<CreateWidgetResult> CreateWidget(");
         await Assert.That(generated).Contains("RETURNING \"id\", \"name\"");
     }
 
@@ -110,10 +149,17 @@ public sealed class CommandEmitTests
     public async Task Update_returning_entity_emits_update_returning()
     {
         var generated = RunWith(
-            "module catalog;\nmutation bump_widget(id: uuid, quantity: int) { update Widget w where w.id == id set { w.quantity = quantity } returning w }");
+            "module catalog;\nmutation bump_widget(id: uuid, quantity: int) { update Widget w where w.id == id set { w.quantity = quantity } returning w }"
+        );
 
-        await Assert.That(generated).Contains("global::System.Threading.Tasks.ValueTask<Widget> BumpWidget(");
-        await Assert.That(generated).Contains("UPDATE \"catalog\".\"widget\" SET \"quantity\" = $1 WHERE \"id\" = $2 RETURNING \"id\", \"name\", \"quantity\"");
+        await Assert
+            .That(generated)
+            .Contains("global::System.Threading.Tasks.ValueTask<Widget> BumpWidget(");
+        await Assert
+            .That(generated)
+            .Contains(
+                "UPDATE \"catalog\".\"widget\" SET \"quantity\" = $1 WHERE \"id\" = $2 RETURNING \"id\", \"name\", \"quantity\""
+            );
     }
 
     // 003 T015/FR-017: a `delete … returning alias.member` RETURNs a scalar (DELETE … RETURNING one column).
@@ -121,11 +167,18 @@ public sealed class CommandEmitTests
     public async Task Delete_returning_scalar_emits_delete_returning()
     {
         var generated = RunWith(
-            "module catalog;\nmutation drop_widget(id: uuid) { delete Widget w where w.id == id returning w.id }");
+            "module catalog;\nmutation drop_widget(id: uuid) { delete Widget w where w.id == id returning w.id }"
+        );
 
-        await Assert.That(generated).Contains("global::System.Threading.Tasks.ValueTask<global::System.Guid> DropWidget(");
-        await Assert.That(generated).Contains("DELETE FROM \"catalog\".\"widget\" WHERE \"id\" = $1 RETURNING \"id\"");
-        await Assert.That(generated).Contains("session.ExecuteCommandAsync(command, cancellationToken)");
+        await Assert
+            .That(generated)
+            .Contains("global::System.Threading.Tasks.ValueTask<global::System.Guid> DropWidget(");
+        await Assert
+            .That(generated)
+            .Contains("DELETE FROM \"catalog\".\"widget\" WHERE \"id\" = $1 RETURNING \"id\"");
+        await Assert
+            .That(generated)
+            .Contains("session.ExecuteCommandAsync(command, cancellationToken)");
     }
 
     // 003 T037/T038/FR-020: a command assigns a single ref via `alias.ref = expr`, writing the `<ref>_id`
@@ -144,14 +197,23 @@ public sealed class CommandEmitTests
 
         var driver = GeneratorTestHarness.CreateDriver(
             new TestAdditionalText("schema/app.dqls", refSchema),
-            new TestAdditionalText("schema/app.dql", commands));
+            new TestAdditionalText("schema/app.dql", commands)
+        );
         driver = driver.RunGenerators(CSharpCompilation.Create("Tests"));
         var generated = string.Join(
             "\n",
-            driver.GetRunResult().Results.SelectMany(r => r.GeneratedSources).Select(s => s.SourceText.ToString()));
+            driver
+                .GetRunResult()
+                .Results.SelectMany(r => r.GeneratedSources)
+                .Select(s => s.SourceText.ToString())
+        );
 
         // The ref `p.author = author` writes the `author_id` FK column (raw-string INSERT, real quotes).
-        await Assert.That(generated).Contains("INSERT INTO \"app\".\"post\" (\"id\", \"title\", \"author_id\") VALUES ($1, $2, $3)");
+        await Assert
+            .That(generated)
+            .Contains(
+                "INSERT INTO \"app\".\"post\" (\"id\", \"title\", \"author_id\") VALUES ($1, $2, $3)"
+            );
         // CREATE TABLE (raw-string DDL, real quotes) carries the FK column too.
         await Assert.That(generated).Contains("\"author_id\" uuid");
     }
@@ -172,20 +234,41 @@ public sealed class CommandEmitTests
 
         var driver = GeneratorTestHarness.CreateDriver(
             new TestAdditionalText("schema/app.dqls", refSchema),
-            new TestAdditionalText("schema/app.dql", commands));
+            new TestAdditionalText("schema/app.dql", commands)
+        );
         driver = driver.RunGenerators(CSharpCompilation.Create("Tests"));
         var generated = string.Join(
             "\n",
-            driver.GetRunResult().Results.SelectMany(r => r.GeneratedSources).Select(s => s.SourceText.ToString()));
+            driver
+                .GetRunResult()
+                .Results.SelectMany(r => r.GeneratedSources)
+                .Select(s => s.SourceText.ToString())
+        );
 
         // Terminal `returning p.id` → ValueTask<Guid>.
-        await Assert.That(generated).Contains("global::System.Threading.Tasks.ValueTask<global::System.Guid> CreateUserWithPost(");
+        await Assert
+            .That(generated)
+            .Contains(
+                "global::System.Threading.Tasks.ValueTask<global::System.Guid> CreateUserWithPost("
+            );
         // Binding `with u = (insert User …)` → its own statement + a local `u` materialized as the inserted PK.
-        await Assert.That(generated).Contains("INSERT INTO \"app\".\"user\" (\"id\", \"name\") VALUES ($1, $2) RETURNING \"id\"");
+        await Assert
+            .That(generated)
+            .Contains(
+                "INSERT INTO \"app\".\"user\" (\"id\", \"name\") VALUES ($1, $2) RETURNING \"id\""
+            );
         await Assert.That(generated).Contains("var u = await session.ExecuteCommandAsync(");
-        await Assert.That(generated).Contains("global::Dormant.Abstractions.Querying.CompiledCommand<global::System.Guid>(statement_u");
+        await Assert
+            .That(generated)
+            .Contains(
+                "global::Dormant.Abstractions.Querying.CompiledCommand<global::System.Guid>(statement_u"
+            );
         // Terminal writes the FK column; the `p.author = u` value binds the local `u`.
-        await Assert.That(generated).Contains("INSERT INTO \"app\".\"post\" (\"id\", \"title\", \"author_id\") VALUES ($1, $2, $3) RETURNING \"id\"");
+        await Assert
+            .That(generated)
+            .Contains(
+                "INSERT INTO \"app\".\"post\" (\"id\", \"title\", \"author_id\") VALUES ($1, $2, $3) RETURNING \"id\""
+            );
         await Assert.That(generated).Contains("writer.Write(3, u);");
     }
 }

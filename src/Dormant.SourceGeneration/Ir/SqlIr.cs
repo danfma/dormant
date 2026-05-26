@@ -37,7 +37,8 @@ internal sealed record InsertStatement(
     TableRef Table,
     IReadOnlyList<string> Columns,
     IReadOnlyList<SqlValue> Values,
-    IReadOnlyList<string>? Returning = null) : SqlStatement;
+    IReadOnlyList<string>? Returning = null
+) : SqlStatement;
 
 /// <summary>A SELECT with an optional WHERE / ORDER BY / LIMIT / OFFSET.</summary>
 internal sealed record SelectStatement(
@@ -46,13 +47,15 @@ internal sealed record SelectStatement(
     IReadOnlyList<SqlCondition> Where,
     IReadOnlyList<SqlOrder> OrderBy,
     SqlLimit? Limit,
-    SqlLimit? Offset) : SqlStatement;
+    SqlLimit? Offset
+) : SqlStatement;
 
 /// <summary>A DELETE with a WHERE clause and an optional <c>RETURNING</c> column list (003 FR-017).</summary>
 internal sealed record DeleteStatement(
     TableRef Table,
     IReadOnlyList<SqlCondition> Where,
-    IReadOnlyList<string>? Returning = null) : SqlStatement;
+    IReadOnlyList<string>? Returning = null
+) : SqlStatement;
 
 /// <summary>A SET assignment in an UPDATE: <c>"column" = &lt;value&gt;</c> (value rendered per dialect).</summary>
 internal sealed record SqlAssignment(string Column, SqlValue Value);
@@ -62,13 +65,15 @@ internal sealed record UpdateStatement(
     TableRef Table,
     IReadOnlyList<SqlAssignment> Assignments,
     IReadOnlyList<SqlCondition> Where,
-    IReadOnlyList<string>? Returning = null) : SqlStatement;
+    IReadOnlyList<string>? Returning = null
+) : SqlStatement;
 
 /// <summary>A <c>CREATE SCHEMA IF NOT EXISTS</c> for a module's database schema (FR-045).</summary>
 internal sealed record CreateSchemaStatement(string Schema) : SqlStatement;
 
 /// <summary>A <c>CREATE TABLE IF NOT EXISTS</c> with column definitions (FR-020/FR-045).</summary>
-internal sealed record CreateTableStatement(TableRef Table, IReadOnlyList<ColumnDef> Columns) : SqlStatement;
+internal sealed record CreateTableStatement(TableRef Table, IReadOnlyList<ColumnDef> Columns)
+    : SqlStatement;
 
 /// <summary>A <c>"column" op $index</c> comparison (database column name already resolved; operator is the
 /// canonical SQL keyword — the renderer remaps where a dialect differs, e.g. <c>ILIKE</c> → <c>LIKE</c>).</summary>

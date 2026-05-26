@@ -18,18 +18,22 @@ internal sealed class PostgreSqlRenderer : SqlDialectRendererBase
 
     public override string Quote(string identifier) => "\"" + identifier + "\"";
 
-    protected override string Placeholder(int index) => "$" + index.ToString(CultureInfo.InvariantCulture);
+    protected override string Placeholder(int index) =>
+        "$" + index.ToString(CultureInfo.InvariantCulture);
 
     protected override string JsonCast => "::jsonb";
 
-    protected override string NativeFunc(string func) => func switch
-    {
-        "now" => "now()",
-        _ => func + "()",
-    };
+    protected override string NativeFunc(string func) =>
+        func switch
+        {
+            "now" => "now()",
+            _ => func + "()",
+        };
 
     public override string DynamicPlaceholderExpr(string indexExpr) =>
-        "\"$\" + " + indexExpr + ".ToString(global::System.Globalization.CultureInfo.InvariantCulture)";
+        "\"$\" + "
+        + indexExpr
+        + ".ToString(global::System.Globalization.CultureInfo.InvariantCulture)";
 
     // DormantQL value type → PostgreSQL column type (FR-020). Falls back to text.
     private static readonly Dictionary<string, string> SqlMap = new(System.StringComparer.Ordinal)
@@ -55,5 +59,6 @@ internal sealed class PostgreSqlRenderer : SqlDialectRendererBase
         ["json"] = "jsonb",
     };
 
-    public override string TypeName(string dslType) => SqlMap.TryGetValue(dslType, out var sql) ? sql : "text";
+    public override string TypeName(string dslType) =>
+        SqlMap.TryGetValue(dslType, out var sql) ? sql : "text";
 }

@@ -15,8 +15,12 @@ internal static class DialectSwitch
 
     /// <summary>Emits a switch whose value is the rendered <paramref name="statement"/> per dialect.</summary>
     public static void WriteStatementArg(
-        SourceWriter writer, string indent, string subject, SqlStatement statement, string trailing) =>
-        WriteSwitchArg(writer, indent, subject, r => r.Render(statement), trailing);
+        SourceWriter writer,
+        string indent,
+        string subject,
+        SqlStatement statement,
+        string trailing
+    ) => WriteSwitchArg(writer, indent, subject, r => r.Render(statement), trailing);
 
     /// <summary>
     /// Emits a <c>{subject} switch { DialectId.X => "...", … _ => throw }{trailing}</c> expression, each arm's
@@ -28,7 +32,8 @@ internal static class DialectSwitch
         string indent,
         string subject,
         Func<ISqlDialectRenderer, string> render,
-        string trailing)
+        string trailing
+    )
     {
         writer.Line(indent + subject + " switch");
         writer.Line(indent + "{");
@@ -45,7 +50,12 @@ internal static class DialectSwitch
             writer.Line(sqlIndent + fence + ",");
         }
 
-        writer.Line(armIndent + "_ => throw new global::System.NotSupportedException(\"Dormant: no SQL variant for dialect \" + " + subject + " + \".\"),");
+        writer.Line(
+            armIndent
+                + "_ => throw new global::System.NotSupportedException(\"Dormant: no SQL variant for dialect \" + "
+                + subject
+                + " + \".\"),"
+        );
         writer.Line(indent + "}" + trailing);
     }
 

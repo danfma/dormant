@@ -40,7 +40,9 @@ catch (Exception ex)
 {
     // No database in the AOT publish/run environment — the point is that the rooted code paths are
     // AOT-clean, not that they connect.
-    Console.WriteLine($"Dormant AOT smoke (PostgreSQL): surface rooted; runtime skipped ({ex.GetType().Name}).");
+    Console.WriteLine(
+        $"Dormant AOT smoke (PostgreSQL): surface rooted; runtime skipped ({ex.GetType().Name})."
+    );
 }
 
 // SQLite (in-memory, no Docker): runs for real under Native AOT, so the SQLite provider's connection,

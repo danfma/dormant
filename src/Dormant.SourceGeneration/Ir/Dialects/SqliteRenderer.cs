@@ -23,21 +23,25 @@ internal sealed class SqliteRenderer : SqlDialectRendererBase
     public override string QualifyTable(string? schema, string name) =>
         schema is null ? Quote(name) : Quote(schema + "_" + name);
 
-    protected override string Placeholder(int index) => "@p" + index.ToString(System.Globalization.CultureInfo.InvariantCulture);
+    protected override string Placeholder(int index) =>
+        "@p" + index.ToString(System.Globalization.CultureInfo.InvariantCulture);
 
     protected override string JsonCast => string.Empty;
 
-    protected override string NativeFunc(string func) => func switch
-    {
-        "now" => "CURRENT_TIMESTAMP",
-        _ => func + "()",
-    };
+    protected override string NativeFunc(string func) =>
+        func switch
+        {
+            "now" => "CURRENT_TIMESTAMP",
+            _ => func + "()",
+        };
 
     protected override string MapOperator(string op) =>
         string.Equals(op, "ILIKE", System.StringComparison.Ordinal) ? "LIKE" : op;
 
     public override string DynamicPlaceholderExpr(string indexExpr) =>
-        "\"@p\" + " + indexExpr + ".ToString(global::System.Globalization.CultureInfo.InvariantCulture)";
+        "\"@p\" + "
+        + indexExpr
+        + ".ToString(global::System.Globalization.CultureInfo.InvariantCulture)";
 
     // DormantQL value type → SQLite column affinity (005 D6). Falls back to TEXT.
     private static readonly Dictionary<string, string> SqlMap = new(System.StringComparer.Ordinal)
@@ -63,5 +67,6 @@ internal sealed class SqliteRenderer : SqlDialectRendererBase
         ["json"] = "TEXT",
     };
 
-    public override string TypeName(string dslType) => SqlMap.TryGetValue(dslType, out var sql) ? sql : "TEXT";
+    public override string TypeName(string dslType) =>
+        SqlMap.TryGetValue(dslType, out var sql) ? sql : "TEXT";
 }

@@ -14,5 +14,8 @@ namespace Dormant.Provider.Sqlite.Io;
 internal sealed class SqliteParameterWriter(SqliteParameterCollection parameters) : IParameterWriter
 {
     public void Write<T>(int index, T value) =>
-        parameters.AddWithValue("@p" + index.ToString(CultureInfo.InvariantCulture), (object?)value ?? DBNull.Value);
+        parameters.AddWithValue(
+            "@p" + index.ToString(CultureInfo.InvariantCulture),
+            (object?)value ?? DBNull.Value
+        );
 }

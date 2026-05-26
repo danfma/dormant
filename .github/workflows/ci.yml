@@ -44,11 +44,22 @@ jobs:
       - name: Restore dependencies
         run: dotnet restore Dormant.slnx
 
+      - name: Restore .NET tools
+        run: dotnet tool restore
+
       - name: Build
         run: dotnet build Dormant.slnx -c Release --no-restore
 
-      - name: Lint check
-        run: dotnet format Dormant.slnx --verify-no-changes --severity warn
+      - name: Format check (CSharpier)
+        run: dotnet csharpier check .
+
+      - name: Lint check (dotnet format)
+        # dotnet format compiles in Debug and runs the source generator to resolve generated
+        # types. A Release-only build leaves the Debug compilation without them (CS0246), so
+        # build Debug first, then verify formatting without re-restoring.
+        run: |
+          dotnet build Dormant.slnx --no-restore
+          dotnet format Dormant.slnx --no-restore --verify-no-changes --severity warn
 
       - name: Run tests
         run: dotnet test Dormant.slnx -c Release --no-build --logger "GitHubActions;summary.includePassedTests=true;summary.includeSkippedTests=true"

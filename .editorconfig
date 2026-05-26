@@ -5,3 +5,7 @@ root = true
 # LinkSet<T>.Loaded / LinkSet<T>.Unloaded) are an intentional, ergonomic part of the public API,
 # mirroring the BCL pattern (ImmutableArray<T>.Empty). CA1000 is therefore disabled by design.
 dotnet_diagnostic.CA1000.severity = none
+
+# CSharpier owns formatting; align dotnet format's whitespace rules with it to avoid conflicts.
+# CSharpier does not add an extra indent level for a braced switch-case block ({ } under case).
+csharp_indent_case_contents_when_block = false

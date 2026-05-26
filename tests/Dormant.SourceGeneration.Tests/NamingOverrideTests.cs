@@ -23,11 +23,17 @@ public sealed class NamingOverrideTests
     [Test]
     public async Task Per_unit_override_wins_over_convention()
     {
-        var driver = GeneratorTestHarness.CreateDriver(new TestAdditionalText("schema/shop.dqls", Schema));
+        var driver = GeneratorTestHarness.CreateDriver(
+            new TestAdditionalText("schema/shop.dqls", Schema)
+        );
         driver = driver.RunGenerators(CSharpCompilation.Create("Tests"));
         var generated = string.Join(
             "\n",
-            driver.GetRunResult().Results.SelectMany(r => r.GeneratedSources).Select(s => s.SourceText.ToString()));
+            driver
+                .GetRunResult()
+                .Results.SelectMany(r => r.GeneratedSources)
+                .Select(s => s.SourceText.ToString())
+        );
 
         // Table override "posts" and column override "created" win; "title" still follows snake_case.
         await Assert.That(generated).Contains("CREATE TABLE IF NOT EXISTS \"shop\".\"posts\"");

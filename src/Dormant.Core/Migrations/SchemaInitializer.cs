@@ -17,7 +17,10 @@ public static class SchemaInitializer
     /// <param name="db">An open driver session.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>A task that completes when the schema has been applied.</returns>
-    public static async ValueTask EnsureCreatedAsync(IDbSession db, CancellationToken cancellationToken = default)
+    public static async ValueTask EnsureCreatedAsync(
+        IDbSession db,
+        CancellationToken cancellationToken = default
+    )
     {
         var bindings = EntityBindings.All();
 
@@ -36,13 +39,17 @@ public static class SchemaInitializer
             var schemaSql = binding.CreateSchemaSql(db.Dialect);
             if (!string.IsNullOrEmpty(schemaSql))
             {
-                await db.ExecuteAsync(new PreparedStatement(schemaSql), cancellationToken).ConfigureAwait(false);
+                await db.ExecuteAsync(new PreparedStatement(schemaSql), cancellationToken)
+                    .ConfigureAwait(false);
             }
         }
 
         foreach (var binding in bindings)
         {
-            await db.ExecuteAsync(new PreparedStatement(binding.CreateTableSql(db.Dialect)), cancellationToken)
+            await db.ExecuteAsync(
+                    new PreparedStatement(binding.CreateTableSql(db.Dialect)),
+                    cancellationToken
+                )
                 .ConfigureAwait(false);
         }
 

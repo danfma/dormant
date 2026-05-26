@@ -26,7 +26,8 @@ internal static class EntityBindingEmitter
         EntityModel entity,
         string schema,
         NamingConvention convention,
-        IReadOnlyDictionary<string, string> refPkDslTypes)
+        IReadOnlyDictionary<string, string> refPkDslTypes
+    )
     {
         var key = entity.Properties.FirstOrDefault(p => p.IsPrimary);
         var columns = entity.Properties; // value columns, declaration order
@@ -42,9 +43,17 @@ internal static class EntityBindingEmitter
             .ToList();
         foreach (var reference in entity.References.Where(r => r.Kind == ReferenceKind.Ref))
         {
-            var fkDslType = refPkDslTypes.TryGetValue(reference.TargetEntity, out var t) ? t : "uuid";
-            ddlColumns.Add(new ColumnDef(
-                NamingConventions.Resolve(reference.Name, null, convention) + "_id", fkDslType, reference.IsRequired, false));
+            var fkDslType = refPkDslTypes.TryGetValue(reference.TargetEntity, out var t)
+                ? t
+                : "uuid";
+            ddlColumns.Add(
+                new ColumnDef(
+                    NamingConventions.Resolve(reference.Name, null, convention) + "_id",
+                    fkDslType,
+                    reference.IsRequired,
+                    false
+                )
+            );
         }
 
         var createTable = new CreateTableStatement(tableRef, ddlColumns);
@@ -55,9 +64,13 @@ internal static class EntityBindingEmitter
             .Line()
             .Line($"namespace {@namespace};")
             .Line()
-            .Open($"internal sealed class {entity.Name}Binding : {Abs}.Entities.IEntityBinding<{entity.Name}>")
+            .Open(
+                $"internal sealed class {entity.Name}Binding : {Abs}.Entities.IEntityBinding<{entity.Name}>"
+            )
             .Line("[global::System.Runtime.CompilerServices.ModuleInitializer]")
-            .Line($"internal static void Register() => {Abs}.Entities.EntityBindings.Register<{entity.Name}>(new {entity.Name}Binding());")
+            .Line(
+                $"internal static void Register() => {Abs}.Entities.EntityBindings.Register<{entity.Name}>(new {entity.Name}Binding());"
+            )
             .Line()
             .Line($"public string Schema => {Quote(schema)};")
             .Line();
@@ -106,12 +119,15 @@ internal static class EntityBindingEmitter
         TableRef table,
         IReadOnlyList<string> colNames,
         PropertyModel? key,
-        NamingConvention convention)
+        NamingConvention convention
+    )
     {
         writer.Open($"public {Stmt} SelectByKey({DialectId} dialect, object key)");
         if (key is null)
         {
-            writer.Line("throw new global::System.NotSupportedException(\"Entity has no single primary key.\");");
+            writer.Line(
+                "throw new global::System.NotSupportedException(\"Entity has no single primary key.\");"
+            );
         }
         else
         {
@@ -121,7 +137,8 @@ internal static class EntityBindingEmitter
                 [new SqlCondition(Col(key, convention), "=", 1)],
                 [],
                 Limit: null,
-                Offset: null);
+                Offset: null
+            );
             writer.Line($"return new {Stmt}(");
             DialectSwitch.WriteStatementArg(writer, "    ", "dialect", select, ",");
             writer.Line($"    writer => writer.Write(1, ({key.ClrType})key));");

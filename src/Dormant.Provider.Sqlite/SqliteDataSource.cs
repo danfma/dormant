@@ -41,6 +41,6 @@ internal sealed class SqliteDataSource : IDataSource
     }
 
     private static bool IsInMemory(string connectionString) =>
-        connectionString.Contains("Memory", StringComparison.OrdinalIgnoreCase) ||
-        connectionString.Contains(":memory:", StringComparison.OrdinalIgnoreCase);
+        connectionString.Contains("Memory", StringComparison.OrdinalIgnoreCase)
+        || connectionString.Contains(":memory:", StringComparison.OrdinalIgnoreCase);
 }

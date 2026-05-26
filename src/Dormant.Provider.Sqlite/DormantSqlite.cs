@@ -27,7 +27,8 @@ public static class DormantSqlite
     /// <summary>Creates a SQLite <see cref="IDataSource"/> (keeps a shared in-memory database alive for its lifetime).</summary>
     /// <param name="connectionString">The SQLite connection string.</param>
     /// <returns>An open-able data source.</returns>
-    public static IDataSource CreateDataSource(string connectionString) => new SqliteDataSource(connectionString);
+    public static IDataSource CreateDataSource(string connectionString) =>
+        new SqliteDataSource(connectionString);
 
     /// <summary>The SQLite SQL dialect (identifiers, named placeholders, capabilities).</summary>
     public static ISqlDialect Dialect => SqliteDialect.Instance;
@@ -38,7 +39,10 @@ public static class DormantSqlite
     /// <returns>A task that completes when the schema has been applied.</returns>
     /// <remarks>For a shared in-memory database, use <see cref="EnsureCreatedAsync(IDataSource, CancellationToken)"/>
     /// with the same kept-alive data source the sessions are opened from, so the schema persists.</remarks>
-    public static async ValueTask EnsureCreatedAsync(string connectionString, CancellationToken cancellationToken = default)
+    public static async ValueTask EnsureCreatedAsync(
+        string connectionString,
+        CancellationToken cancellationToken = default
+    )
     {
         await using var dataSource = CreateDataSource(connectionString);
         await EnsureCreatedAsync(dataSource, cancellationToken).ConfigureAwait(false);
@@ -48,7 +52,10 @@ public static class DormantSqlite
     /// <param name="dataSource">The data source the sessions will also be opened from.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>A task that completes when the schema has been applied.</returns>
-    public static async ValueTask EnsureCreatedAsync(IDataSource dataSource, CancellationToken cancellationToken = default)
+    public static async ValueTask EnsureCreatedAsync(
+        IDataSource dataSource,
+        CancellationToken cancellationToken = default
+    )
     {
         await using var db = await dataSource.OpenAsync(cancellationToken).ConfigureAwait(false);
         await SchemaInitializer.EnsureCreatedAsync(db, cancellationToken).ConfigureAwait(false);

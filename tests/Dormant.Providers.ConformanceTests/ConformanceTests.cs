@@ -78,7 +78,9 @@ public sealed class ConformanceTests
             // No filters supplied → all rows.
             await Assert.That((await Drain(session.SearchWidgets())).Count).IsEqualTo(3);
             // Only the quantity filter → quantity >= 5.
-            await Assert.That((await Drain(session.SearchWidgets(minQuantity: 5))).Count).IsEqualTo(2);
+            await Assert
+                .That((await Drain(session.SearchWidgets(minQuantity: 5))).Count)
+                .IsEqualTo(2);
             // Both filters → quantity >= 5 AND name = "beta".
             var both = await Drain(session.SearchWidgets(minQuantity: 5, name: "beta"));
             await Assert.That(both.Count).IsEqualTo(1);
@@ -97,7 +99,12 @@ public sealed class ConformanceTests
 
         await using (var session = await harness.Factory.OpenSessionAsync())
         {
-            var returnedId = await session.CreateAuthorWithArticle(authorId, "ada", articleId, "notes");
+            var returnedId = await session.CreateAuthorWithArticle(
+                authorId,
+                "ada",
+                articleId,
+                "notes"
+            );
             await Assert.That(returnedId).IsEqualTo(articleId);
             await session.CommitAsync();
         }

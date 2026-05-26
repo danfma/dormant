@@ -35,7 +35,8 @@ internal static class TypeMap
     };
 
     /// <summary>Attempts to map a DormantQL value type to a CLR type.</summary>
-    public static bool TryMap(string dslType, out string clrType) => Map.TryGetValue(dslType, out clrType!);
+    public static bool TryMap(string dslType, out string clrType) =>
+        Map.TryGetValue(dslType, out clrType!);
 
     // DormantQL value type → SQL column type is now per-dialect (005 D6); each
     // Ir.Dialects.ISqlDialectRenderer.TypeName owns its mapping. The DDL IR carries the DormantQL type.
@@ -70,7 +71,12 @@ internal static class Naming
     /// <c>schema/app.dqls</c> in <c>Dormant.Sample.Quickstart</c> → <c>Dormant.Sample.Quickstart.Schema.App</c>).
     /// Falls back gracefully when the project's root namespace or directory is unknown.
     /// </summary>
-    public static string ComputeNamespace(string? rootNamespace, string? projectDir, string filePath, string moduleName)
+    public static string ComputeNamespace(
+        string? rootNamespace,
+        string? projectDir,
+        string filePath,
+        string moduleName
+    )
     {
         var parts = new List<string>();
 
@@ -80,8 +86,10 @@ internal static class Naming
         }
 
         var dir = Path.GetDirectoryName(filePath) ?? string.Empty;
-        if (!string.IsNullOrEmpty(projectDir) &&
-            dir.StartsWith(projectDir!.TrimEnd('/', '\\'), StringComparison.Ordinal))
+        if (
+            !string.IsNullOrEmpty(projectDir)
+            && dir.StartsWith(projectDir!.TrimEnd('/', '\\'), StringComparison.Ordinal)
+        )
         {
             dir = dir.Substring(projectDir!.TrimEnd('/', '\\').Length);
         }

@@ -24,7 +24,8 @@ internal static class CommandEmitter
         string @namespace,
         CommandFile file,
         IReadOnlyDictionary<string, (EntityModel Entity, string Schema)> entities,
-        NamingConvention convention)
+        NamingConvention convention
+    )
     {
         var diagnostics = new List<DiagnosticInfo>();
         var bodies = new List<string>();
@@ -34,7 +35,14 @@ internal static class CommandEmitter
         {
             if (!entities.TryGetValue(command.RootEntity, out var entry))
             {
-                diagnostics.Add(Diag(DiagnosticDescriptors.UnknownQueryEntity, file.FilePath, command.Name, command.RootEntity));
+                diagnostics.Add(
+                    Diag(
+                        DiagnosticDescriptors.UnknownQueryEntity,
+                        file.FilePath,
+                        command.Name,
+                        command.RootEntity
+                    )
+                );
                 continue;
             }
 
@@ -49,7 +57,14 @@ internal static class CommandEmitter
             {
                 if (!entities.TryGetValue(binding.Command.RootEntity, out var bentry))
                 {
-                    diagnostics.Add(Diag(DiagnosticDescriptors.UnknownQueryEntity, file.FilePath, command.Name, binding.Command.RootEntity));
+                    diagnostics.Add(
+                        Diag(
+                            DiagnosticDescriptors.UnknownQueryEntity,
+                            file.FilePath,
+                            command.Name,
+                            binding.Command.RootEntity
+                        )
+                    );
                     bindingsOk = false;
                     continue;
                 }
@@ -65,7 +80,16 @@ internal static class CommandEmitter
                 continue;
             }
 
-            bodies.Add(EmitMethod(command, entry.Entity, entry.Schema, convention, entities, out var projection));
+            bodies.Add(
+                EmitMethod(
+                    command,
+                    entry.Entity,
+                    entry.Schema,
+                    convention,
+                    entities,
+                    out var projection
+                )
+            );
             if (projection is not null)
             {
                 projections.Add(projection);
@@ -105,27 +129,58 @@ internal static class CommandEmitter
         return (writer.ToString(), diagnostics);
     }
 
-    private static bool Validate(CommandModel command, EntityModel entity, string filePath, List<DiagnosticInfo> diagnostics)
+    private static bool Validate(
+        CommandModel command,
+        EntityModel entity,
+        string filePath,
+        List<DiagnosticInfo> diagnostics
+    )
     {
         var ok = true;
-        var columns = new HashSet<string>(entity.Properties.Select(p => p.Name), System.StringComparer.Ordinal);
-        var parameters = new HashSet<string>(command.Parameters.Select(p => p.Name), System.StringComparer.Ordinal);
+        var columns = new HashSet<string>(
+            entity.Properties.Select(p => p.Name),
+            System.StringComparer.Ordinal
+        );
+        var parameters = new HashSet<string>(
+            command.Parameters.Select(p => p.Name),
+            System.StringComparer.Ordinal
+        );
         // FR-020/021: an assignment target may be a value property OR a single reference (`alias.ref = expr`
         // writes the `<ref>_id` FK column).
         var singleRefs = new HashSet<string>(
-            entity.References.Where(r => r.Kind == ReferenceKind.Ref).Select(r => r.Name), System.StringComparer.Ordinal);
+            entity.References.Where(r => r.Kind == ReferenceKind.Ref).Select(r => r.Name),
+            System.StringComparer.Ordinal
+        );
 
         foreach (var assignment in command.Assignments)
         {
             if (!columns.Contains(assignment.Column) && !singleRefs.Contains(assignment.Column))
             {
-                diagnostics.Add(Diag(DiagnosticDescriptors.UnknownQueryColumn, filePath, command.Name, assignment.Column, entity.Name));
+                diagnostics.Add(
+                    Diag(
+                        DiagnosticDescriptors.UnknownQueryColumn,
+                        filePath,
+                        command.Name,
+                        assignment.Column,
+                        entity.Name
+                    )
+                );
                 ok = false;
             }
 
-            if (assignment.Value.Kind == CommandValueKind.Parameter && !parameters.Contains(assignment.Value.Text))
+            if (
+                assignment.Value.Kind == CommandValueKind.Parameter
+                && !parameters.Contains(assignment.Value.Text)
+            )
             {
-                diagnostics.Add(Diag(DiagnosticDescriptors.UnknownQueryParameter, filePath, command.Name, assignment.Value.Text));
+                diagnostics.Add(
+                    Diag(
+                        DiagnosticDescriptors.UnknownQueryParameter,
+                        filePath,
+                        command.Name,
+                        assignment.Value.Text
+                    )
+                );
                 ok = false;
             }
         }
@@ -134,13 +189,28 @@ internal static class CommandEmitter
         {
             if (!columns.Contains(filter.Column))
             {
-                diagnostics.Add(Diag(DiagnosticDescriptors.UnknownQueryColumn, filePath, command.Name, filter.Column, entity.Name));
+                diagnostics.Add(
+                    Diag(
+                        DiagnosticDescriptors.UnknownQueryColumn,
+                        filePath,
+                        command.Name,
+                        filter.Column,
+                        entity.Name
+                    )
+                );
                 ok = false;
             }
 
             if (!parameters.Contains(filter.ParameterName))
             {
-                diagnostics.Add(Diag(DiagnosticDescriptors.UnknownQueryParameter, filePath, command.Name, filter.ParameterName));
+                diagnostics.Add(
+                    Diag(
+                        DiagnosticDescriptors.UnknownQueryParameter,
+                        filePath,
+                        command.Name,
+                        filter.ParameterName
+                    )
+                );
                 ok = false;
             }
         }
@@ -151,7 +221,15 @@ internal static class CommandEmitter
             {
                 if (!columns.Contains(member))
                 {
-                    diagnostics.Add(Diag(DiagnosticDescriptors.UnknownQueryColumn, filePath, command.Name, member, entity.Name));
+                    diagnostics.Add(
+                        Diag(
+                            DiagnosticDescriptors.UnknownQueryColumn,
+                            filePath,
+                            command.Name,
+                            member,
+                            entity.Name
+                        )
+                    );
                     ok = false;
                 }
             }
@@ -166,7 +244,8 @@ internal static class CommandEmitter
         string schema,
         NamingConvention convention,
         IReadOnlyDictionary<string, (EntityModel Entity, string Schema)> entities,
-        out string? projection)
+        out string? projection
+    )
     {
         // 003 (FR-021/FR-022): a `with`-block mutation runs each binding as its own statement (locals) then
         // the terminal command, all within the session transaction.
@@ -188,7 +267,10 @@ internal static class CommandEmitter
     // Result shape → (CLR type, materializer expression, optional projection record source). Shared by the
     // with-block emitter (and mirrors EmitShapedMethod's single-command shaping).
     private static (string Clr, string Materializer, string? Projection) ShapeResult(
-        ReturningShape shape, EntityModel entity, string methodName)
+        ReturningShape shape,
+        EntityModel entity,
+        string methodName
+    )
     {
         if (shape.Kind == ReturningKind.Scalar)
         {
@@ -210,16 +292,19 @@ internal static class CommandEmitter
                 var clr = prop.IsNullable ? prop.ClrType + "?" : prop.ClrType;
                 return $"{clr} {Naming.ToPascalCase(m)}";
             });
-            var args = members.Select((m, i) =>
-            {
-                var prop = entity.Properties.First(x => x.Name == m);
-                var read = $"reader.GetValue<{prop.ClrType}>({i})";
-                return prop.IsNullable ? $"reader.IsNull({i}) ? null : {read}" : read;
-            });
+            var args = members.Select(
+                (m, i) =>
+                {
+                    var prop = entity.Properties.First(x => x.Name == m);
+                    var read = $"reader.GetValue<{prop.ClrType}>({i})";
+                    return prop.IsNullable ? $"reader.IsNull({i}) ? null : {read}" : read;
+                }
+            );
             return (
                 resultType,
                 $"static reader => new {resultType}({string.Join(", ", args)})",
-                $"public sealed record {resultType}({string.Join(", ", fields)});");
+                $"public sealed record {resultType}({string.Join(", ", fields)});"
+            );
         }
 
         return (entity.Name, $"static reader => new {entity.Name}(reader)", null);
@@ -228,7 +313,13 @@ internal static class CommandEmitter
     // Builds the statement IR + bind statements for one command under a result shape (null shape on
     // update/delete ⇒ affected-count, no RETURNING). Reuses the single-command building blocks.
     private static SqlStatement BuildStatement(
-        CommandModel cmd, EntityModel entity, string schema, NamingConvention convention, ReturningShape? shape, out List<string> binds)
+        CommandModel cmd,
+        EntityModel entity,
+        string schema,
+        NamingConvention convention,
+        ReturningShape? shape,
+        out List<string> binds
+    )
     {
         binds = new List<string>();
         var p = 0;
@@ -245,8 +336,14 @@ internal static class CommandEmitter
                 values.Add(value);
             }
 
-            var insertShape = shape ?? new ReturningShape(ReturningKind.Entity, new EquatableArray<string>([]));
-            return new InsertStatement(table, cols, values, ReturningColumns(insertShape, entity, convention));
+            var insertShape =
+                shape ?? new ReturningShape(ReturningKind.Entity, new EquatableArray<string>([]));
+            return new InsertStatement(
+                table,
+                cols,
+                values,
+                ReturningColumns(insertShape, entity, convention)
+            );
         }
 
         if (cmd.Kind == CommandKind.Update)
@@ -259,17 +356,34 @@ internal static class CommandEmitter
             }
 
             var where = BuildWhere(cmd, entity, convention, ref p, binds);
-            return new UpdateStatement(table, assigns, where, shape is null ? null : ReturningColumns(shape, entity, convention));
+            return new UpdateStatement(
+                table,
+                assigns,
+                where,
+                shape is null ? null : ReturningColumns(shape, entity, convention)
+            );
         }
 
         var deleteWhere = BuildWhere(cmd, entity, convention, ref p, binds);
-        return new DeleteStatement(table, deleteWhere, shape is null ? null : ReturningColumns(shape, entity, convention));
+        return new DeleteStatement(
+            table,
+            deleteWhere,
+            shape is null ? null : ReturningColumns(shape, entity, convention)
+        );
     }
 
     // Emits, inside an already-open method, one command as a uniquely-named PreparedStatement + its execution,
     // either to a local (`with` binding) or as the method's `return` (terminal). FR-022 sequence step.
     private static void EmitCommandStep(
-        SourceWriter w, string suffix, SqlStatement statement, List<string> binds, string clr, string? materializer, bool isCount, string? local)
+        SourceWriter w,
+        string suffix,
+        SqlStatement statement,
+        List<string> binds,
+        string clr,
+        string? materializer,
+        bool isCount,
+        string? local
+    )
     {
         var stmtVar = "statement" + suffix;
         WriteStatement(w, stmtVar, statement, binds);
@@ -277,13 +391,17 @@ internal static class CommandEmitter
         string call;
         if (isCount)
         {
-            call = $"await session.ExecuteWriteAsync({stmtVar}, cancellationToken).ConfigureAwait(false)";
+            call =
+                $"await session.ExecuteWriteAsync({stmtVar}, cancellationToken).ConfigureAwait(false)";
         }
         else
         {
             var cmdVar = "command" + suffix;
-            w.Line($"var {cmdVar} = new {Abs}.Querying.CompiledCommand<{clr}>({stmtVar}, {materializer});");
-            call = $"await session.ExecuteCommandAsync({cmdVar}, cancellationToken).ConfigureAwait(false)";
+            w.Line(
+                $"var {cmdVar} = new {Abs}.Querying.CompiledCommand<{clr}>({stmtVar}, {materializer});"
+            );
+            call =
+                $"await session.ExecuteCommandAsync({cmdVar}, cancellationToken).ConfigureAwait(false)";
         }
 
         w.Line(local is null ? $"return {call};" : $"var {local} = {call};");
@@ -293,7 +411,11 @@ internal static class CommandEmitter
     // then the terminal command produces the unit result; all in the session transaction (provider-portable,
     // no CTE). `with`-bound names flow into later commands as locals (e.g. a parent id into a child FK).
     private static string EmitWithBlock(
-        CommandModel terminal, IReadOnlyDictionary<string, (EntityModel Entity, string Schema)> entities, NamingConvention convention, out string? projection)
+        CommandModel terminal,
+        IReadOnlyDictionary<string, (EntityModel Entity, string Schema)> entities,
+        NamingConvention convention,
+        out string? projection
+    )
     {
         projection = null;
         var methodName = Naming.ToPascalCase(terminal.Name);
@@ -301,7 +423,8 @@ internal static class CommandEmitter
         var terminalIsCount = terminal.Kind != CommandKind.Insert && terminal.Returning is null;
         ReturningShape? terminalShape = terminalIsCount
             ? null
-            : terminal.Returning ?? new ReturningShape(ReturningKind.Entity, new EquatableArray<string>([]));
+            : terminal.Returning
+                ?? new ReturningShape(ReturningKind.Entity, new EquatableArray<string>([]));
 
         var terminalEntry = entities[terminal.RootEntity];
         string terminalClr = "int";
@@ -336,38 +459,91 @@ internal static class CommandEmitter
             else
             {
                 var pk = bentry.Entity.Properties.First(x => x.IsPrimary);
-                bshape = new ReturningShape(ReturningKind.Scalar, new EquatableArray<string>([pk.Name]));
+                bshape = new ReturningShape(
+                    ReturningKind.Scalar,
+                    new EquatableArray<string>([pk.Name])
+                );
             }
 
-            var bstmt = BuildStatement(bcmd, bentry.Entity, bentry.Schema, convention, bshape, out var bbinds);
+            var bstmt = BuildStatement(
+                bcmd,
+                bentry.Entity,
+                bentry.Schema,
+                convention,
+                bshape,
+                out var bbinds
+            );
             string bclr = "int";
             string? bmat = null;
             if (!bIsCount)
             {
-                var (clr, mat, _) = ShapeResult(bshape!, bentry.Entity, methodName + "_" + binding.Name);
+                var (clr, mat, _) = ShapeResult(
+                    bshape!,
+                    bentry.Entity,
+                    methodName + "_" + binding.Name
+                );
                 bclr = clr;
                 bmat = mat;
             }
 
-            EmitCommandStep(w, "_" + binding.Name, bstmt, bbinds, bclr, bmat, bIsCount, binding.Name);
+            EmitCommandStep(
+                w,
+                "_" + binding.Name,
+                bstmt,
+                bbinds,
+                bclr,
+                bmat,
+                bIsCount,
+                binding.Name
+            );
         }
 
-        var tstmt = BuildStatement(terminal, terminalEntry.Entity, terminalEntry.Schema, convention, terminalShape, out var tbinds);
-        EmitCommandStep(w, string.Empty, tstmt, tbinds, terminalClr, terminalMat, terminalIsCount, local: null);
+        var tstmt = BuildStatement(
+            terminal,
+            terminalEntry.Entity,
+            terminalEntry.Schema,
+            convention,
+            terminalShape,
+            out var tbinds
+        );
+        EmitCommandStep(
+            w,
+            string.Empty,
+            tstmt,
+            tbinds,
+            terminalClr,
+            terminalMat,
+            terminalIsCount,
+            local: null
+        );
 
         w.Close();
         return w.ToString().TrimEnd('\n');
     }
 
-    private static string EmitInsert(CommandModel command, EntityModel entity, string schema, NamingConvention convention, out string? projection)
+    private static string EmitInsert(
+        CommandModel command,
+        EntityModel entity,
+        string schema,
+        NamingConvention convention,
+        out string? projection
+    )
     {
         // insert always materializes a result; the default shape is the full entity (`returning alias`).
-        var shape = command.Returning ?? new ReturningShape(ReturningKind.Entity, new EquatableArray<string>([]));
+        var shape =
+            command.Returning
+            ?? new ReturningShape(ReturningKind.Entity, new EquatableArray<string>([]));
         var statement = BuildStatement(command, entity, schema, convention, shape, out var binds);
         return EmitShapedMethod(command, entity, shape, statement, binds, out projection);
     }
 
-    private static string EmitUpdate(CommandModel command, EntityModel entity, string schema, NamingConvention convention, out string? projection)
+    private static string EmitUpdate(
+        CommandModel command,
+        EntityModel entity,
+        string schema,
+        NamingConvention convention,
+        out string? projection
+    )
     {
         projection = null;
 
@@ -375,7 +551,14 @@ internal static class CommandEmitter
         // it returns the affected-row count (the default + the optimistic-concurrency conflict signal).
         if (command.Returning is { } shape)
         {
-            var statementR = BuildStatement(command, entity, schema, convention, shape, out var bindsR);
+            var statementR = BuildStatement(
+                command,
+                entity,
+                schema,
+                convention,
+                shape,
+                out var bindsR
+            );
             return EmitShapedMethod(command, entity, shape, statementR, bindsR, out projection);
         }
 
@@ -383,13 +566,26 @@ internal static class CommandEmitter
         return EmitWriteMethod(command, statement, binds);
     }
 
-    private static string EmitDelete(CommandModel command, EntityModel entity, string schema, NamingConvention convention, out string? projection)
+    private static string EmitDelete(
+        CommandModel command,
+        EntityModel entity,
+        string schema,
+        NamingConvention convention,
+        out string? projection
+    )
     {
         projection = null;
 
         if (command.Returning is { } shape)
         {
-            var statementR = BuildStatement(command, entity, schema, convention, shape, out var bindsR);
+            var statementR = BuildStatement(
+                command,
+                entity,
+                schema,
+                convention,
+                shape,
+                out var bindsR
+            );
             return EmitShapedMethod(command, entity, shape, statementR, bindsR, out projection);
         }
 
@@ -399,18 +595,31 @@ internal static class CommandEmitter
 
     // The RETURNING column list (database names) for a result shape: Entity → all columns; Projection → the
     // projected members; Scalar → the single member.
-    private static List<string> ReturningColumns(ReturningShape shape, EntityModel entity, NamingConvention convention) =>
+    private static List<string> ReturningColumns(
+        ReturningShape shape,
+        EntityModel entity,
+        NamingConvention convention
+    ) =>
         shape.Kind == ReturningKind.Entity
             ? entity.Properties.Select(x => Col(x.Name, x.NameOverride, convention)).ToList()
-            : shape.Members.Select(m =>
-            {
-                var prop = entity.Properties.First(x => x.Name == m);
-                return Col(prop.Name, prop.NameOverride, convention);
-            }).ToList();
+            : shape
+                .Members.Select(m =>
+                {
+                    var prop = entity.Properties.First(x => x.Name == m);
+                    return Col(prop.Name, prop.NameOverride, convention);
+                })
+                .ToList();
 
     // Emits a method whose statement RETURNs rows, materialized per the result shape (entity / projection /
     // scalar) — shared by insert and by update/delete with an explicit `returning` (003 FR-017).
-    private static string EmitShapedMethod(CommandModel command, EntityModel entity, ReturningShape shape, SqlStatement statement, List<string> binds, out string? projection)
+    private static string EmitShapedMethod(
+        CommandModel command,
+        EntityModel entity,
+        ReturningShape shape,
+        SqlStatement statement,
+        List<string> binds,
+        out string? projection
+    )
     {
         projection = null;
         if (shape.Kind == ReturningKind.Scalar)
@@ -422,9 +631,12 @@ internal static class CommandEmitter
                 : $"reader.GetValue<{property.ClrType}>(0)";
             var ws = OpenMethod(command, $"global::System.Threading.Tasks.ValueTask<{clr}>");
             EmitStatement(ws, statement, binds);
-            ws
-                .Line($"var command = new {Abs}.Querying.CompiledCommand<{clr}>(statement, static reader => {read});")
-                .Line("return await session.ExecuteCommandAsync(command, cancellationToken).ConfigureAwait(false);")
+            ws.Line(
+                    $"var command = new {Abs}.Querying.CompiledCommand<{clr}>(statement, static reader => {read});"
+                )
+                .Line(
+                    "return await session.ExecuteCommandAsync(command, cancellationToken).ConfigureAwait(false);"
+                )
                 .Close();
             return ws.ToString().TrimEnd('\n');
         }
@@ -441,18 +653,23 @@ internal static class CommandEmitter
             });
             projection = $"public sealed record {resultType}({string.Join(", ", recordFields)});";
 
-            var args = members.Select((m, i) =>
-            {
-                var prop = entity.Properties.First(x => x.Name == m);
-                var read = $"reader.GetValue<{prop.ClrType}>({i})";
-                return prop.IsNullable ? $"reader.IsNull({i}) ? null : {read}" : read;
-            });
+            var args = members.Select(
+                (m, i) =>
+                {
+                    var prop = entity.Properties.First(x => x.Name == m);
+                    var read = $"reader.GetValue<{prop.ClrType}>({i})";
+                    return prop.IsNullable ? $"reader.IsNull({i}) ? null : {read}" : read;
+                }
+            );
 
             var wp = OpenMethod(command, $"global::System.Threading.Tasks.ValueTask<{resultType}>");
             EmitStatement(wp, statement, binds);
-            wp
-                .Line($"var command = new {Abs}.Querying.CompiledCommand<{resultType}>(statement, static reader => new {resultType}({string.Join(", ", args)}));")
-                .Line("return await session.ExecuteCommandAsync(command, cancellationToken).ConfigureAwait(false);")
+            wp.Line(
+                    $"var command = new {Abs}.Querying.CompiledCommand<{resultType}>(statement, static reader => new {resultType}({string.Join(", ", args)}));"
+                )
+                .Line(
+                    "return await session.ExecuteCommandAsync(command, cancellationToken).ConfigureAwait(false);"
+                )
                 .Close();
             return wp.ToString().TrimEnd('\n');
         }
@@ -460,9 +677,12 @@ internal static class CommandEmitter
         // Entity (default) → the full immutable entity via its generated ctor.
         var w = OpenMethod(command, $"global::System.Threading.Tasks.ValueTask<{entity.Name}>");
         EmitStatement(w, statement, binds);
-        w
-            .Line($"var command = new {Abs}.Querying.CompiledCommand<{entity.Name}>(statement, static reader => new {entity.Name}(reader));")
-            .Line("return await session.ExecuteCommandAsync(command, cancellationToken).ConfigureAwait(false);")
+        w.Line(
+                $"var command = new {Abs}.Querying.CompiledCommand<{entity.Name}>(statement, static reader => new {entity.Name}(reader));"
+            )
+            .Line(
+                "return await session.ExecuteCommandAsync(command, cancellationToken).ConfigureAwait(false);"
+            )
             .Close();
         return w.ToString().TrimEnd('\n');
     }
@@ -471,20 +691,29 @@ internal static class CommandEmitter
     // single reference (FR-020/021): `alias.author = expr` writes the `author_id` FK column (no json cast;
     // the value is the target's primary key).
     private static (string Column, SqlValue Value) ResolveAssignment(
-        Assignment assignment, EntityModel entity, NamingConvention convention, ref int p, List<string> binds)
+        Assignment assignment,
+        EntityModel entity,
+        NamingConvention convention,
+        ref int p,
+        List<string> binds
+    )
     {
         var property = entity.Properties.FirstOrDefault(x => x.Name == assignment.Column);
         if (property is not null)
         {
             return (
                 Col(property.Name, property.NameOverride, convention),
-                BuildValue(assignment.Value, property.DslType == "json", ref p, binds));
+                BuildValue(assignment.Value, property.DslType == "json", ref p, binds)
+            );
         }
 
-        var reference = entity.References.First(r => r.Kind == ReferenceKind.Ref && r.Name == assignment.Column);
+        var reference = entity.References.First(r =>
+            r.Kind == ReferenceKind.Ref && r.Name == assignment.Column
+        );
         return (
             NamingConventions.Resolve(reference.Name, null, convention) + "_id",
-            BuildValue(assignment.Value, json: false, ref p, binds));
+            BuildValue(assignment.Value, json: false, ref p, binds)
+        );
     }
 
     // The neutral value for an assignment: param/literal → a bound positional parameter (the dialect renders
@@ -513,14 +742,26 @@ internal static class CommandEmitter
         }
     }
 
-    private static List<SqlCondition> BuildWhere(CommandModel command, EntityModel entity, NamingConvention convention, ref int p, List<string> binds)
+    private static List<SqlCondition> BuildWhere(
+        CommandModel command,
+        EntityModel entity,
+        NamingConvention convention,
+        ref int p,
+        List<string> binds
+    )
     {
         var where = new List<SqlCondition>(command.Filters.Count);
         foreach (var filter in command.Filters)
         {
             var property = entity.Properties.First(x => x.Name == filter.Column);
             p++;
-            where.Add(new SqlCondition(Col(property.Name, property.NameOverride, convention), OperatorSql(filter.Op), p));
+            where.Add(
+                new SqlCondition(
+                    Col(property.Name, property.NameOverride, convention),
+                    OperatorSql(filter.Op),
+                    p
+                )
+            );
             binds.Add($"writer.Write({p}, {filter.ParameterName});");
         }
 
@@ -533,21 +774,25 @@ internal static class CommandEmitter
         var methodName = Naming.ToPascalCase(command.Name);
         var declared = string.Join(", ", command.Parameters.Select(x => $"{x.ClrType} {x.Name}"));
         var parameterList = declared.Length > 0 ? declared + ", " : string.Empty;
-        return new SourceWriter()
-            .Open($"public async {returnType} {methodName}({parameterList}global::System.Threading.CancellationToken cancellationToken = default)");
+        return new SourceWriter().Open(
+            $"public async {returnType} {methodName}({parameterList}global::System.Threading.CancellationToken cancellationToken = default)"
+        );
     }
 
     private static void EmitStatement(SourceWriter w, SqlStatement statement, List<string> binds) =>
         WriteStatement(w, "statement", statement, binds);
 
     // Emits `var {stmtVar} = new PreparedStatement(<dialect switch>, writer => { binds });`.
-    private static void WriteStatement(SourceWriter w, string stmtVar, SqlStatement statement, List<string> binds)
+    private static void WriteStatement(
+        SourceWriter w,
+        string stmtVar,
+        SqlStatement statement,
+        List<string> binds
+    )
     {
         w.Line($"var {stmtVar} = new {Abs}.Querying.PreparedStatement(");
         DialectSwitch.WriteStatementArg(w, "    ", "session.Dialect", statement, ",");
-        w
-            .Line("    writer =>")
-            .Line("    {");
+        w.Line("    writer =>").Line("    {");
         foreach (var bind in binds)
         {
             w.Line("        " + bind);
@@ -557,29 +802,37 @@ internal static class CommandEmitter
     }
 
     // update/delete return the affected-row count (0 on a stale concurrency token → caller's conflict).
-    private static string EmitWriteMethod(CommandModel command, SqlStatement statement, List<string> binds)
+    private static string EmitWriteMethod(
+        CommandModel command,
+        SqlStatement statement,
+        List<string> binds
+    )
     {
         var w = OpenMethod(command, "global::System.Threading.Tasks.ValueTask<int>");
         EmitStatement(w, statement, binds);
-        w.Line("return await session.ExecuteWriteAsync(statement, cancellationToken).ConfigureAwait(false);").Close();
+        w.Line(
+                "return await session.ExecuteWriteAsync(statement, cancellationToken).ConfigureAwait(false);"
+            )
+            .Close();
         return w.ToString().TrimEnd('\n');
     }
 
     private static string Col(string name, string? nameOverride, NamingConvention convention) =>
         NamingConventions.Resolve(name, nameOverride, convention);
 
-    private static string OperatorSql(CompareOp op) => op switch
-    {
-        CompareOp.Eq => "=",
-        CompareOp.Neq => "<>",
-        CompareOp.Lt => "<",
-        CompareOp.Gt => ">",
-        CompareOp.Le => "<=",
-        CompareOp.Ge => ">=",
-        CompareOp.Like => "LIKE",
-        CompareOp.ILike => "ILIKE",
-        _ => "=",
-    };
+    private static string OperatorSql(CompareOp op) =>
+        op switch
+        {
+            CompareOp.Eq => "=",
+            CompareOp.Neq => "<>",
+            CompareOp.Lt => "<",
+            CompareOp.Gt => ">",
+            CompareOp.Le => "<=",
+            CompareOp.Ge => ">=",
+            CompareOp.Like => "LIKE",
+            CompareOp.ILike => "ILIKE",
+            _ => "=",
+        };
 
     private static string Quote(string text) =>
         "\"" + text.Replace("\\", "\\\\").Replace("\"", "\\\"") + "\"";
@@ -587,6 +840,11 @@ internal static class CommandEmitter
     private static DiagnosticInfo Diag(
         Microsoft.CodeAnalysis.DiagnosticDescriptor descriptor,
         string filePath,
-        params string[] args) =>
-        new(descriptor, new LocationInfo(filePath, default, default), new EquatableArray<string>(args));
+        params string[] args
+    ) =>
+        new(
+            descriptor,
+            new LocationInfo(filePath, default, default),
+            new EquatableArray<string>(args)
+        );
 }

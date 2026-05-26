@@ -1,0 +1,11 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+# CSharpier is the formatter of record. Format staged C# files and re-stage them so every
+# commit contains formatted code (mirrors the CI 'csharpier check' gate). dotnet format runs
+# in CI only (it needs a build to resolve source-generated types), keeping commits fast.
+files=$(git diff --cached --name-only --diff-filter=ACM -- '*.cs')
+[ -z "$files" ] && exit 0
+
+echo "$files" | xargs dotnet csharpier format
+echo "$files" | xargs git add

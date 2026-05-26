@@ -35,11 +35,16 @@ public sealed class DialectBoundaryTests
     {
         var driver = GeneratorTestHarness.CreateDriver(
             new TestAdditionalText("schema/catalog.dqls", Schema),
-            new TestAdditionalText("schema/catalog.dql", Commands));
+            new TestAdditionalText("schema/catalog.dql", Commands)
+        );
         driver = driver.RunGenerators(CSharpCompilation.Create("Tests"));
         return string.Join(
             "\n",
-            driver.GetRunResult().Results.SelectMany(r => r.GeneratedSources).Select(s => s.SourceText.ToString()));
+            driver
+                .GetRunResult()
+                .Results.SelectMany(r => r.GeneratedSources)
+                .Select(s => s.SourceText.ToString())
+        );
     }
 
     [Test]
@@ -48,14 +53,22 @@ public sealed class DialectBoundaryTests
         var generated = Run();
 
         // Both dialect arms are emitted from the one authored unit.
-        await Assert.That(generated).Contains("global::Dormant.Abstractions.Providers.DialectId.PostgreSql =>");
-        await Assert.That(generated).Contains("global::Dormant.Abstractions.Providers.DialectId.Sqlite =>");
+        await Assert
+            .That(generated)
+            .Contains("global::Dormant.Abstractions.Providers.DialectId.PostgreSql =>");
+        await Assert
+            .That(generated)
+            .Contains("global::Dormant.Abstractions.Providers.DialectId.Sqlite =>");
 
         // PostgreSQL: schema-qualified table, $n placeholders, ::jsonb cast (dialect lexical choices).
-        await Assert.That(generated).Contains("INSERT INTO \"catalog\".\"doc\" (\"id\", \"data\") VALUES ($1, $2::jsonb)");
+        await Assert
+            .That(generated)
+            .Contains("INSERT INTO \"catalog\".\"doc\" (\"id\", \"data\") VALUES ($1, $2::jsonb)");
 
         // SQLite: schema folded into the table name, @pN placeholders, NO cast — same neutral IR, different render.
-        await Assert.That(generated).Contains("INSERT INTO \"catalog_doc\" (\"id\", \"data\") VALUES (@p1, @p2)");
+        await Assert
+            .That(generated)
+            .Contains("INSERT INTO \"catalog_doc\" (\"id\", \"data\") VALUES (@p1, @p2)");
     }
 
     [Test]
