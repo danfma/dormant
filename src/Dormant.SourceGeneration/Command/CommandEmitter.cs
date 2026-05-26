@@ -308,9 +308,9 @@ internal static class CommandEmitter
 
     private static void EmitStatement(SourceWriter w, string sql, List<string> binds)
     {
+        w.Line($"var statement = new {Abs}.Querying.PreparedStatement(");
+        w.RawArg("    ", sql, ",");
         w
-            .Line($"var statement = new {Abs}.Querying.PreparedStatement(")
-            .Line($"    {Quote(sql)},")
             .Line("    writer =>")
             .Line("    {");
         foreach (var bind in binds)

@@ -208,9 +208,9 @@ internal static class QueryEmitter
         var parameterOrder = new List<string>();
         var sql = BuildSql(query, entity, schema, convention, parameterOrder);
 
+        writer.Line($"var statement = new {Abs}.Querying.PreparedStatement(");
+        writer.RawArg("    ", sql, ",");
         writer
-            .Line($"var statement = new {Abs}.Querying.PreparedStatement(")
-            .Line($"    {Quote(sql)},")
             .Line("    writer =>")
             .Line("    {");
 
@@ -431,9 +431,6 @@ internal static class QueryEmitter
             ? NamingConventions.Resolve(dslName, null, convention)
             : NamingConventions.Resolve(property.Name, property.NameOverride, convention);
     }
-
-    private static string Quote(string text) =>
-        "\"" + text.Replace("\\", "\\\\").Replace("\"", "\\\"") + "\"";
 
     private static DiagnosticInfo Diag(
         Microsoft.CodeAnalysis.DiagnosticDescriptor descriptor,

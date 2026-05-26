@@ -77,7 +77,7 @@ public sealed class ProjectionEmitTests
             .Contains("public global::System.Collections.Generic.IAsyncEnumerable<Widget> AllWidgets(int min,");
         // Build-time SQL: full-entity column list in declaration order + filter + order by.
         await Assert.That(generated)
-            .Contains("SELECT \\\"id\\\", \\\"name\\\", \\\"quantity\\\" FROM \\\"catalog\\\".\\\"widget\\\" WHERE \\\"quantity\\\" >= $1 ORDER BY \\\"quantity\\\" DESC");
+            .Contains("SELECT \"id\", \"name\", \"quantity\" FROM \"catalog\".\"widget\" WHERE \"quantity\" >= $1 ORDER BY \"quantity\" DESC");
         await Assert.That(generated).Contains("static reader => new Widget(reader)");
     }
 

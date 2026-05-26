@@ -54,7 +54,7 @@ public sealed class CommandEmitTests
             .Contains("global::System.Threading.Tasks.ValueTask<Widget> CreateWidget(global::System.Guid id, string name, int quantity,");
         // Build-time, schema-qualified INSERT … RETURNING.
         await Assert.That(generated)
-            .Contains("INSERT INTO \\\"catalog\\\".\\\"widget\\\" (\\\"id\\\", \\\"name\\\", \\\"quantity\\\") VALUES ($1, $2, $3) RETURNING \\\"id\\\", \\\"name\\\", \\\"quantity\\\"");
+            .Contains("INSERT INTO \"catalog\".\"widget\" (\"id\", \"name\", \"quantity\") VALUES ($1, $2, $3) RETURNING \"id\", \"name\", \"quantity\"");
         await Assert.That(generated).Contains("new global::Dormant.Abstractions.Querying.CompiledCommand<Widget>(statement, static reader => new Widget(reader))");
         await Assert.That(generated).Contains("session.ExecuteCommandAsync(command, cancellationToken)");
     }
@@ -78,7 +78,7 @@ public sealed class CommandEmitTests
             "module catalog;\nmutation create_widget(id: uuid, name: string, quantity: int) { insert Widget w { w.id = id w.name = name w.quantity = quantity } returning w }");
 
         await Assert.That(generated).Contains("global::System.Threading.Tasks.ValueTask<Widget> CreateWidget(");
-        await Assert.That(generated).Contains("RETURNING \\\"id\\\", \\\"name\\\", \\\"quantity\\\"");
+        await Assert.That(generated).Contains("RETURNING \"id\", \"name\", \"quantity\"");
     }
 
     // 003 T015/FR-017: `returning alias.member` shapes a scalar result (RETURNING one column, read column 0).
@@ -89,7 +89,7 @@ public sealed class CommandEmitTests
             "module catalog;\nmutation create_widget(id: uuid, name: string, quantity: int) { insert Widget w { w.id = id w.name = name w.quantity = quantity } returning w.id }");
 
         await Assert.That(generated).Contains("global::System.Threading.Tasks.ValueTask<global::System.Guid> CreateWidget(");
-        await Assert.That(generated).Contains("VALUES ($1, $2, $3) RETURNING \\\"id\\\"");
+        await Assert.That(generated).Contains("VALUES ($1, $2, $3) RETURNING \"id\"");
         await Assert.That(generated).Contains("reader.GetValue<global::System.Guid>(0)");
     }
 
@@ -102,6 +102,6 @@ public sealed class CommandEmitTests
 
         await Assert.That(generated).Contains("public sealed record CreateWidgetResult(global::System.Guid Id, string Name);");
         await Assert.That(generated).Contains("global::System.Threading.Tasks.ValueTask<CreateWidgetResult> CreateWidget(");
-        await Assert.That(generated).Contains("RETURNING \\\"id\\\", \\\"name\\\"");
+        await Assert.That(generated).Contains("RETURNING \"id\", \"name\"");
     }
 }

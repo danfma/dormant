@@ -156,5 +156,46 @@ internal sealed class SourceWriter
         return this;
     }
 
+    /// <summary>
+    /// Emits <paramref name="content"/> (one line of SQL) as a C# multi-line raw string literal — an opening
+    /// fence line, the content line, and a closing fence line followed by <paramref name="trailing"/> — all
+    /// sharing <paramref name="indent"/> so the raw-string dedent yields the content verbatim (004 FR-001).
+    /// A single-line raw string can't end with <c>"</c> (our SQL ends with a quoted identifier), so the
+    /// multi-line form is used. The fence length adapts to the content's longest quote run (FR-003); the
+    /// literal is non-interpolated, so <c>$n</c> placeholders and braces are preserved verbatim (FR-004).
+    /// </summary>
+    public SourceWriter RawArg(string indent, string content, string trailing)
+    {
+        var fence = new string('"', RawFence(content));
+        Line(indent + fence);
+        Line(indent + content);
+        Line(indent + fence + trailing);
+        return this;
+    }
+
+    // The fence must be longer than the longest run of '"' in the content; never shorter than 3.
+    private static int RawFence(string content)
+    {
+        var max = 0;
+        var current = 0;
+        foreach (var c in content)
+        {
+            if (c == '"')
+            {
+                current++;
+                if (current > max)
+                {
+                    max = current;
+                }
+            }
+            else
+            {
+                current = 0;
+            }
+        }
+
+        return System.Math.Max(3, max + 1);
+    }
+
     public override string ToString() => _sb.ToString();
 }

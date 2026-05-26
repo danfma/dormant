@@ -1,8 +1,12 @@
 <!-- SPECKIT START -->
 For additional context about technologies, project structure, conventions, and
 important decisions for the active feature, read the current plan:
+`specs/004-raw-string-sql/plan.md` — a small **generated-code-quality** layer: the
+generator emits build-time SQL as C# multi-line **raw string literals** (`"""…"""`)
+instead of `\"`-escaped strings (SQL value byte-identical; only the emitters'
+SQL-literal emission + snapshot tests change). The deeper active grammar context is
 `specs/003-linq-dql-grammar/plan.md` (with `research.md`, `data-model.md`,
-`contracts/`, and `quickstart.md` in the same directory). 003 is a **front-end
+`contracts/`, and `quickstart.md`). 003 is a **front-end
 grammar replacement** built on `specs/002-immutable-command-dml/` (the immutable,
 command-driven direction — its runtime semantics are preserved unchanged): the DQL
 unit surface becomes a **LINQ-/SQL-hybrid, brace-delimited grammar** with explicit
