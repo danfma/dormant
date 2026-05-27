@@ -1,7 +1,6 @@
 using BenchmarkDotNet.Attributes;
 using Dapper;
 using Dormant.Benchmarks.Schema.Bench;
-using Insight.Database;
 using PocoProduct = Dormant.Benchmarks.Model.Product;
 
 namespace Dormant.Benchmarks.Benchmarks;
@@ -28,6 +27,8 @@ public class InsertBenchmarks : BenchmarkBase
     public async Task Dapper()
     {
         await using var connection = await Harness.OpenConnectionAsync();
+        await using var transaction = await connection.BeginTransactionAsync();
+
         await SqlMapper.ExecuteAsync(
             connection,
             Sql,
@@ -38,8 +39,11 @@ public class InsertBenchmarks : BenchmarkBase
                 category = "ins",
                 price = 1.23m,
                 quantity = 1,
-            }
+            },
+            transaction
         );
+
+        await transaction.CommitAsync();
     }
 
     [Benchmark]
@@ -57,23 +61,5 @@ public class InsertBenchmarks : BenchmarkBase
             }
         );
         await context.SaveChangesAsync();
-    }
-
-    [Benchmark]
-    public async Task Insight()
-    {
-        await using var connection = await Harness.OpenConnectionAsync();
-        // Dictionary params: Insight reuses stale anonymous-type parameter values with Microsoft.Data.Sqlite.
-        await connection.ExecuteSqlAsync(
-            Sql,
-            new Dictionary<string, object>
-            {
-                ["id"] = Guid.NewGuid(),
-                ["name"] = "ins",
-                ["category"] = "ins",
-                ["price"] = 1.23m,
-                ["quantity"] = 1,
-            }
-        );
     }
 }

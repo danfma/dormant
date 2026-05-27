@@ -5,5 +5,7 @@
 using BenchmarkDotNet.Running;
 using Dormant.Benchmarks;
 
+// BenchmarkSwitcher (not BenchmarkRunner) so CLI args work: `--filter '<glob>'` selects a subset and
+// `--job dry` runs each benchmark once for the CI smoke. BenchmarkRunner.Run(assembly) ignores args.
 BenchmarkSwitcher.FromAssembly(typeof(Program).Assembly).Run(args, BenchmarkConfig.Create());
 return 0;

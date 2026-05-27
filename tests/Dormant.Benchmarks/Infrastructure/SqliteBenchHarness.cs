@@ -7,13 +7,12 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Dormant.Benchmarks.Infrastructure;
 
-/// <summary>The four libraries under comparison; also indexes the per-library scratch-key arrays.</summary>
+/// <summary>The libraries under comparison; also indexes the per-library scratch-key arrays.</summary>
 public enum OrmKind
 {
     Dormant = 0,
     Dapper = 1,
     EfCore = 2,
-    Insight = 3,
 }
 
 /// <summary>
@@ -107,9 +106,9 @@ public sealed class SqliteBenchHarness : IAsyncDisposable
         }
 
         var rng = new Random(20260526);
-        var updateKeys = new Guid[4];
-        var deleteKeys = new Guid[4];
-        for (var i = 0; i < 4; i++)
+        var updateKeys = new Guid[3];
+        var deleteKeys = new Guid[3];
+        for (var i = 0; i < updateKeys.Length; i++)
         {
             updateKeys[i] = Guid.NewGuid();
             deleteKeys[i] = Guid.NewGuid();

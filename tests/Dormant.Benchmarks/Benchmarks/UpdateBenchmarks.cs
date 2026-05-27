@@ -2,7 +2,6 @@ using BenchmarkDotNet.Attributes;
 using Dapper;
 using Dormant.Benchmarks.Infrastructure;
 using Dormant.Benchmarks.Schema.Bench;
-using Insight.Database;
 using Microsoft.EntityFrameworkCore;
 
 namespace Dormant.Benchmarks.Benchmarks;
@@ -29,34 +28,29 @@ public class UpdateBenchmarks : BenchmarkBase
     public async Task Dapper()
     {
         await using var connection = await Harness.OpenConnectionAsync();
+        await using var trx = await connection.BeginTransactionAsync();
+
         await SqlMapper.ExecuteAsync(
             connection,
             Sql,
-            new { quantity = NewQuantity, id = Harness.UpdateKeys[(int)OrmKind.Dapper] }
+            new { quantity = NewQuantity, id = Harness.UpdateKeys[(int)OrmKind.Dapper] },
+            transaction: trx
         );
+
+        await trx.CommitAsync();
     }
 
     [Benchmark]
     public async Task EfCore()
     {
         var id = Harness.UpdateKeys[(int)OrmKind.EfCore];
+
         await using var context = Harness.NewEfContext();
+
         await context
             .Products.Where(p => p.Id == id)
             .ExecuteUpdateAsync(setters => setters.SetProperty(p => p.Quantity, NewQuantity));
-    }
 
-    [Benchmark]
-    public async Task Insight()
-    {
-        await using var connection = await Harness.OpenConnectionAsync();
-        await connection.ExecuteSqlAsync(
-            Sql,
-            new Dictionary<string, object>
-            {
-                ["quantity"] = NewQuantity,
-                ["id"] = Harness.UpdateKeys[(int)OrmKind.Insight],
-            }
-        );
+        await context.SaveChangesAsync();
     }
 }

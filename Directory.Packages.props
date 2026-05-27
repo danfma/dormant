@@ -37,11 +37,10 @@
     <PackageVersion Include="BenchmarkDotNet" Version="0.14.0" />
   </ItemGroup>
 
-  <!-- Benchmark comparison peers (feature 008): Dormant vs Dapper, EF Core, Insight.Database over SQLite.
+  <!-- Benchmark comparison peers (feature 008): Dormant vs Dapper and EF Core over SQLite.
        Reflection-based; live only in the non-AOT benchmark harness. -->
   <ItemGroup>
     <PackageVersion Include="Dapper" Version="2.1.66" />
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.0" />
-    <PackageVersion Include="Insight.Database.Core" Version="6.3.10" />
   </ItemGroup>
 </Project>

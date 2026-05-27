@@ -1,7 +1,6 @@
 using BenchmarkDotNet.Attributes;
 using Dapper;
 using Dormant.Benchmarks.Schema.Bench;
-using Insight.Database;
 using Microsoft.EntityFrameworkCore;
 using DormantProduct = Dormant.Benchmarks.Schema.Bench.Product;
 using PocoProduct = Dormant.Benchmarks.Model.Product;
@@ -31,12 +30,17 @@ public class FilteredReadBenchmarks : BenchmarkBase
     public async Task<List<PocoProduct>> Dapper()
     {
         await using var connection = await Harness.OpenConnectionAsync();
+        await using var transaction = await connection.BeginTransactionAsync();
+
         // Dapper's QueryAsync via the static form so it doesn't collide with Insight's QueryAsync extension.
         var rows = await SqlMapper.QueryAsync<PocoProduct>(
             connection,
             Sql,
-            new { category = Harness.ReadCategory }
+            new { category = Harness.ReadCategory },
+            transaction
         );
+
+        await transaction.CommitAsync();
         return rows.AsList();
     }
 
@@ -49,15 +53,5 @@ public class FilteredReadBenchmarks : BenchmarkBase
             .Products.AsNoTracking()
             .Where(p => p.Category == category)
             .ToListAsync();
-    }
-
-    [Benchmark]
-    public async Task<IList<PocoProduct>> Insight()
-    {
-        await using var connection = await Harness.OpenConnectionAsync();
-        return await connection.QuerySqlAsync<PocoProduct>(
-            Sql,
-            new Dictionary<string, object> { ["category"] = Harness.ReadCategory }
-        );
     }
 }

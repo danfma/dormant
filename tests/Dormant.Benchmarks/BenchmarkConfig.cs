@@ -16,6 +16,10 @@ namespace Dormant.Benchmarks;
 /// </remarks>
 public static class BenchmarkConfig
 {
-    public static IConfig Create() =>
-        DefaultConfig.Instance.AddDiagnoser(MemoryDiagnoser.Default).AddColumn(RankColumn.Arabic);
+    public static IConfig Create()
+    {
+        return DefaultConfig
+            .Instance.AddDiagnoser(MemoryDiagnoser.Default)
+            .AddColumn(RankColumn.Arabic);
+    }
 }

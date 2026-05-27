@@ -1,6 +1,5 @@
 using BenchmarkDotNet.Attributes;
 using Dapper;
-using Insight.Database;
 using Microsoft.EntityFrameworkCore;
 using DormantProduct = Dormant.Benchmarks.Schema.Bench.Product;
 using PocoProduct = Dormant.Benchmarks.Model.Product;
@@ -24,10 +23,16 @@ public class ReadByKeyBenchmarks : BenchmarkBase
     public async Task<PocoProduct?> Dapper()
     {
         await using var connection = await Harness.OpenConnectionAsync();
-        return await connection.QueryFirstOrDefaultAsync<PocoProduct>(
+        await using var transaction = await connection.BeginTransactionAsync();
+
+        var result = await connection.QueryFirstOrDefaultAsync<PocoProduct>(
             Sql,
-            new { id = Harness.ReadKey }
+            new { id = Harness.ReadKey },
+            transaction
         );
+
+        await transaction.CommitAsync();
+        return result;
     }
 
     [Benchmark]
@@ -36,18 +41,5 @@ public class ReadByKeyBenchmarks : BenchmarkBase
         var id = Harness.ReadKey;
         await using var context = Harness.NewEfContext();
         return await context.Products.AsNoTracking().FirstOrDefaultAsync(p => p.Id == id);
-    }
-
-    [Benchmark]
-    public async Task<PocoProduct?> Insight()
-    {
-        await using var connection = await Harness.OpenConnectionAsync();
-        // Dictionary params: Insight caches anonymous-type parameter binding per type and reuses stale
-        // values with Microsoft.Data.Sqlite (no registered provider); a dictionary binds fresh each call.
-        var rows = await connection.QuerySqlAsync<PocoProduct>(
-            Sql,
-            new Dictionary<string, object> { ["id"] = Harness.ReadKey }
-        );
-        return rows.FirstOrDefault();
     }
 }

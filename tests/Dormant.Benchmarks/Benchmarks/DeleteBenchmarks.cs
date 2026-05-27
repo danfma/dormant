@@ -1,7 +1,6 @@
 using BenchmarkDotNet.Attributes;
 using Dapper;
 using Dormant.Benchmarks.Schema.Bench;
-using Insight.Database;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 
@@ -85,7 +84,11 @@ public class DeleteBenchmarks : BenchmarkBase
     public async Task Dapper()
     {
         await using var connection = await Harness.OpenConnectionAsync();
-        await SqlMapper.ExecuteAsync(connection, DeleteSql, new { id = NextKey() });
+        await using var transaction = await connection.BeginTransactionAsync();
+
+        await SqlMapper.ExecuteAsync(connection, DeleteSql, new { id = NextKey() }, transaction);
+
+        await transaction.CommitAsync();
     }
 
     [Benchmark]
@@ -94,15 +97,6 @@ public class DeleteBenchmarks : BenchmarkBase
         var id = NextKey();
         await using var context = Harness.NewEfContext();
         await context.Products.Where(p => p.Id == id).ExecuteDeleteAsync();
-    }
-
-    [Benchmark]
-    public async Task Insight()
-    {
-        await using var connection = await Harness.OpenConnectionAsync();
-        await connection.ExecuteSqlAsync(
-            DeleteSql,
-            new Dictionary<string, object> { ["id"] = NextKey() }
-        );
+        await context.SaveChangesAsync();
     }
 }
