@@ -581,11 +581,15 @@ internal sealed class UnitParser
 
     private FilterCondition? ParseComparison(string alias)
     {
-        var column = ParseMemberRef(alias);
-        if (column is null)
+        // 009 P-B: a comparison's left side may navigate to-one references (alias.ref.[ref.]*column).
+        var path = ParseMemberPath(alias);
+        if (path is null || path.Count == 0)
         {
             return null;
         }
+
+        var column = path[path.Count - 1];
+        var navRefs = path.GetRange(0, path.Count - 1);
 
         var op = ParseOperator();
         if (op is null)
@@ -601,7 +605,65 @@ internal sealed class UnitParser
 
         var paramName = Current.Text;
         _pos++;
-        return new FilterCondition(column, op.Value, paramName);
+        return new FilterCondition(
+            column,
+            op.Value,
+            paramName,
+            new EquatableArray<string>([.. navRefs])
+        );
+    }
+
+    // member-path := alias '.' IDENT ('.' IDENT)* — returns the segments after the alias (the last is the
+    // terminal column; any preceding segments are to-one references to navigate). 009 P-B.
+    private List<string>? ParseMemberPath(string subjectAlias)
+    {
+        if (Current.Kind == TokenKind.Dot)
+        {
+            Removed(
+                "leading-dot members ('.field') were removed; use alias-qualified members like 'u.field'"
+            );
+            return null;
+        }
+
+        if (Current.Kind != TokenKind.Identifier)
+        {
+            Error($"expected an alias-qualified member but found '{Describe(Current)}'");
+            return null;
+        }
+
+        var first = Current.Text;
+
+        if (Peek().Kind != TokenKind.Dot)
+        {
+            _diagnostics.Add(Located(DiagnosticDescriptors.UnqualifiedMember, Current, first));
+            _pos++;
+            return null;
+        }
+
+        var aliasToken = Current;
+        _pos++; // alias
+
+        var segments = new List<string>();
+        while (Current.Kind == TokenKind.Dot)
+        {
+            _pos++; // '.'
+            if (Current.Kind != TokenKind.Identifier)
+            {
+                Error("expected a member name after '.'");
+                return null;
+            }
+
+            segments.Add(Current.Text);
+            _pos++;
+        }
+
+        if (first != subjectAlias)
+        {
+            _diagnostics.Add(Located(DiagnosticDescriptors.UndeclaredAlias, aliasToken, first));
+            return null;
+        }
+
+        return segments;
     }
 
     // member := alias '.' IDENT. Validates the alias matches the subject's declared alias.

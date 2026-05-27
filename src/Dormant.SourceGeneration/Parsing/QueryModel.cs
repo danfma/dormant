@@ -84,11 +84,21 @@ internal enum CompareOp
     ILike,
 }
 
-/// <summary>A single filter condition: <c>.column op @param</c> (MVP: own-column comparisons only).</summary>
-/// <param name="Column">The entity column on the left.</param>
+/// <summary>
+/// A single filter condition: <c>alias.[ref.]*column op @param</c>. <paramref name="Column"/> is the
+/// terminal column; <paramref name="NavRefs"/> is the chain of to-one references navigated to reach it
+/// (empty ⇒ own column on the root; non-empty ⇒ the query joins those references — 009 P-B).
+/// </summary>
+/// <param name="Column">The terminal column on the left.</param>
 /// <param name="Op">The comparison operator.</param>
 /// <param name="ParameterName">The bound parameter on the right.</param>
-internal sealed record FilterCondition(string Column, CompareOp Op, string ParameterName);
+/// <param name="NavRefs">To-one reference names navigated before the terminal column (empty for own-column).</param>
+internal sealed record FilterCondition(
+    string Column,
+    CompareOp Op,
+    string ParameterName,
+    EquatableArray<string> NavRefs = default
+);
 
 /// <summary>An order-by term.</summary>
 /// <param name="Column">The entity column to order by.</param>

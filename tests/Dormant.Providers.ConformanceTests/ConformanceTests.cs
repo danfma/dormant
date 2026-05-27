@@ -119,6 +119,34 @@ public sealed class ConformanceTests
         }
     }
 
+    [Test]
+    [Arguments("postgres")]
+    [Arguments("sqlite")]
+    public async Task Navigation_in_predicate_joins_related_entity(string provider)
+    {
+        await using var harness = await ProviderHarness.CreateAsync(provider);
+        var authorId = Guid.NewGuid();
+        var articleId = Guid.NewGuid();
+
+        await using (var session = await harness.Factory.OpenSessionAsync())
+        {
+            await session.CreateAuthorWithArticle(authorId, "grace", articleId, "compilers");
+            await session.CommitAsync();
+        }
+
+        await using (var session = await harness.Factory.OpenSessionAsync())
+        {
+            // `where a.writer.name == authorName` joins Article → Author and filters on the joined column.
+            var matches = await Drain(session.ArticlesByAuthorName("grace"));
+            await Assert.That(matches.Count).IsEqualTo(1);
+            await Assert.That(matches[0].Title).IsEqualTo("compilers");
+            await Assert.That(matches[0].WriterId).IsEqualTo(authorId);
+
+            var none = await Drain(session.ArticlesByAuthorName("nobody"));
+            await Assert.That(none.Count).IsEqualTo(0);
+        }
+    }
+
     private static async Task<List<T>> Drain<T>(IAsyncEnumerable<T> source)
     {
         var list = new List<T>();

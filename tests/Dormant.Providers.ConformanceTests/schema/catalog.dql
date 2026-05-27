@@ -47,3 +47,11 @@ query search_widgets(minQuantity: optional int, name: optional string) {
   order by w.name asc
   select w
 }
+
+# Relationship navigation in a predicate (009 P-B): filter Articles by their writer's name. The
+# `a.writer.name` path generates a LEFT JOIN from Article to Author on the writer_id FK.
+query articles_by_author_name(authorName: string) {
+  from Article a
+  where a.writer.name == authorName
+  select a
+}

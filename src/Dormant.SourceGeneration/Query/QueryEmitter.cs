@@ -49,13 +49,20 @@ internal static class QueryEmitter
                 continue;
             }
 
-            if (!Validate(query, entry.Entity, file.FilePath, diagnostics))
+            if (!Validate(query, entry.Entity, file.FilePath, diagnostics, entities))
             {
                 continue;
             }
 
             bodies.Add(
-                EmitMethod(query, entry.Entity, entry.Schema, convention, out var projection)
+                EmitMethod(
+                    query,
+                    entry.Entity,
+                    entry.Schema,
+                    convention,
+                    entities,
+                    out var projection
+                )
             );
             if (projection is not null)
             {
@@ -103,7 +110,8 @@ internal static class QueryEmitter
         QueryModel query,
         EntityModel entity,
         string filePath,
-        List<DiagnosticInfo> diagnostics
+        List<DiagnosticInfo> diagnostics,
+        IReadOnlyDictionary<string, (EntityModel Entity, string Schema)> entities
     )
     {
         var ok = true;
@@ -156,7 +164,57 @@ internal static class QueryEmitter
 
         foreach (var filter in query.Filters)
         {
-            Column(filter.Column);
+            if (filter.NavRefs.Count == 0)
+            {
+                Column(filter.Column);
+            }
+            else
+            {
+                // 009 P-B: navigate the to-one reference chain, then check the terminal column on the target.
+                var cur = entity;
+                var navOk = true;
+                foreach (var refName in filter.NavRefs)
+                {
+                    var reference = cur.References.FirstOrDefault(r =>
+                        r.Kind == ReferenceKind.Ref && r.Name == refName
+                    );
+                    if (
+                        reference is null
+                        || !entities.TryGetValue(reference.TargetEntity, out var target)
+                    )
+                    {
+                        diagnostics.Add(
+                            Diag(
+                                DiagnosticDescriptors.UnknownQueryColumn,
+                                filePath,
+                                query.Name,
+                                refName,
+                                cur.Name
+                            )
+                        );
+                        navOk = false;
+                        ok = false;
+                        break;
+                    }
+
+                    cur = target.Entity;
+                }
+
+                if (navOk && !cur.Properties.Any(p => p.Name == filter.Column))
+                {
+                    diagnostics.Add(
+                        Diag(
+                            DiagnosticDescriptors.UnknownQueryColumn,
+                            filePath,
+                            query.Name,
+                            filter.Column,
+                            cur.Name
+                        )
+                    );
+                    ok = false;
+                }
+            }
+
             Parameter(filter.ParameterName);
         }
 
@@ -183,6 +241,7 @@ internal static class QueryEmitter
         EntityModel entity,
         string schema,
         NamingConvention convention,
+        IReadOnlyDictionary<string, (EntityModel Entity, string Schema)> entities,
         out string? projection
     )
     {
@@ -220,7 +279,10 @@ internal static class QueryEmitter
             query.Parameters.Where(p => p.IsOptional).Select(p => p.Name),
             System.StringComparer.Ordinal
         );
-        var dynamic = query.Filters.Any(f => optionalNames.Contains(f.ParameterName));
+        // 009 P-B: a query that navigates a relationship uses the relational (joined) SQL path. Navigation
+        // combined with optional-parameter fragment selection is not supported yet; nav forces the static path.
+        var hasNav = query.Filters.Any(f => f.NavRefs.Count > 0);
+        var dynamic = !hasNav && query.Filters.Any(f => optionalNames.Contains(f.ParameterName));
 
         // Inside the extension block the receiver `session` is implicit — no `this` parameter.
         var writer = new SourceWriter().Open(
@@ -233,7 +295,7 @@ internal static class QueryEmitter
         }
         else
         {
-            EmitStaticStatement(writer, query, entity, schema, convention);
+            EmitStaticStatement(writer, query, entity, schema, convention, entities);
         }
 
         writer
@@ -253,11 +315,14 @@ internal static class QueryEmitter
         QueryModel query,
         EntityModel entity,
         string schema,
-        NamingConvention convention
+        NamingConvention convention,
+        IReadOnlyDictionary<string, (EntityModel Entity, string Schema)> entities
     )
     {
         var parameterOrder = new List<string>();
-        var select = BuildSelect(query, entity, schema, convention, parameterOrder);
+        SqlStatement select = query.Filters.Any(f => f.NavRefs.Count > 0)
+            ? BuildJoinedSelect(query, entity, schema, convention, entities, parameterOrder)
+            : BuildSelect(query, entity, schema, convention, parameterOrder);
 
         writer.Line($"var statement = new {Abs}.Querying.PreparedStatement(");
         DialectSwitch.WriteStatementArg(writer, "    ", "session.Dialect", select, ",");
@@ -476,6 +541,119 @@ internal static class QueryEmitter
                 NamingConventions.Resolve(entity.Name, entity.NameOverride, convention)
             ),
             columns,
+            where,
+            orderBy,
+            ToLimit(query.Limit, parameterOrder),
+            ToLimit(query.Offset, parameterOrder)
+        );
+    }
+
+    // 009 P-B: builds the relational (joined) SELECT for a query that navigates to-one references in its
+    // WHERE. Root columns are selected (qualified by the root alias, same order as the flat path so the
+    // materializer is unchanged); each distinct navigated reference becomes a LEFT JOIN on its `<ref>_id`
+    // FK to the target's primary key; filters render over the owning alias's column.
+    private static JoinedSelectStatement BuildJoinedSelect(
+        QueryModel query,
+        EntityModel entity,
+        string schema,
+        NamingConvention convention,
+        IReadOnlyDictionary<string, (EntityModel Entity, string Schema)> entities,
+        List<string> parameterOrder
+    )
+    {
+        var rootAlias = query.Alias;
+        var rootFrom = new FromItem(
+            new TableRef(
+                schema,
+                NamingConventions.Resolve(entity.Name, entity.NameOverride, convention)
+            ),
+            rootAlias
+        );
+
+        var joins = new List<SqlJoin>();
+        var aliasEntities = new Dictionary<string, EntityModel>(System.StringComparer.Ordinal)
+        {
+            [rootAlias] = entity,
+        };
+        var joined = new HashSet<string>(System.StringComparer.Ordinal);
+
+        foreach (var filter in query.Filters.Where(f => f.NavRefs.Count > 0))
+        {
+            var prevAlias = rootAlias;
+            var cur = entity;
+            foreach (var refName in filter.NavRefs)
+            {
+                var reference = cur.References.First(r =>
+                    r.Kind == ReferenceKind.Ref && r.Name == refName
+                );
+                var target = entities[reference.TargetEntity];
+                if (joined.Add(refName))
+                {
+                    var targetTable = NamingConventions.Resolve(
+                        target.Entity.Name,
+                        target.Entity.NameOverride,
+                        convention
+                    );
+                    var targetPk = target.Entity.Properties.First(p => p.IsPrimary);
+                    var targetPkCol = NamingConventions.Resolve(
+                        targetPk.Name,
+                        targetPk.NameOverride,
+                        convention
+                    );
+                    joins.Add(
+                        new SqlJoin(
+                            new FromItem(new TableRef(target.Schema, targetTable), refName),
+                            JoinKind.Left,
+                            new BinaryExpr(
+                                new ColumnExpr(
+                                    prevAlias,
+                                    EntityColumns.ForeignKeyColumn(reference, convention)
+                                ),
+                                "=",
+                                new ColumnExpr(refName, targetPkCol)
+                            )
+                        )
+                    );
+                    aliasEntities[refName] = target.Entity;
+                }
+
+                prevAlias = refName;
+                cur = target.Entity;
+            }
+        }
+
+        var itemCols = query.IsProjection
+            ? query.ProjectionFields.Select(f => ColByName(entity, f, convention)).ToList()
+            : EntityColumns.SelectColumnNames(entity, convention);
+        var items = itemCols.Select(c => new SqlSelectItem(new ColumnExpr(rootAlias, c))).ToList();
+
+        var where = new List<SqlExpr>(query.Filters.Count);
+        foreach (var filter in query.Filters)
+        {
+            var ownerAlias =
+                filter.NavRefs.Count == 0 ? rootAlias : filter.NavRefs[filter.NavRefs.Count - 1];
+            var ownerEntity = aliasEntities[ownerAlias];
+            parameterOrder.Add(filter.ParameterName);
+            where.Add(
+                new BinaryExpr(
+                    new ColumnExpr(ownerAlias, ColByName(ownerEntity, filter.Column, convention)),
+                    OperatorSql(filter.Op),
+                    new ParamExpr(parameterOrder.Count)
+                )
+            );
+        }
+
+        var orderBy = query
+            .OrderBy.Select(t => new SqlOrderExpr(
+                new ColumnExpr(rootAlias, ColByName(entity, t.Column, convention)),
+                t.Descending
+            ))
+            .ToList();
+
+        return new JoinedSelectStatement(
+            rootFrom,
+            joins,
+            items,
             where,
             orderBy,
             ToLimit(query.Limit, parameterOrder),

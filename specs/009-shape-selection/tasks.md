@@ -53,10 +53,10 @@ Generator: `src/Dormant.SourceGeneration/`. Runtime: `src/Dormant.Abstractions/`
 
 - [X] T009 Extend `src/Dormant.SourceGeneration/Ir/SqlIr.cs` with the relational/expression core: `FromItem`, `Join`, `QualifiedColumn`, `SqlExpr` (`ColumnExpr`/`ParamExpr`/`BinaryExpr`/`FuncExpr`), `ShapedSelect`, `Cte` (keep the existing flat `SelectStatement` path intact)
 - [X] T010 Render joins, qualified columns, and base expressions in `src/Dormant.SourceGeneration/Ir/Dialects/SqlDialectRendererBase.cs`, `SqliteRenderer.cs`, `PostgreSqlRenderer.cs` (depends T009)
-- [ ] T011 Parse navigation paths (`alias.ref.field`) in `where`/`order by`/expressions in `src/Dormant.SourceGeneration/Parsing/UnitParser.cs` + add `NavigationPath` to `Parsing/QueryModel.cs`
-- [ ] T012 Resolve navigation paths to join chains in `src/Dormant.SourceGeneration/Schema/SchemaValidator.cs`; emit undeclared-relationship diagnostic (depends T007, T011)
-- [ ] T013 Emit joins from navigation (predicate/order) in `src/Dormant.SourceGeneration/Query/QueryEmitter.cs` via the new IR (depends T009, T012)
-- [ ] T014 Snapshot (`tests/Dormant.SourceGeneration.Tests`) + conformance (`tests/Dormant.Providers.ConformanceTests`) for `where a.writer.name == p` on PostgreSQL + SQLite (depends T013)
+- [X] T011 Parse navigation paths (`alias.ref.field`) in `where`/`order by`/expressions in `src/Dormant.SourceGeneration/Parsing/UnitParser.cs` + add `NavigationPath` to `Parsing/QueryModel.cs`
+- [X] T012 Resolve navigation paths to join chains in `src/Dormant.SourceGeneration/Schema/SchemaValidator.cs`; emit undeclared-relationship diagnostic (depends T007, T011)
+- [X] T013 Emit joins from navigation (predicate/order) in `src/Dormant.SourceGeneration/Query/QueryEmitter.cs` via the new IR (depends T009, T012)
+- [X] T014 Snapshot (`tests/Dormant.SourceGeneration.Tests`) + conformance (`tests/Dormant.Providers.ConformanceTests`) for `where a.writer.name == p` on PostgreSQL + SQLite (depends T013)
 
 **Checkpoint**: Entities are flat (FK scalars, no wrappers); navigation generates joins; relational IR + renderers exist. Shapes can now be built.
 
