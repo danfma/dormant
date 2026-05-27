@@ -116,7 +116,7 @@ Generator: `src/Dormant.SourceGeneration/`. Runtime: `src/Dormant.Abstractions/`
 ## Phase 6: Polish & Cross-Cutting Concerns
 
 - [ ] T033 [P] Add a shaped-read perf check (extend `tests/Dormant.Benchmarks` or a budget) confirming single round-trip + no-reflection materialization (Constitution V)
-- [ ] T034 Amend Constitution Principle III via `/speckit-constitution`: supersede the "links loaded/unloaded" clause (no-partial-data now via projection/shape types)
+- [X] T034 Amend Constitution Principle III via `/speckit-constitution`: supersede the "links loaded/unloaded" clause (no-partial-data now via projection/shape types)
 - [ ] T035 [P] Update `tests/Dormant.Benchmarks` / `samples` docs + the feature migration notes (wrapper → FK scalar / shape)
 - [ ] T036 Full gate: `dotnet build Dormant.slnx -c Release` (0 warnings), `dotnet csharpier check .`, `dotnet format --verify-no-changes`, `dotnet test --solution Dormant.slnx` (PG Testcontainers + SQLite) green
 

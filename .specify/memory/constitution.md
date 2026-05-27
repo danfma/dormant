@@ -1,15 +1,21 @@
 <!--
 SYNC IMPACT REPORT
 ==================
-Version change: 2.0.0 → 2.0.1
-Rationale: PATCH. Wording/metadata only. The lone inspirational reference to a third-party query
-language in this report's rationale is reworded to a trademark-safe form; the project's own
-schema/query language is named "DormantQL". No principle, normative rule, or governance semantics
-changed. (Supersedes the 2.0.0 report; full history is in version control.)
+Version change: 2.0.1 → 2.1.0
+Rationale: MINOR. Materially revised guidance within Principle III (no principle added/removed). Feature
+009 (shape selection + flat entities) removes the runtime relationship load-state wrappers; the
+"never read unfetched data" guarantee is now delivered by flat entity types + distinct projection/shape
+types rather than by per-relationship loaded/unloaded wrappers. Principle III's "links modeled with
+loaded/unloaded states" sub-rule is superseded accordingly; the principle's intent (no
+partially-loaded data, build-time-known result types, no implicit lazy loading) is preserved.
 
-Modified principles: None (wording only)
+Modified principles: III. Statically-Known, Safe-by-Default Data Access (load-state-wrapper sub-rule
+  → flat-entities + projection/shape sub-rule; rationale updated)
 Added principles: None
 Removed sections: None
+
+Prior change recorded for context — 2.0.1 (PATCH): wording/metadata only (DormantQL branding); no
+semantic change.
 
 Prior change recorded for context — 2.0.0 (MAJOR):
   - II. ABI Stability & Compatibility → II. Interface & Compatibility Stability (redefined for a
@@ -74,16 +80,20 @@ classic partially-loaded-data bugs.
 
 - The result type of every query MUST be fully known at build time; it MUST NOT depend on runtime
   values. Only data values and predicates may vary at runtime.
-- A query returns either a full entity type or a projection type. A projection MUST be a distinct
-  generated type containing exactly the requested fields and links — never a partially-populated
-  entity. Accessing a field absent from the result type MUST be a compile-time error.
-- Links (relationships) MUST be modeled with explicit, type-checked loaded/unloaded states so that
-  unfetched related data cannot be read as if present.
-- There MUST be no implicit lazy loading. Related data is retrieved only when explicitly requested
-  (declared in a fetch shape or resolved on demand through an explicit call).
+- A query returns either a flat entity type (its own columns, including foreign-key id scalars) or a
+  projection/shape type. A projection MUST be a distinct generated type containing exactly the
+  requested fields and nested shapes — never a partially-populated entity. Accessing a field absent
+  from the result type MUST be a compile-time error.
+- Relationships are declared in the schema (driving joins, typed navigation, and nested shapes) and
+  are NOT runtime load-state wrappers on entities. The "never read unfetched data" guarantee is
+  delivered by the projection/shape type system: an entity carries only its own columns, and related
+  data appears only where a query's shape requests it.
+- There MUST be no implicit lazy loading and no partially-populated entities. Related data is
+  retrieved only when explicitly requested in a query's shape.
 
-Rationale: The most common ORM defects come from data that looks loaded but is not. Encoding load
-state in the type system eliminates that class of bug and is what makes Dormant safe by default.
+Rationale: The most common ORM defects come from data that looks loaded but is not. Encoding the
+requested shape in the result type — flat entities plus distinct projection/shape types, rather than
+load-state wrappers — eliminates that class of bug and is what makes Dormant safe by default.
 
 ### IV. First-Class Tooling
 
@@ -175,4 +185,4 @@ the mechanism that makes the constitution real.
 - Compliance is verified at review time: pull requests MUST confirm they uphold the principles, and
   violations MUST be either fixed or recorded in the change's complexity justification.
 
-**Version**: 2.0.1 | **Ratified**: 2026-05-24 | **Last Amended**: 2026-05-25
+**Version**: 2.1.0 | **Ratified**: 2026-05-24 | **Last Amended**: 2026-05-27
