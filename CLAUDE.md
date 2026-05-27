@@ -1,8 +1,23 @@
 <!-- SPECKIT START -->
 For additional context about technologies, project structure, conventions, and
 important decisions for the active feature, read the current plan:
-`specs/008-orm-benchmarks/plan.md` (with `research.md`, `data-model.md`,
-`contracts/benchmark-operations.md`, `quickstart.md`).
+`specs/009-shape-selection/plan.md` (with `research.md`, `data-model.md`,
+`contracts/query-shape-grammar.md`, `quickstart.md`).
+Feature 009 turns the query `select` into an **EdgeQL-style shape** blended with the
+LINQ grammar and **flattens entities** by removing the runtime relationship wrappers
+(`Ref`/`RefSet`/…). Shaped reads return nested immutable projections (shape = type);
+nested to-one/to-many is fetched in **one round-trip** via **SQL JSON aggregation**
+(PG `jsonb_build_object`/`jsonb_agg`, SQLite `json_object`/`json_group_array`) rendered
+per dialect; nested rows materialize through **generator-emitted `Utf8JsonReader`
+parsers** (no reflection — STJ source-gen can't see generated types). Relationships
+become **schema-only metadata** driving joins, navigation (`a.writer.name`), shapes, and
+EdgeQL **backlinks**; entities expose the **FK id scalar** (`WriterId`). Also: free
+composition `select { x = a.f, y = b.g }`, read-side `with` as **CTEs** (single query),
+`into` user records (structural match). `SqlIr` is currently a flat single-table builder
+→ joins/subqueries/CTEs/JSON are **net-new IR**. **Breaking (MAJOR)**; Principle III
+"links loaded/unloaded" clause to be amended (`/speckit-constitution`). Phased P-A…P-G;
+to-many/JSON is the high-risk core. The background plans below remain completed-feature
+context:
 Feature 008 turns the placeholder `tests/Dormant.Benchmarks` into a real
 **BenchmarkDotNet** suite comparing **Dormant vs Dapper, EF Core, Insight.Database**
 across five operations (read-by-key, filtered read, insert, update, delete) over one
