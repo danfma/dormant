@@ -28,6 +28,7 @@ internal sealed record QueryFile(
 /// <param name="OrderBy">Order-by terms, in source order.</param>
 /// <param name="Limit">Optional LIMIT (literal or parameter). // TODO(003): no surface grammar yet; always null.</param>
 /// <param name="Offset">Optional OFFSET (literal or parameter). // TODO(003): no surface grammar yet; always null.</param>
+/// <param name="Shape">The 009 root-object select shape, or null for full-entity / flat-projection selects.</param>
 internal sealed record QueryModel(
     string Name,
     string RootEntity,
@@ -37,12 +38,33 @@ internal sealed record QueryModel(
     EquatableArray<FilterCondition> Filters,
     EquatableArray<OrderTerm> OrderBy,
     LimitValue? Limit,
-    LimitValue? Offset
+    LimitValue? Offset,
+    SelectShape? Shape = null
 )
 {
     /// <summary>Whether the result is a flat projection (vs a full entity).</summary>
     public bool IsProjection => ProjectionFields.Count > 0;
+
+    /// <summary>Whether the result is an EdgeQL-style root-object shape (009 US1).</summary>
+    public bool IsShaped => Shape is not null;
 }
+
+/// <summary>
+/// A root-object select shape: <c>select alias { node, ref: { … } }</c> (009 US1). The result type is a
+/// generated nested immutable record matching the shape.
+/// </summary>
+/// <param name="RootAlias">The shaped root alias (the <c>a</c> in <c>select a { … }</c>).</param>
+/// <param name="Nodes">The shape members, in source order.</param>
+internal sealed record SelectShape(string RootAlias, EquatableArray<ShapeNode> Nodes);
+
+/// <summary>
+/// One member of a shape: a scalar field (<see cref="IsRef"/> false) or a nested to-one reference shape
+/// (<see cref="IsRef"/> true, with its own <see cref="Children"/>). To-many is a later slice.
+/// </summary>
+/// <param name="Name">The field or reference name (bare, resolved against the node's entity).</param>
+/// <param name="IsRef">Whether this is a nested reference shape.</param>
+/// <param name="Children">The nested shape members (for a reference node).</param>
+internal sealed record ShapeNode(string Name, bool IsRef, EquatableArray<ShapeNode> Children);
 
 /// <summary>A declared query parameter.</summary>
 /// <param name="Name">The parameter name.</param>

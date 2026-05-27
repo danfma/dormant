@@ -233,6 +233,18 @@ internal static class QueryEmitter
             Parameter(offset.ParameterName);
         }
 
+        if (query.IsShaped)
+        {
+            ok &= ValidateShape(
+                query.Name,
+                query.Shape!.Nodes,
+                entity,
+                filePath,
+                diagnostics,
+                entities
+            );
+        }
+
         return ok;
     }
 
@@ -250,7 +262,24 @@ internal static class QueryEmitter
         var methodName = Naming.ToPascalCase(query.Name);
         string resultType;
         string materializer;
-        if (query.IsProjection)
+        if (query.IsShaped)
+        {
+            // 009 US1: an EdgeQL-style root-object shape → a nested immutable record tree, materialized
+            // positionally from a JOIN-flattened SELECT (to-one only this slice; to-many/JSON is later).
+            resultType = methodName + "Result";
+            var records = new List<string>();
+            BuildShapeRecords(
+                resultType,
+                query.Shape!.Nodes,
+                entity,
+                entities,
+                convention,
+                records
+            );
+            projection = string.Join("\n", records);
+            materializer = BuildShapeMaterializer(resultType, query, entity, convention, entities);
+        }
+        else if (query.IsProjection)
         {
             resultType = methodName + "Result";
             projection = BuildProjectionRecord(resultType, query, entity);
@@ -320,9 +349,19 @@ internal static class QueryEmitter
     )
     {
         var parameterOrder = new List<string>();
-        SqlStatement select = query.Filters.Any(f => f.NavRefs.Count > 0)
-            ? BuildJoinedSelect(query, entity, schema, convention, entities, parameterOrder)
-            : BuildSelect(query, entity, schema, convention, parameterOrder);
+        SqlStatement select;
+        if (query.IsShaped)
+        {
+            select = BuildShapeSelect(query, entity, schema, convention, entities, parameterOrder);
+        }
+        else if (query.Filters.Any(f => f.NavRefs.Count > 0))
+        {
+            select = BuildJoinedSelect(query, entity, schema, convention, entities, parameterOrder);
+        }
+        else
+        {
+            select = BuildSelect(query, entity, schema, convention, parameterOrder);
+        }
 
         writer.Line($"var statement = new {Abs}.Querying.PreparedStatement(");
         DialectSwitch.WriteStatementArg(writer, "    ", "session.Dialect", select, ",");
@@ -659,6 +698,305 @@ internal static class QueryEmitter
             ToLimit(query.Limit, parameterOrder),
             ToLimit(query.Offset, parameterOrder)
         );
+    }
+
+    // 009 US1: build the JOIN-flattened relational SELECT for a root-object shape — root + a JOIN per
+    // to-one reference node, columns in depth-first shape order (matching the materializer). Where/order
+    // are own-column on the root for this slice (navigation-in-shape-where is a later slice).
+    private static JoinedSelectStatement BuildShapeSelect(
+        QueryModel query,
+        EntityModel entity,
+        string schema,
+        NamingConvention convention,
+        IReadOnlyDictionary<string, (EntityModel Entity, string Schema)> entities,
+        List<string> parameterOrder
+    )
+    {
+        var rootAlias = query.Alias;
+        var rootFrom = new FromItem(
+            new TableRef(
+                schema,
+                NamingConventions.Resolve(entity.Name, entity.NameOverride, convention)
+            ),
+            rootAlias
+        );
+
+        var items = new List<SqlSelectItem>();
+        var joins = new List<SqlJoin>();
+        var ord = new int[1];
+        _ = BuildShapeLevel(
+            string.Empty,
+            query.Shape!.Nodes,
+            rootAlias,
+            entity,
+            rootAlias,
+            convention,
+            entities,
+            items,
+            joins,
+            ord
+        );
+
+        var where = new List<SqlExpr>(query.Filters.Count);
+        foreach (var filter in query.Filters)
+        {
+            parameterOrder.Add(filter.ParameterName);
+            where.Add(
+                new BinaryExpr(
+                    new ColumnExpr(rootAlias, ColByName(entity, filter.Column, convention)),
+                    OperatorSql(filter.Op),
+                    new ParamExpr(parameterOrder.Count)
+                )
+            );
+        }
+
+        var orderBy = query
+            .OrderBy.Select(t => new SqlOrderExpr(
+                new ColumnExpr(rootAlias, ColByName(entity, t.Column, convention)),
+                t.Descending
+            ))
+            .ToList();
+
+        return new JoinedSelectStatement(
+            rootFrom,
+            joins,
+            items,
+            where,
+            orderBy,
+            ToLimit(query.Limit, parameterOrder),
+            ToLimit(query.Offset, parameterOrder)
+        );
+    }
+
+    private static string BuildShapeMaterializer(
+        string resultType,
+        QueryModel query,
+        EntityModel entity,
+        NamingConvention convention,
+        IReadOnlyDictionary<string, (EntityModel Entity, string Schema)> entities
+    )
+    {
+        var items = new List<SqlSelectItem>();
+        var joins = new List<SqlJoin>();
+        var ord = new int[1];
+        var rootArgs = BuildShapeLevel(
+            resultType,
+            query.Shape!.Nodes,
+            query.Alias,
+            entity,
+            query.Alias,
+            convention,
+            entities,
+            items,
+            joins,
+            ord
+        );
+        return $"static reader => new {resultType}({rootArgs})";
+    }
+
+    // The single shared traversal: appends SELECT items + JOINs and returns this record level's
+    // constructor arguments. Column order is depth-first (scalar ⇒ one column; to-one ⇒ a target-PK probe
+    // column then the nested columns), so the materializer ordinals always match the SELECT.
+    private static string BuildShapeLevel(
+        string recordType,
+        EquatableArray<ShapeNode> nodes,
+        string ownerAlias,
+        EntityModel ownerEntity,
+        string rootAlias,
+        NamingConvention convention,
+        IReadOnlyDictionary<string, (EntityModel Entity, string Schema)> entities,
+        List<SqlSelectItem> items,
+        List<SqlJoin> joins,
+        int[] ord
+    )
+    {
+        var args = new List<string>();
+        foreach (var node in nodes)
+        {
+            if (!node.IsRef)
+            {
+                var prop = ownerEntity.Properties.First(p => p.Name == node.Name);
+                items.Add(
+                    new SqlSelectItem(
+                        new ColumnExpr(
+                            ownerAlias,
+                            NamingConventions.Resolve(prop.Name, prop.NameOverride, convention)
+                        )
+                    )
+                );
+                var read = $"reader.GetValue<{prop.ClrType}>({ord[0]})";
+                args.Add(prop.IsNullable ? $"reader.IsNull({ord[0]}) ? null : {read}" : read);
+                ord[0]++;
+                continue;
+            }
+
+            var reference = ownerEntity.References.First(r =>
+                r.Kind == ReferenceKind.Ref && r.Name == node.Name
+            );
+            var target = entities[reference.TargetEntity];
+            var childAlias = ownerAlias == rootAlias ? node.Name : ownerAlias + "_" + node.Name;
+            var targetPk = target.Entity.Properties.First(p => p.IsPrimary);
+            var targetPkCol = NamingConventions.Resolve(
+                targetPk.Name,
+                targetPk.NameOverride,
+                convention
+            );
+            joins.Add(
+                new SqlJoin(
+                    new FromItem(
+                        new TableRef(
+                            target.Schema,
+                            NamingConventions.Resolve(
+                                target.Entity.Name,
+                                target.Entity.NameOverride,
+                                convention
+                            )
+                        ),
+                        childAlias
+                    ),
+                    reference.IsRequired ? JoinKind.Inner : JoinKind.Left,
+                    new BinaryExpr(
+                        new ColumnExpr(
+                            ownerAlias,
+                            EntityColumns.ForeignKeyColumn(reference, convention)
+                        ),
+                        "=",
+                        new ColumnExpr(childAlias, targetPkCol)
+                    )
+                )
+            );
+
+            // Probe column (target PK) precedes the nested fields: an absent optional ref reads null here.
+            items.Add(new SqlSelectItem(new ColumnExpr(childAlias, targetPkCol)));
+            var probeOrd = ord[0];
+            ord[0]++;
+
+            var childRecordType = recordType + Naming.ToPascalCase(node.Name);
+            var childArgs = BuildShapeLevel(
+                childRecordType,
+                node.Children,
+                childAlias,
+                target.Entity,
+                rootAlias,
+                convention,
+                entities,
+                items,
+                joins,
+                ord
+            );
+            var construct = $"new {childRecordType}({childArgs})";
+            args.Add(
+                reference.IsRequired ? construct : $"reader.IsNull({probeOrd}) ? null : {construct}"
+            );
+        }
+
+        return string.Join(", ", args);
+    }
+
+    // Emits the nested immutable record(s) matching the shape (recursive: a record per to-one node).
+    private static void BuildShapeRecords(
+        string recordType,
+        EquatableArray<ShapeNode> nodes,
+        EntityModel entity,
+        IReadOnlyDictionary<string, (EntityModel Entity, string Schema)> entities,
+        NamingConvention convention,
+        List<string> output
+    )
+    {
+        var members = new List<string>();
+        var children =
+            new List<(string Type, EquatableArray<ShapeNode> Nodes, EntityModel Entity)>();
+
+        foreach (var node in nodes)
+        {
+            if (!node.IsRef)
+            {
+                var prop = entity.Properties.First(p => p.Name == node.Name);
+                var clr = prop.IsNullable ? prop.ClrType + "?" : prop.ClrType;
+                members.Add($"{clr} {Naming.ToPascalCase(node.Name)}");
+                continue;
+            }
+
+            var reference = entity.References.First(r =>
+                r.Kind == ReferenceKind.Ref && r.Name == node.Name
+            );
+            var target = entities[reference.TargetEntity];
+            var childType = recordType + Naming.ToPascalCase(node.Name);
+            var memberType = reference.IsRequired ? childType : childType + "?";
+            members.Add($"{memberType} {Naming.ToPascalCase(node.Name)}");
+            children.Add((childType, node.Children, target.Entity));
+        }
+
+        output.Add($"public sealed record {recordType}({string.Join(", ", members)});");
+
+        foreach (var child in children)
+        {
+            BuildShapeRecords(child.Type, child.Nodes, child.Entity, entities, convention, output);
+        }
+    }
+
+    // Validates a shape: scalar nodes must be properties; reference nodes must be declared to-one refs
+    // whose target resolves; recurse into the target. Reuses the column diagnostic for unknown members.
+    private static bool ValidateShape(
+        string queryName,
+        EquatableArray<ShapeNode> nodes,
+        EntityModel entity,
+        string filePath,
+        List<DiagnosticInfo> diagnostics,
+        IReadOnlyDictionary<string, (EntityModel Entity, string Schema)> entities
+    )
+    {
+        var ok = true;
+        foreach (var node in nodes)
+        {
+            if (!node.IsRef)
+            {
+                if (!entity.Properties.Any(p => p.Name == node.Name))
+                {
+                    diagnostics.Add(
+                        Diag(
+                            DiagnosticDescriptors.UnknownQueryColumn,
+                            filePath,
+                            queryName,
+                            node.Name,
+                            entity.Name
+                        )
+                    );
+                    ok = false;
+                }
+
+                continue;
+            }
+
+            var reference = entity.References.FirstOrDefault(r =>
+                r.Kind == ReferenceKind.Ref && r.Name == node.Name
+            );
+            if (reference is null || !entities.TryGetValue(reference.TargetEntity, out var target))
+            {
+                diagnostics.Add(
+                    Diag(
+                        DiagnosticDescriptors.UnknownQueryColumn,
+                        filePath,
+                        queryName,
+                        node.Name,
+                        entity.Name
+                    )
+                );
+                ok = false;
+                continue;
+            }
+
+            ok &= ValidateShape(
+                queryName,
+                node.Children,
+                target.Entity,
+                filePath,
+                diagnostics,
+                entities
+            );
+        }
+
+        return ok;
     }
 
     private static SqlLimit? ToLimit(LimitValue? value, List<string> parameterOrder)

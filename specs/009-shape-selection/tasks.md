@@ -68,7 +68,7 @@ Generator: `src/Dormant.SourceGeneration/`. Runtime: `src/Dormant.Abstractions/`
 
 **Independent Test**: Author a query selecting a root with a nested to-one and a nested to-many; run it; confirm the tree matches the shape, the collection is fully materialized, and exactly one DB command is issued.
 
-- [ ] T015 Tokenize the select shape block (`{ } : ,`) in `src/Dormant.SourceGeneration/Parsing/Lexer.cs`
+- [X] T015 Tokenize the select shape block (`{ } : ,`) in `src/Dormant.SourceGeneration/Parsing/Lexer.cs`
 - [ ] T016 [US1] Parse root-object shape select into the `SelectShape`/`ShapeNode` AST (scalar / to-one / to-many + inner `order by`) in `src/Dormant.SourceGeneration/Parsing/UnitParser.cs` + `Parsing/QueryModel.cs` (depends T015)
 - [ ] T017 [US1] Resolve shape nodes in `src/Dormant.SourceGeneration/Schema/SchemaValidator.cs`: scalar/to-one/to-many kinds, to-many backlink resolution + ambiguous-backlink diagnostic, shape-cycle guard diagnostic (depends T007, T016)
 - [ ] T018 [US1] Add `JsonObjectExpr` + `ScalarSubquery` to `src/Dormant.SourceGeneration/Ir/SqlIr.cs` (to-one shape) (depends T009)

@@ -147,6 +147,30 @@ public sealed class ConformanceTests
         }
     }
 
+    [Test]
+    [Arguments("postgres")]
+    [Arguments("sqlite")]
+    public async Task Root_object_shape_returns_nested_record(string provider)
+    {
+        await using var harness = await ProviderHarness.CreateAsync(provider);
+        var authorId = Guid.NewGuid();
+        var articleId = Guid.NewGuid();
+
+        await using (var session = await harness.Factory.OpenSessionAsync())
+        {
+            await session.CreateAuthorWithArticle(authorId, "hopper", articleId, "nanosecond");
+            await session.CommitAsync();
+        }
+
+        await using (var session = await harness.Factory.OpenSessionAsync())
+        {
+            // `select a { title, writer: { name } }` → one query joining Article→Author; nested record.
+            var card = (await Drain(session.ArticleCard(articleId)))[0];
+            await Assert.That(card.Title).IsEqualTo("nanosecond");
+            await Assert.That(card.Writer.Name).IsEqualTo("hopper");
+        }
+    }
+
     private static async Task<List<T>> Drain<T>(IAsyncEnumerable<T> source)
     {
         var list = new List<T>();

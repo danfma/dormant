@@ -182,6 +182,7 @@ internal sealed class UnitParser
         var filters = new List<FilterCondition>();
         var orderBy = new List<OrderTerm>();
         var projection = new List<string>();
+        SelectShape? shape = null;
         var seenWhere = false;
         var seenOrder = false;
         var seenSelect = false;
@@ -214,7 +215,7 @@ internal sealed class UnitParser
             {
                 seenSelect = true;
                 _pos++;
-                if (!ParseSelect(alias, projection))
+                if (!ParseSelect(alias, projection, out shape))
                 {
                     RecoverToUnitEnd();
                     return null;
@@ -257,7 +258,8 @@ internal sealed class UnitParser
             new EquatableArray<FilterCondition>([.. filters]),
             new EquatableArray<OrderTerm>([.. orderBy]),
             Limit: null,
-            Offset: null
+            Offset: null,
+            Shape: shape
         );
     }
 
@@ -786,9 +788,35 @@ internal sealed class UnitParser
         }
     }
 
-    // select := alias  |  '{' member (','? member)* '}'   (commas optional; newline-separated)
-    private bool ParseSelect(string alias, List<string> projection)
+    // select := alias  |  alias '{' shape-node* '}'  |  '{' member (','? member)* '}'
+    // (the middle form is the 009 root-object shape; commas optional; newline-separated)
+    private bool ParseSelect(string alias, List<string> projection, out SelectShape? shape)
     {
+        shape = null;
+
+        // 009 US1: root-object shape — `select alias { … }` (alias immediately before a brace).
+        if (Current.Kind == TokenKind.Identifier && Peek().Kind == TokenKind.LeftBrace)
+        {
+            var selectedAlias = Current.Text;
+            _pos++; // alias
+            if (selectedAlias != alias)
+            {
+                _diagnostics.Add(
+                    Located(DiagnosticDescriptors.UndeclaredAlias, _tokens[_pos - 1], selectedAlias)
+                );
+                return false;
+            }
+
+            var nodes = ParseShapeBlock();
+            if (nodes is null)
+            {
+                return false;
+            }
+
+            shape = new SelectShape(alias, new EquatableArray<ShapeNode>([.. nodes]));
+            return true;
+        }
+
         if (Current.Kind == TokenKind.LeftBrace)
         {
             _pos++; // '{'
@@ -831,6 +859,54 @@ internal sealed class UnitParser
             $"expected an alias or a '{{ … }}' projection after 'select' but found '{Describe(Current)}'"
         );
         return false;
+    }
+
+    // shape-block := '{' shape-node (','? shape-node)* '}' ; shape-node := IDENT | IDENT ':' shape-block
+    // (009 US1; bare field/reference names — resolved against the node's entity by the validator/emitter).
+    private List<ShapeNode>? ParseShapeBlock()
+    {
+        if (!Expect(TokenKind.LeftBrace, "'{' to open the shape"))
+        {
+            return null;
+        }
+
+        var nodes = new List<ShapeNode>();
+        while (Current.Kind != TokenKind.RightBrace && Current.Kind != TokenKind.EndOfFile)
+        {
+            if (Current.Kind != TokenKind.Identifier)
+            {
+                Error(
+                    $"expected a field or reference name in the shape but found '{Describe(Current)}'"
+                );
+                return null;
+            }
+
+            var name = Current.Text;
+            _pos++;
+
+            if (Current.Kind == TokenKind.Colon)
+            {
+                _pos++; // ':'
+                var children = ParseShapeBlock();
+                if (children is null)
+                {
+                    return null;
+                }
+
+                nodes.Add(new ShapeNode(name, true, new EquatableArray<ShapeNode>([.. children])));
+            }
+            else
+            {
+                nodes.Add(new ShapeNode(name, false, new EquatableArray<ShapeNode>([])));
+            }
+
+            if (Current.Kind == TokenKind.Comma)
+            {
+                _pos++;
+            }
+        }
+
+        return Expect(TokenKind.RightBrace, "'}' to close the shape") ? nodes : null;
     }
 
     // returning := alias | '{' member (','? member)* '}' | alias '.' member  (mirrors select + a scalar form)

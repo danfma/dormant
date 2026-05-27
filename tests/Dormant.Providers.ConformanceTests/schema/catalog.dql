@@ -55,3 +55,14 @@ query articles_by_author_name(authorName: string) {
   where a.writer.name == authorName
   select a
 }
+
+# Root-object shape (009 US1): fetch an Article with its (to-one) writer, in one query. The nested
+# `writer: { … }` generates a JOIN; the result is a nested immutable record (shape = type).
+query article_card(id: uuid) {
+  from Article a
+  where a.id == id
+  select a {
+    title,
+    writer: { name }
+  }
+}
