@@ -33,6 +33,7 @@ internal static class QueryEmitter
         var diagnostics = new List<DiagnosticInfo>();
         var bodies = new List<string>();
         var projections = new List<string>();
+        var helpers = new List<string>();
 
         foreach (var query in file.Queries)
         {
@@ -61,12 +62,18 @@ internal static class QueryEmitter
                     entry.Schema,
                     convention,
                     entities,
-                    out var projection
+                    out var projection,
+                    out var queryHelpers
                 )
             );
             if (projection is not null)
             {
                 projections.Add(projection);
+            }
+
+            if (queryHelpers is not null)
+            {
+                helpers.Add(queryHelpers);
             }
         }
 
@@ -96,7 +103,19 @@ internal static class QueryEmitter
             }
         }
 
-        writer.Close().Close().Line();
+        writer.Close(); // close the extension block
+
+        // JSON-parse helpers (to-many materialization) are plain static methods on the query class — in
+        // scope for the materializer lambdas, but outside the extension block.
+        foreach (var helper in helpers)
+        {
+            foreach (var line in helper.Split('\n'))
+            {
+                writer.Line(line);
+            }
+        }
+
+        writer.Close().Line(); // close the class
 
         foreach (var projection in projections)
         {
@@ -254,9 +273,11 @@ internal static class QueryEmitter
         string schema,
         NamingConvention convention,
         IReadOnlyDictionary<string, (EntityModel Entity, string Schema)> entities,
-        out string? projection
+        out string? projection,
+        out string? helpers
     )
     {
+        helpers = null;
         // 003: the authored snake_case unit name becomes a PascalCase C# method; the projection record
         // mirrors it ({Method}Result).
         var methodName = Naming.ToPascalCase(query.Name);
@@ -264,8 +285,8 @@ internal static class QueryEmitter
         string materializer;
         if (query.IsShaped)
         {
-            // 009 US1: an EdgeQL-style root-object shape → a nested immutable record tree, materialized
-            // positionally from a JOIN-flattened SELECT (to-one only this slice; to-many/JSON is later).
+            // 009 US1: an EdgeQL-style root-object shape → a nested immutable record tree. To-one nests via
+            // a JOIN + positional read; to-many nests via a JSON-array correlated subquery parsed into a list.
             resultType = methodName + "Result";
             var records = new List<string>();
             BuildShapeRecords(
@@ -277,7 +298,16 @@ internal static class QueryEmitter
                 records
             );
             projection = string.Join("\n", records);
-            materializer = BuildShapeMaterializer(resultType, query, entity, convention, entities);
+            var helperMethods = new List<string>();
+            materializer = BuildShapeMaterializer(
+                resultType,
+                query,
+                entity,
+                convention,
+                entities,
+                helperMethods
+            );
+            helpers = helperMethods.Count > 0 ? string.Join("\n", helperMethods) : null;
         }
         else if (query.IsProjection)
         {
@@ -734,7 +764,8 @@ internal static class QueryEmitter
             entities,
             items,
             joins,
-            ord
+            ord,
+            new List<string>()
         );
 
         var where = new List<SqlExpr>(query.Filters.Count);
@@ -773,7 +804,8 @@ internal static class QueryEmitter
         QueryModel query,
         EntityModel entity,
         NamingConvention convention,
-        IReadOnlyDictionary<string, (EntityModel Entity, string Schema)> entities
+        IReadOnlyDictionary<string, (EntityModel Entity, string Schema)> entities,
+        List<string> helpers
     )
     {
         var items = new List<SqlSelectItem>();
@@ -789,7 +821,8 @@ internal static class QueryEmitter
             entities,
             items,
             joins,
-            ord
+            ord,
+            helpers
         );
         return $"static reader => new {resultType}({rootArgs})";
     }
@@ -807,7 +840,8 @@ internal static class QueryEmitter
         IReadOnlyDictionary<string, (EntityModel Entity, string Schema)> entities,
         List<SqlSelectItem> items,
         List<SqlJoin> joins,
-        int[] ord
+        int[] ord,
+        List<string> helpers
     )
     {
         var args = new List<string>();
@@ -830,10 +864,74 @@ internal static class QueryEmitter
                 continue;
             }
 
-            var reference = ownerEntity.References.First(r =>
-                r.Kind == ReferenceKind.Ref && r.Name == node.Name
-            );
+            var reference = ownerEntity.References.First(r => r.Name == node.Name);
             var target = entities[reference.TargetEntity];
+            var childRecordType = recordType + Naming.ToPascalCase(node.Name);
+
+            if (reference.Kind != ReferenceKind.Ref)
+            {
+                // to-many (009 US1): a correlated JSON-array subquery over the child relation, parsed into
+                // an IReadOnlyList at materialize. Backlink = the child's to-one ref pointing back here.
+                var collectionAlias = node.Name;
+                var inverse = target.Entity.References.First(r =>
+                    r.Kind == ReferenceKind.Ref && r.TargetEntity == ownerEntity.Name
+                );
+                var ownerPk = ownerEntity.Properties.First(p => p.IsPrimary);
+                var elementMembers = node
+                    .Children.Select(c =>
+                    {
+                        var cp = target.Entity.Properties.First(p => p.Name == c.Name);
+                        return new JsonMember(
+                            c.Name,
+                            new ColumnExpr(
+                                collectionAlias,
+                                NamingConventions.Resolve(cp.Name, cp.NameOverride, convention)
+                            )
+                        );
+                    })
+                    .ToList();
+                items.Add(
+                    new SqlSelectItem(
+                        new JsonArrayAggSubquery(
+                            new FromItem(
+                                new TableRef(
+                                    target.Schema,
+                                    NamingConventions.Resolve(
+                                        target.Entity.Name,
+                                        target.Entity.NameOverride,
+                                        convention
+                                    )
+                                ),
+                                collectionAlias
+                            ),
+                            new JsonObjectExpr(elementMembers),
+                            [
+                                new BinaryExpr(
+                                    new ColumnExpr(
+                                        collectionAlias,
+                                        EntityColumns.ForeignKeyColumn(inverse, convention)
+                                    ),
+                                    "=",
+                                    new ColumnExpr(
+                                        ownerAlias,
+                                        NamingConventions.Resolve(
+                                            ownerPk.Name,
+                                            ownerPk.NameOverride,
+                                            convention
+                                        )
+                                    )
+                                ),
+                            ]
+                        )
+                    )
+                );
+                args.Add($"Parse{childRecordType}(reader.GetValue<string>({ord[0]}))");
+                ord[0]++;
+                EmitJsonListParser(childRecordType, node.Children, target.Entity, helpers);
+                continue;
+            }
+
+            // to-one: JOIN + target-PK probe column + recurse.
             var childAlias = ownerAlias == rootAlias ? node.Name : ownerAlias + "_" + node.Name;
             var targetPk = target.Entity.Properties.First(p => p.IsPrimary);
             var targetPkCol = NamingConventions.Resolve(
@@ -871,7 +969,6 @@ internal static class QueryEmitter
             var probeOrd = ord[0];
             ord[0]++;
 
-            var childRecordType = recordType + Naming.ToPascalCase(node.Name);
             var childArgs = BuildShapeLevel(
                 childRecordType,
                 node.Children,
@@ -882,7 +979,8 @@ internal static class QueryEmitter
                 entities,
                 items,
                 joins,
-                ord
+                ord,
+                helpers
             );
             var construct = $"new {childRecordType}({childArgs})";
             args.Add(
@@ -891,6 +989,62 @@ internal static class QueryEmitter
         }
 
         return string.Join(", ", args);
+    }
+
+    // Emits the JSON-array parser for a to-many element record: JsonDocument-based (reflection-free,
+    // AOT-safe). A Utf8JsonReader optimization is a later perf task.
+    private static void EmitJsonListParser(
+        string elementType,
+        EquatableArray<ShapeNode> children,
+        EntityModel elementEntity,
+        List<string> helpers
+    )
+    {
+        var args = children.Select(c =>
+        {
+            var prop = elementEntity.Properties.First(p => p.Name == c.Name);
+            return JsonElementGet(prop.ClrType, prop.IsNullable, c.Name);
+        });
+
+        var writer = new SourceWriter()
+            .Open(
+                $"private static global::System.Collections.Generic.IReadOnlyList<{elementType}> Parse{elementType}(string json)"
+            )
+            .Line("using var doc = global::System.Text.Json.JsonDocument.Parse(json);")
+            .Line(
+                $"var list = new global::System.Collections.Generic.List<{elementType}>(doc.RootElement.GetArrayLength());"
+            )
+            .Open("foreach (var e in doc.RootElement.EnumerateArray())")
+            .Line($"list.Add(new {elementType}({string.Join(", ", args)}));")
+            .Close()
+            .Line("return list;")
+            .Close();
+        helpers.Add(writer.ToString().TrimEnd('\n'));
+    }
+
+    // The JsonElement accessor for a scalar CLR type (used by the to-many element parser).
+    private static string JsonElementGet(string clrType, bool nullable, string key)
+    {
+        var access = $"e.GetProperty(\"{key}\")";
+        var getter = clrType switch
+        {
+            "string" => $"{access}.GetString()!",
+            "int" => $"{access}.GetInt32()",
+            "long" => $"{access}.GetInt64()",
+            "short" => $"{access}.GetInt16()",
+            "bool" => $"{access}.GetBoolean()",
+            "double" => $"{access}.GetDouble()",
+            "float" => $"{access}.GetSingle()",
+            "decimal" => $"{access}.GetDecimal()",
+            "global::System.Guid" => $"global::System.Guid.Parse({access}.GetString()!)",
+            "global::System.DateTime" =>
+                $"global::System.DateTime.Parse({access}.GetString()!, global::System.Globalization.CultureInfo.InvariantCulture)",
+            _ => $"{access}.GetString()!",
+        };
+
+        return nullable
+            ? $"{access}.ValueKind == global::System.Text.Json.JsonValueKind.Null ? ({clrType}?)null : {getter}"
+            : getter;
     }
 
     // Emits the nested immutable record(s) matching the shape (recursive: a record per to-one node).
@@ -917,12 +1071,14 @@ internal static class QueryEmitter
                 continue;
             }
 
-            var reference = entity.References.First(r =>
-                r.Kind == ReferenceKind.Ref && r.Name == node.Name
-            );
+            var reference = entity.References.First(r => r.Name == node.Name);
             var target = entities[reference.TargetEntity];
             var childType = recordType + Naming.ToPascalCase(node.Name);
-            var memberType = reference.IsRequired ? childType : childType + "?";
+            var memberType =
+                reference.Kind != ReferenceKind.Ref
+                    ? $"global::System.Collections.Generic.IReadOnlyList<{childType}>"
+                : reference.IsRequired ? childType
+                : childType + "?";
             members.Add($"{memberType} {Naming.ToPascalCase(node.Name)}");
             children.Add((childType, node.Children, target.Entity));
         }
@@ -968,9 +1124,7 @@ internal static class QueryEmitter
                 continue;
             }
 
-            var reference = entity.References.FirstOrDefault(r =>
-                r.Kind == ReferenceKind.Ref && r.Name == node.Name
-            );
+            var reference = entity.References.FirstOrDefault(r => r.Name == node.Name);
             if (reference is null || !entities.TryGetValue(reference.TargetEntity, out var target))
             {
                 diagnostics.Add(

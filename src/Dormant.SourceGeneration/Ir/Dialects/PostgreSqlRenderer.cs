@@ -23,6 +23,12 @@ internal sealed class PostgreSqlRenderer : SqlDialectRendererBase
 
     protected override string JsonCast => "::jsonb";
 
+    protected override string JsonObjectFunc => "jsonb_build_object";
+
+    protected override string JsonArrayAggFunc => "jsonb_agg";
+
+    protected override string EmptyJsonArray => "'[]'::jsonb";
+
     protected override string NativeFunc(string func) =>
         func switch
         {

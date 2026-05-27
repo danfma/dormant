@@ -38,6 +38,12 @@ internal sealed class SqliteRenderer : SqlDialectRendererBase
     protected override string MapOperator(string op) =>
         string.Equals(op, "ILIKE", System.StringComparison.Ordinal) ? "LIKE" : op;
 
+    protected override string JsonObjectFunc => "json_object";
+
+    protected override string JsonArrayAggFunc => "json_group_array";
+
+    protected override string EmptyJsonArray => "json('[]')";
+
     public override string DynamicPlaceholderExpr(string indexExpr) =>
         "\"@p\" + "
         + indexExpr

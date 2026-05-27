@@ -35,6 +35,15 @@ internal abstract class SqlDialectRendererBase : ISqlDialectRenderer
     /// <summary>Remaps a canonical SQL operator where this dialect differs (default: identity).</summary>
     protected virtual string MapOperator(string op) => op;
 
+    /// <summary>The JSON-object builder function (e.g. <c>jsonb_build_object</c> / <c>json_object</c>).</summary>
+    protected abstract string JsonObjectFunc { get; }
+
+    /// <summary>The JSON-array aggregate function (e.g. <c>jsonb_agg</c> / <c>json_group_array</c>).</summary>
+    protected abstract string JsonArrayAggFunc { get; }
+
+    /// <summary>The empty-JSON-array literal used to coalesce an aggregate over no rows.</summary>
+    protected abstract string EmptyJsonArray { get; }
+
     public virtual string QualifyTable(string? schema, string name) =>
         schema is null ? Quote(name) : Quote(schema) + "." + Quote(name);
 
@@ -179,6 +188,27 @@ internal abstract class SqlDialectRendererBase : ISqlDialectRenderer
                 + MapOperator(b.Operator)
                 + " "
                 + RenderExpr(b.Right),
+            JsonObjectExpr o => JsonObjectFunc
+                + "("
+                + string.Join(
+                    ", ",
+                    o.Members.Select(m => "'" + m.Key + "', " + RenderExpr(m.Value))
+                )
+                + ")",
+            JsonArrayAggSubquery s => "(SELECT coalesce("
+                + JsonArrayAggFunc
+                + "("
+                + RenderExpr(s.Element)
+                + "), "
+                + EmptyJsonArray
+                + ") FROM "
+                + RenderFromItem(s.From)
+                + (
+                    s.Where.Count > 0
+                        ? " WHERE " + string.Join(" AND ", s.Where.Select(RenderExpr))
+                        : string.Empty
+                )
+                + ")",
             _ => throw new System.NotSupportedException(
                 $"Unknown expression: {expr.GetType().Name}"
             ),

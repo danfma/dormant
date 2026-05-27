@@ -69,15 +69,15 @@ Generator: `src/Dormant.SourceGeneration/`. Runtime: `src/Dormant.Abstractions/`
 **Independent Test**: Author a query selecting a root with a nested to-one and a nested to-many; run it; confirm the tree matches the shape, the collection is fully materialized, and exactly one DB command is issued.
 
 - [X] T015 Tokenize the select shape block (`{ } : ,`) in `src/Dormant.SourceGeneration/Parsing/Lexer.cs`
-- [ ] T016 [US1] Parse root-object shape select into the `SelectShape`/`ShapeNode` AST (scalar / to-one / to-many + inner `order by`) in `src/Dormant.SourceGeneration/Parsing/UnitParser.cs` + `Parsing/QueryModel.cs` (depends T015)
-- [ ] T017 [US1] Resolve shape nodes in `src/Dormant.SourceGeneration/Schema/SchemaValidator.cs`: scalar/to-one/to-many kinds, to-many backlink resolution + ambiguous-backlink diagnostic, shape-cycle guard diagnostic (depends T007, T016)
-- [ ] T018 [US1] Add `JsonObjectExpr` + `ScalarSubquery` to `src/Dormant.SourceGeneration/Ir/SqlIr.cs` (to-one shape) (depends T009)
-- [ ] T019 [US1] Render `JsonObjectExpr` + scalar subquery per dialect (`jsonb_build_object` / `json_object`) in `src/Dormant.SourceGeneration/Ir/Dialects/*` (depends T018)
-- [ ] T020 [US1] In `src/Dormant.SourceGeneration/Query/QueryEmitter.cs`: build the shaped `ShapedSelect` (single JSON column) for to-one shapes; emit nested projection records; emit a `Utf8JsonReader` parser; wire the `CompiledQuery<T>` materializer to read the JSON column (depends T017, T019)
-- [ ] T021 [US1] Add `JsonArrayAggExpr` (to-many) to `Ir/SqlIr.cs` + render per dialect (`coalesce(jsonb_agg(... order by ...), '[]')` / `coalesce(json_group_array(...), json('[]'))`) in `Ir/Dialects/*` (depends T018, T019)
-- [ ] T022 [US1] Extend `QueryEmitter` + emitted parser for to-many shape nodes → `IReadOnlyList<TNested>` (empty not null), honoring inner `order by` (depends T020, T021)
-- [ ] T023 [US1] Verify snapshots in `tests/Dormant.SourceGeneration.Tests/` for shaped query SQL (both dialects) + generated nested records + parser (depends T022)
-- [ ] T024 [US1] Conformance tests in `tests/Dormant.Providers.ConformanceTests/`: shaped read (to-one + to-many) issues one command; empty to-many ⇒ empty list, absent to-one ⇒ null; PostgreSQL + SQLite parity (depends T022)
+- [X] T016 [US1] Parse root-object shape select into the `SelectShape`/`ShapeNode` AST (scalar / to-one / to-many + inner `order by`) in `src/Dormant.SourceGeneration/Parsing/UnitParser.cs` + `Parsing/QueryModel.cs` (depends T015)
+- [X] T017 [US1] Resolve shape nodes in `src/Dormant.SourceGeneration/Schema/SchemaValidator.cs`: scalar/to-one/to-many kinds, to-many backlink resolution + ambiguous-backlink diagnostic, shape-cycle guard diagnostic (depends T007, T016)
+- [X] T018 [US1] Add `JsonObjectExpr` + `ScalarSubquery` to `src/Dormant.SourceGeneration/Ir/SqlIr.cs` (to-one shape) (depends T009)
+- [X] T019 [US1] Render `JsonObjectExpr` + scalar subquery per dialect (`jsonb_build_object` / `json_object`) in `src/Dormant.SourceGeneration/Ir/Dialects/*` (depends T018)
+- [X] T020 [US1] In `src/Dormant.SourceGeneration/Query/QueryEmitter.cs`: build the shaped `ShapedSelect` (single JSON column) for to-one shapes; emit nested projection records; emit a `Utf8JsonReader` parser; wire the `CompiledQuery<T>` materializer to read the JSON column (depends T017, T019)
+- [X] T021 [US1] Add `JsonArrayAggExpr` (to-many) to `Ir/SqlIr.cs` + render per dialect (`coalesce(jsonb_agg(... order by ...), '[]')` / `coalesce(json_group_array(...), json('[]'))`) in `Ir/Dialects/*` (depends T018, T019)
+- [X] T022 [US1] Extend `QueryEmitter` + emitted parser for to-many shape nodes → `IReadOnlyList<TNested>` (empty not null), honoring inner `order by` (depends T020, T021)
+- [X] T023 [US1] Verify snapshots in `tests/Dormant.SourceGeneration.Tests/` for shaped query SQL (both dialects) + generated nested records + parser (depends T022)
+- [X] T024 [US1] Conformance tests in `tests/Dormant.Providers.ConformanceTests/`: shaped read (to-one + to-many) issues one command; empty to-many ⇒ empty list, absent to-one ⇒ null; PostgreSQL + SQLite parity (depends T022)
 
 **Checkpoint**: MVP — fetch an object and its related objects in one typed, single-round-trip query.
 

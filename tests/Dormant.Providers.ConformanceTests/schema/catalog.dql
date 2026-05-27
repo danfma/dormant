@@ -66,3 +66,23 @@ query article_card(id: uuid) {
     writer: { name }
   }
 }
+
+mutation create_tag(id: uuid, label: string, article: uuid) {
+  insert Tag t {
+    t.id = id
+    t.label = label
+    t.article = article
+  }
+}
+
+# To-many shape (009 US1): fetch an Article with its tags in one query. The nested `tags: { … }`
+# (a Set<Tag> collection, backlinked via Tag.article) compiles to a JSON-array correlated subquery;
+# the result's Tags is a fully materialized IReadOnlyList.
+query article_with_tags(id: uuid) {
+  from Article a
+  where a.id == id
+  select a {
+    title,
+    tags: { label }
+  }
+}

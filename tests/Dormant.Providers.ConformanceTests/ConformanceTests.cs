@@ -1,3 +1,4 @@
+using System.Linq;
 using Dormant.Providers.ConformanceTests.Schema.Catalog;
 using TUnit.Assertions;
 using TUnit.Assertions.Extensions;
@@ -168,6 +169,55 @@ public sealed class ConformanceTests
             var card = (await Drain(session.ArticleCard(articleId)))[0];
             await Assert.That(card.Title).IsEqualTo("nanosecond");
             await Assert.That(card.Writer.Name).IsEqualTo("hopper");
+        }
+    }
+
+    [Test]
+    [Arguments("postgres")]
+    [Arguments("sqlite")]
+    public async Task To_many_shape_returns_materialized_collection(string provider)
+    {
+        await using var harness = await ProviderHarness.CreateAsync(provider);
+        var authorId = Guid.NewGuid();
+        var articleId = Guid.NewGuid();
+
+        await using (var session = await harness.Factory.OpenSessionAsync())
+        {
+            await session.CreateAuthorWithArticle(
+                authorId,
+                "turing",
+                articleId,
+                "on computable numbers"
+            );
+            await session.CreateTag(Guid.NewGuid(), "math", articleId);
+            await session.CreateTag(Guid.NewGuid(), "logic", articleId);
+            await session.CommitAsync();
+        }
+
+        await using (var session = await harness.Factory.OpenSessionAsync())
+        {
+            // `select a { title, tags: { label } }` → one query; Tags is a fully materialized list.
+            var article = (await Drain(session.ArticleWithTags(articleId)))[0];
+            await Assert.That(article.Title).IsEqualTo("on computable numbers");
+            await Assert.That(article.Tags.Count).IsEqualTo(2);
+            var labels = article.Tags.Select(t => t.Label).OrderBy(l => l).ToList();
+            await Assert.That(labels[0]).IsEqualTo("logic");
+            await Assert.That(labels[1]).IsEqualTo("math");
+        }
+
+        // An article with no tags yields an empty (non-null) collection.
+        var emptyId = Guid.NewGuid();
+        var emptyAuthor = Guid.NewGuid();
+        await using (var session = await harness.Factory.OpenSessionAsync())
+        {
+            await session.CreateAuthorWithArticle(emptyAuthor, "lovelace", emptyId, "notes");
+            await session.CommitAsync();
+        }
+
+        await using (var session = await harness.Factory.OpenSessionAsync())
+        {
+            var article = (await Drain(session.ArticleWithTags(emptyId)))[0];
+            await Assert.That(article.Tags.Count).IsEqualTo(0);
         }
     }
 

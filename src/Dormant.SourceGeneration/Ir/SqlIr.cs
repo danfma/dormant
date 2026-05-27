@@ -127,6 +127,26 @@ internal sealed record SqlSelectItem(SqlExpr Expr, string? Alias = null);
 /// <summary>An ORDER BY term over an expression.</summary>
 internal sealed record SqlOrderExpr(SqlExpr Expr, bool Descending);
 
+/// <summary>One key/value member of a <see cref="JsonObjectExpr"/>.</summary>
+internal sealed record JsonMember(string Key, SqlExpr Value);
+
+/// <summary>
+/// A JSON object built from key/value pairs (009 US1 to-many element). Rendered per dialect
+/// (PostgreSQL <c>jsonb_build_object</c>, SQLite <c>json_object</c>).
+/// </summary>
+internal sealed record JsonObjectExpr(IReadOnlyList<JsonMember> Members) : SqlExpr;
+
+/// <summary>
+/// A correlated subquery aggregating a child relation into a JSON array of objects (a to-many shape
+/// node). Renders to <c>(SELECT coalesce(&lt;agg&gt;(&lt;element&gt;), '[]') FROM &lt;from&gt; WHERE &lt;where&gt;)</c>
+/// — one round-trip, no N+1 (009 US1, research R1).
+/// </summary>
+internal sealed record JsonArrayAggSubquery(
+    FromItem From,
+    JsonObjectExpr Element,
+    IReadOnlyList<SqlExpr> Where
+) : SqlExpr;
+
 /// <summary>
 /// A relational SELECT: an aliased FROM, zero or more JOINs, expression select-items, a conjunctive
 /// WHERE, ORDER BY, and LIMIT/OFFSET. Emitted when a query navigates relationships; the flat

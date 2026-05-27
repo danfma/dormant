@@ -39,11 +39,42 @@ public sealed class ShapeEmitTests
         }
         """;
 
-    private static string Run()
+    private const string ToManySchema = """
+        module app;
+
+        entity Article {
+          id: uuid primary;
+          title: string;
+          tags: Set<Tag>;
+        }
+
+        entity Tag {
+          id: uuid primary;
+          label: string;
+          article: Article;
+        }
+        """;
+
+    private const string ToManyQueries = """
+        module app;
+
+        query article_tags(id: uuid) {
+          from Article a
+          where a.id == id
+          select a {
+            title,
+            tags: { label }
+          }
+        }
+        """;
+
+    private static string Run() => Run(Schema, Queries);
+
+    private static string Run(string schema, string queries)
     {
         var driver = GeneratorTestHarness.CreateDriver(
-            new TestAdditionalText("schema/app.dqls", Schema),
-            new TestAdditionalText("schema/app.dql", Queries)
+            new TestAdditionalText("schema/app.dqls", schema),
+            new TestAdditionalText("schema/app.dql", queries)
         );
         driver = driver.RunGenerators(CSharpCompilation.Create("Tests"));
         var sources = driver.GetRunResult().Results.SelectMany(r => r.GeneratedSources);
@@ -92,6 +123,52 @@ public sealed class ShapeEmitTests
             .Contains(
                 "static reader => new ArticleCardResult(reader.GetValue<string>(0), "
                     + "new ArticleCardResultWriter(reader.GetValue<string>(2)))"
+            );
+    }
+
+    [Test]
+    public async Task To_many_shape_emits_json_aggregation_and_parser()
+    {
+        var generated = Run(ToManySchema, ToManyQueries);
+
+        // Nested records: to-many ⇒ IReadOnlyList member.
+        await Assert
+            .That(generated)
+            .Contains(
+                "public sealed record ArticleTagsResult(string Title, global::System.Collections.Generic.IReadOnlyList<ArticleTagsResultTags> Tags);"
+            );
+        await Assert
+            .That(generated)
+            .Contains("public sealed record ArticleTagsResultTags(string Label);");
+
+        // PostgreSQL: jsonb_agg(jsonb_build_object(...)) correlated subquery on the backlink FK.
+        await Assert
+            .That(generated)
+            .Contains(
+                "SELECT \"a\".\"title\", (SELECT coalesce(jsonb_agg(jsonb_build_object('label', \"tags\".\"label\")), '[]'::jsonb) "
+                    + "FROM \"app\".\"tag\" \"tags\" WHERE \"tags\".\"article_id\" = \"a\".\"id\") "
+                    + "FROM \"app\".\"article\" \"a\" WHERE \"a\".\"id\" = $1"
+            );
+
+        // SQLite: json_group_array(json_object(...)).
+        await Assert
+            .That(generated)
+            .Contains(
+                "SELECT \"a\".\"title\", (SELECT coalesce(json_group_array(json_object('label', \"tags\".\"label\")), json('[]')) "
+                    + "FROM \"app_tag\" \"tags\" WHERE \"tags\".\"article_id\" = \"a\".\"id\") "
+                    + "FROM \"app_article\" \"a\" WHERE \"a\".\"id\" = @p1"
+            );
+
+        // Emitted JsonDocument-based parser + the materializer call.
+        await Assert
+            .That(generated)
+            .Contains(
+                "global::System.Collections.Generic.IReadOnlyList<ArticleTagsResultTags> ParseArticleTagsResultTags(string json)"
+            );
+        await Assert
+            .That(generated)
+            .Contains(
+                "static reader => new ArticleTagsResult(reader.GetValue<string>(0), ParseArticleTagsResultTags(reader.GetValue<string>(1)))"
             );
     }
 }
