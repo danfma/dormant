@@ -113,6 +113,33 @@ per the constitution's own rules.
 **Rationale**: The plan must not silently contradict the constitution; the amendment is an explicit,
 reviewed step. Keeps governance honest.
 
+## R8. Implementation refinement (post-P-B): to-one shapes via JOIN, JSON only for to-many
+
+**Decision**: When implementing shape selection (US1), do **to-one** nested shapes with a `JOIN` +
+**flat positional materialization** into nested records — reusing the P-B relational IR
+(`JoinedSelectStatement`, qualified `ColumnExpr`) and the existing `IFieldReader` path. Reserve the
+JSON-aggregation machinery (R1/R2) for **to-many** only (where multiple child rows require an array).
+
+- to-one: `SELECT a.title, w.name FROM article a [INNER|LEFT] JOIN author w ON a.writer_id = w.id` →
+  materialize `new Card(reader.GetValue<string>(0), new CardWriter(reader.GetValue<string>(1)))`.
+  Required ref ⇒ `INNER JOIN` (nested record non-null). Optional ref ⇒ `LEFT JOIN` + a target-PK
+  null-probe column ⇒ nullable nested record (null when the probe is null).
+- to-many: still JSON (`json_group_array`/`jsonb_agg`) as a scalar subquery column, parsed by the
+  emitted `Utf8JsonReader` materializer.
+
+**Rationale**: to-one via JOIN is far simpler than JSON (no hand-rolled JSON parser, no
+generator-emitted `Utf8JsonReader` for the to-one case), AOT-clean, no boxing, and reuses code already
+shipped in P-B. A shaped query mixing to-one + to-many becomes a hybrid: flat positional columns for
+the to-one parts + one JSON column per to-many part. This lets US1 land incrementally — **to-one shape
+slice first** (no JSON), then the to-many/JSON slice.
+
+**Sequencing for US1**: (1) lexer already has `{ } : ,`; (2) add a `SelectShape` AST to QueryModel
+(keep `ProjectionFields` for the flat form); (3) parse `select alias { field, ref: { … } }` (root-shape;
+detect by alias-then-`{`); (4) validate to-one nodes (cycle/backlink only matter for to-many); (5) emit
+a `JoinedSelectStatement` whose items are the depth-first flattened shape columns + a JOIN per to-one
+node, generate the nested immutable records, and a recursive positional materializer assigning ordinals
+in flatten order; (6) conformance (`Article.writer`) + per-dialect snapshot. Defer to-many to the next slice.
+
 ## Resolved unknowns
 
 | Unknown | Resolution |
