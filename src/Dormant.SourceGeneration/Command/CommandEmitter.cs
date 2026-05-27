@@ -601,7 +601,10 @@ internal static class CommandEmitter
         NamingConvention convention
     ) =>
         shape.Kind == ReturningKind.Entity
-            ? entity.Properties.Select(x => Col(x.Name, x.NameOverride, convention)).ToList()
+            ? global::Dormant.SourceGeneration.Schema.EntityColumns.SelectColumnNames(
+                entity,
+                convention
+            )
             : shape
                 .Members.Select(m =>
                 {

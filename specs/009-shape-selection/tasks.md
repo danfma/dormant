@@ -42,12 +42,12 @@ Generator: `src/Dormant.SourceGeneration/`. Runtime: `src/Dormant.Abstractions/`
 
 ### Entity flatten (P-A — breaking, MAJOR)
 
-- [ ] T003 Flatten `src/Dormant.SourceGeneration/Schema/EntityEmitter.cs`: stop emitting `Ref/RefSet/RefList/RefBag/RefMap` members; emit the to-one FK id scalar property (`WriterId` required / `ManagerId` optional); to-many collection ⇒ no entity member
-- [ ] T004 Update `src/Dormant.SourceGeneration/Schema/EntityBindingEmitter.cs`: materializer ctor reads the FK id scalar ordinal; keep flat `SelectByKey` and FK column DDL
-- [ ] T005 Delete wrapper types `Ref.cs`, `RefSet.cs`, `RefList.cs`, `RefBag.cs`, `RefMap.cs` from `src/Dormant.Abstractions/Entities/`
-- [ ] T006 Migrate all consumers off wrappers (conformance schema/tests, `samples/Dormant.Sample.Quickstart`, any source reading `Ref`/`RefSet`); restore green build of `Dormant.slnx`
+- [X] T003 Flatten `src/Dormant.SourceGeneration/Schema/EntityEmitter.cs`: stop emitting `Ref/RefSet/RefList/RefBag/RefMap` members; emit the to-one FK id scalar property (`WriterId` required / `ManagerId` optional); to-many collection ⇒ no entity member
+- [X] T004 Update `src/Dormant.SourceGeneration/Schema/EntityBindingEmitter.cs`: materializer ctor reads the FK id scalar ordinal; keep flat `SelectByKey` and FK column DDL
+- [X] T005 Delete wrapper types `Ref.cs`, `RefSet.cs`, `RefList.cs`, `RefBag.cs`, `RefMap.cs` from `src/Dormant.Abstractions/Entities/`
+- [X] T006 Migrate all consumers off wrappers (conformance schema/tests, `samples/Dormant.Sample.Quickstart`, any source reading `Ref`/`RefSet`); restore green build of `Dormant.slnx`
 - [ ] T007 [P] Extend `src/Dormant.SourceGeneration/Parsing/SchemaModel.cs` + `SchemaParser.cs`: parse `Set<T>` collection declarations as metadata and record inverse/backlink info (no runtime member)
-- [ ] T008 Update Verify snapshots for flattened entities in `tests/Dormant.SourceGeneration.Tests/` (SchemaEmitTests)
+- [X] T008 Update Verify snapshots for flattened entities in `tests/Dormant.SourceGeneration.Tests/` (SchemaEmitTests)
 
 ### Relational IR + navigation (P-B)
 

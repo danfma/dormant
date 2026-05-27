@@ -54,24 +54,21 @@ public sealed class SchemaEmitTests
             .Contains("public required global::System.Guid Id { get; init; }");
         await Assert.That(generated).Contains("public required string Email { get; init; }");
         await Assert.That(generated).Contains("public string? Bio { get; init; }");
-        // Optional single ref → Ref<User?> with Unloaded initializer (FR-047/048/049).
+        // 009 P-A: relationships are schema metadata; entities are flat. A to-one ref becomes a `<ref>Id`
+        // foreign-key scalar (the target's PK CLR type), NOT a runtime wrapper.
+        // Optional single ref `manager: User?` → nullable `ManagerId`.
         await Assert
             .That(generated)
-            .Contains(
-                "global::Dormant.Abstractions.Entities.Ref<User?> Manager { get; init; } = global::Dormant.Abstractions.Entities.Ref<User?>.Unloaded;"
-            );
-        // Collection → RefSet with Unloaded initializer, never = [] (FR-049).
+            .Contains("public global::System.Guid? ManagerId { get; init; }");
+        // Required single ref `author: User` → required `AuthorId`.
         await Assert
             .That(generated)
-            .Contains(
-                "global::Dormant.Abstractions.Entities.RefSet<Post> Posts { get; init; } = global::Dormant.Abstractions.Entities.RefSet<Post>.Unloaded;"
-            );
-        // Required single ref → required Ref<User> (FR-047/048).
-        await Assert
-            .That(generated)
-            .Contains(
-                "public required global::Dormant.Abstractions.Entities.Ref<User> Author { get; init; }"
-            );
+            .Contains("public required global::System.Guid AuthorId { get; init; }");
+        // To-many collection `posts: Set<Post>` → NO entity member (metadata only).
+        await Assert.That(generated).DoesNotContain("Posts { get; init; }");
+        // No relationship wrappers remain anywhere in the generated output.
+        await Assert.That(generated).DoesNotContain("Dormant.Abstractions.Entities.Ref");
+        await Assert.That(generated).DoesNotContain(".Unloaded");
         // PK identity equality emitted (FR-051).
         await Assert.That(generated).Contains("public bool Equals(User? other)");
         await Assert.That(generated).Contains(": global::System.IEquatable<User>");

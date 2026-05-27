@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Linq;
 using Dormant.SourceGeneration.Emit;
 using Dormant.SourceGeneration.Parsing;
@@ -6,17 +7,19 @@ namespace Dormant.SourceGeneration.Schema;
 
 /// <summary>
 /// Emits a strongly-typed <c>partial</c> entity class from an <see cref="EntityModel"/> (spec
-/// FR-003/FR-046/FR-047/FR-048/FR-049/FR-051): value properties; relationship members typed
-/// <c>Ref</c>/<c>RefSet</c>/<c>RefList</c>/<c>RefBag</c>/<c>RefMap</c> (collections default to the
-/// Unloaded sentinel, never <c>[]</c>); the C# <c>required</c> modifier on non-nullable values and
-/// required single refs; and primary-key identity <c>Equals</c>/<c>GetHashCode</c>. Output is
-/// deterministic (source order, <c>\n</c> newlines, invariant formatting).
+/// FR-003/FR-046/FR-051; 009 P-A): value properties plus a <c>&lt;ref&gt;Id</c> foreign-key scalar for
+/// each to-one reference (relationships are schema metadata now — no runtime wrapper; to-many
+/// collections contribute no member); the C# <c>required</c> modifier on non-nullable values and
+/// required FKs; and primary-key identity <c>Equals</c>/<c>GetHashCode</c>. Output is deterministic
+/// (source order, <c>\n</c> newlines, invariant formatting).
 /// </summary>
 internal static class EntityEmitter
 {
-    private const string Ns = "global::Dormant.Abstractions.Entities";
-
-    public static string Emit(string @namespace, EntityModel entity)
+    public static string Emit(
+        string @namespace,
+        EntityModel entity,
+        IReadOnlyDictionary<string, string> refPkDslTypes
+    )
     {
         var primaryKey = entity.Properties.FirstOrDefault(p => p.IsPrimary);
         var hasSinglePrimaryKey =
@@ -34,7 +37,7 @@ internal static class EntityEmitter
             .Line()
             .Open(declaration);
 
-        EmitConstructors(writer, entity);
+        EmitConstructors(writer, entity, refPkDslTypes);
 
         foreach (var property in entity.Properties)
         {
@@ -49,9 +52,15 @@ internal static class EntityEmitter
             }
         }
 
-        foreach (var reference in entity.References)
+        foreach (var reference in EntityColumns.ToOne(entity))
         {
-            EmitReference(writer, reference);
+            var fkName = EntityColumns.ForeignKeyProperty(reference);
+            var fkClr = EntityColumns.ForeignKeyClrType(reference, refPkDslTypes);
+            writer.Line(
+                reference.IsRequired
+                    ? $"public required {fkClr} {fkName} {{ get; init; }}"
+                    : $"public {fkClr}? {fkName} {{ get; init; }}"
+            );
         }
 
         if (hasSinglePrimaryKey)
@@ -64,10 +73,14 @@ internal static class EntityEmitter
 
     // Two constructors (FR-048): the public parameterless ctor preserves the consumer `required`-init
     // contract (`new E { ... }`); the internal `[SetsRequiredMembers]` ctor materializes a row by reading
-    // value columns positionally through ordinary public setters — no reflection, no `[UnsafeAccessor]`,
-    // no backing-field access. References are left at their default Unloaded sentinel (filled by US3
-    // shapes / explicit load); `[SetsRequiredMembers]` lets required single refs stay Unloaded here.
-    private static void EmitConstructors(SourceWriter writer, EntityModel entity)
+    // columns positionally through ordinary public setters — no reflection, no `[UnsafeAccessor]`, no
+    // backing-field access. Columns are value properties (declaration order) then the to-one `<ref>Id`
+    // foreign-key scalars (reference order) — the same order every full-entity SELECT/RETURNING emits.
+    private static void EmitConstructors(
+        SourceWriter writer,
+        EntityModel entity,
+        IReadOnlyDictionary<string, string> refPkDslTypes
+    )
     {
         writer
             .Line(
@@ -98,48 +111,20 @@ internal static class EntityEmitter
             ordinal++;
         }
 
-        writer.Close().Line();
-    }
-
-    private static void EmitReference(SourceWriter writer, ReferenceModel reference)
-    {
-        var name = Naming.ToPascalCase(reference.Name);
-        var target = reference.TargetEntity;
-
-        switch (reference.Kind)
+        foreach (var reference in EntityColumns.ToOne(entity))
         {
-            case ReferenceKind.Ref when reference.IsRequired:
-                writer.Line($"public required {Ns}.Ref<{target}> {name} {{ get; init; }}");
-                break;
-            case ReferenceKind.Ref:
-                writer.Line(
-                    $"public {Ns}.Ref<{target}?> {name} {{ get; init; }} = {Ns}.Ref<{target}?>.Unloaded;"
-                );
-                break;
-            case ReferenceKind.Set:
-                writer.Line(
-                    $"public {Ns}.RefSet<{target}> {name} {{ get; init; }} = {Ns}.RefSet<{target}>.Unloaded;"
-                );
-                break;
-            case ReferenceKind.List:
-                writer.Line(
-                    $"public {Ns}.RefList<{target}> {name} {{ get; init; }} = {Ns}.RefList<{target}>.Unloaded;"
-                );
-                break;
-            case ReferenceKind.Bag:
-                writer.Line(
-                    $"public {Ns}.RefBag<{target}> {name} {{ get; init; }} = {Ns}.RefBag<{target}>.Unloaded;"
-                );
-                break;
-            case ReferenceKind.Map:
-                var keyClr = TypeMap.TryMap(reference.KeyType ?? string.Empty, out var mapped)
-                    ? mapped
-                    : reference.KeyType;
-                writer.Line(
-                    $"public {Ns}.RefMap<{keyClr}, {target}> {name} {{ get; init; }} = {Ns}.RefMap<{keyClr}, {target}>.Unloaded;"
-                );
-                break;
+            var fkName = EntityColumns.ForeignKeyProperty(reference);
+            var fkClr = EntityColumns.ForeignKeyClrType(reference, refPkDslTypes);
+            var read = $"reader.GetValue<{fkClr}>({ordinal})";
+            writer.Line(
+                reference.IsRequired
+                    ? $"this.{fkName} = {read};"
+                    : $"this.{fkName} = reader.IsNull({ordinal}) ? ({fkClr}?)null : {read};"
+            );
+            ordinal++;
         }
+
+        writer.Close().Line();
     }
 
     // Identity equality by primary key (FR-051): a transient (unset key) entity uses reference equality.

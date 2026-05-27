@@ -5,6 +5,7 @@ using Dormant.SourceGeneration.Emit;
 using Dormant.SourceGeneration.Ir;
 using Dormant.SourceGeneration.Ir.Dialects;
 using Dormant.SourceGeneration.Parsing;
+using Dormant.SourceGeneration.Schema;
 
 namespace Dormant.SourceGeneration.Query;
 
@@ -282,13 +283,9 @@ internal static class QueryEmitter
         HashSet<string> optionalNames
     )
     {
-        var colNames = (
-            query.IsProjection
-                ? query.ProjectionFields.Select(f => ColByName(entity, f, convention))
-                : entity.Properties.Select(p =>
-                    NamingConventions.Resolve(p.Name, p.NameOverride, convention)
-                )
-        ).ToList();
+        var colNames = query.IsProjection
+            ? query.ProjectionFields.Select(f => ColByName(entity, f, convention)).ToList()
+            : EntityColumns.SelectColumnNames(entity, convention);
         var tableName = NamingConventions.Resolve(entity.Name, entity.NameOverride, convention);
 
         // The static seed (SELECT cols FROM table) varies by dialect (table qualification); the dynamic WHERE
@@ -451,11 +448,7 @@ internal static class QueryEmitter
     {
         var columns = query.IsProjection
             ? query.ProjectionFields.Select(f => ColByName(entity, f, convention)).ToList()
-            : entity
-                .Properties.Select(p =>
-                    NamingConventions.Resolve(p.Name, p.NameOverride, convention)
-                )
-                .ToList();
+            : EntityColumns.SelectColumnNames(entity, convention);
 
         var where = new List<SqlCondition>(query.Filters.Count);
         foreach (var filter in query.Filters)

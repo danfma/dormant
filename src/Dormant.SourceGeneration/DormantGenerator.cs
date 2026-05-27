@@ -120,7 +120,7 @@ public sealed class DormantGenerator : IIncrementalGenerator
 
                     productionContext.AddSource(
                         Naming.HintName(@namespace, entity.Name),
-                        EntityEmitter.Emit(@namespace, entity)
+                        EntityEmitter.Emit(@namespace, entity, refPkDslTypes)
                     );
 
                     productionContext.AddSource(

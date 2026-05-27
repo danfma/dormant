@@ -32,7 +32,9 @@ internal static class EntityBindingEmitter
         var key = entity.Properties.FirstOrDefault(p => p.IsPrimary);
         var columns = entity.Properties; // value columns, declaration order
         var tableRef = new TableRef(schema, Table(entity, convention));
-        var colNames = columns.Select(p => Col(p, convention)).ToList();
+        // Full-entity read layout: value columns then the to-one `<ref>_id` FK columns (009 P-A) — the same
+        // order the entity materializer ctor reads.
+        var colNames = EntityColumns.SelectColumnNames(entity, convention);
 
         // Value columns (declaration order) followed by a `<ref>_id` foreign-key column for each single
         // reference (FR-020): typed as the target entity's primary-key DormantQL type (the renderer maps it
