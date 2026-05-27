@@ -20,6 +20,8 @@ publish/
 coverage/
 *.coverage
 *.trx
+
+# BenchmarkDotNet
 BenchmarkDotNet.Artifacts/
 
 # IDE / editor
