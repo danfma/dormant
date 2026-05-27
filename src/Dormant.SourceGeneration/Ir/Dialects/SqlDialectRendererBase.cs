@@ -43,6 +43,7 @@ internal abstract class SqlDialectRendererBase : ISqlDialectRenderer
         {
             InsertStatement insert => RenderInsert(insert),
             SelectStatement select => RenderSelect(select),
+            JoinedSelectStatement joined => RenderJoinedSelect(joined),
             DeleteStatement delete => RenderDelete(delete),
             UpdateStatement update => RenderUpdate(update),
             CreateSchemaStatement createSchema => RendersCreateSchema
@@ -121,6 +122,67 @@ internal abstract class SqlDialectRendererBase : ISqlDialectRenderer
         AppendLimit(sb, "OFFSET", select.Offset);
         return sb.ToString();
     }
+
+    // 009 P-B: a relational SELECT with aliased FROM, JOINs, and qualified-column expressions.
+    private string RenderJoinedSelect(JoinedSelectStatement select)
+    {
+        var sb = new StringBuilder();
+        sb.Append("SELECT ").Append(string.Join(", ", select.Items.Select(RenderSelectItem)));
+        sb.Append(" FROM ").Append(RenderFromItem(select.From));
+
+        foreach (var join in select.Joins)
+        {
+            sb.Append(join.Kind == JoinKind.Left ? " LEFT JOIN " : " INNER JOIN ")
+                .Append(RenderFromItem(join.Target))
+                .Append(" ON ")
+                .Append(RenderExpr(join.On));
+        }
+
+        if (select.Where.Count > 0)
+        {
+            sb.Append(" WHERE ").Append(string.Join(" AND ", select.Where.Select(RenderExpr)));
+        }
+
+        if (select.OrderBy.Count > 0)
+        {
+            sb.Append(" ORDER BY ");
+            sb.Append(
+                string.Join(
+                    ", ",
+                    select.OrderBy.Select(o =>
+                        RenderExpr(o.Expr) + (o.Descending ? " DESC" : " ASC")
+                    )
+                )
+            );
+        }
+
+        AppendLimit(sb, "LIMIT", select.Limit);
+        AppendLimit(sb, "OFFSET", select.Offset);
+        return sb.ToString();
+    }
+
+    private string RenderFromItem(FromItem from) =>
+        QualifyTable(from.Table.Schema, from.Table.Name) + " " + Quote(from.Alias);
+
+    private string RenderSelectItem(SqlSelectItem item) =>
+        item.Alias is null
+            ? RenderExpr(item.Expr)
+            : RenderExpr(item.Expr) + " AS " + Quote(item.Alias);
+
+    private string RenderExpr(SqlExpr expr) =>
+        expr switch
+        {
+            ColumnExpr c => Quote(c.Alias) + "." + Quote(c.Column),
+            ParamExpr p => Placeholder(p.Index),
+            BinaryExpr b => RenderExpr(b.Left)
+                + " "
+                + MapOperator(b.Operator)
+                + " "
+                + RenderExpr(b.Right),
+            _ => throw new System.NotSupportedException(
+                $"Unknown expression: {expr.GetType().Name}"
+            ),
+        };
 
     private string RenderDelete(DeleteStatement delete)
     {

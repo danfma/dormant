@@ -84,3 +84,60 @@ internal sealed record SqlOrder(string Column, bool Descending);
 
 /// <summary>A LIMIT/OFFSET value: an integer literal or a positional parameter.</summary>
 internal sealed record SqlLimit(bool IsParameter, int ParameterIndex, int Literal);
+
+// ---------------------------------------------------------------------------------------------------
+// Relational / expression IR (009 P-B). The flat single-table SelectStatement above is kept for the
+// common case (byte-identical output); the nodes below express the multi-table joins + qualified
+// columns that relationship navigation (and, later, shape selection) require. Like the rest of the IR,
+// names are resolved and no dialect lexical choice is baked in — the renderer spells joins, qualified
+// columns, and operators per dialect.
+// ---------------------------------------------------------------------------------------------------
+
+/// <summary>An (optionally schema-qualified) table bound to an alias in a relational FROM/JOIN.</summary>
+internal sealed record FromItem(TableRef Table, string Alias);
+
+/// <summary>The kind of join.</summary>
+internal enum JoinKind
+{
+    /// <summary><c>INNER JOIN</c>.</summary>
+    Inner,
+
+    /// <summary><c>LEFT JOIN</c> (the default for to-one navigation — an absent ref yields nulls).</summary>
+    Left,
+}
+
+/// <summary>An expression over qualified columns / bound parameters (select-items, join ON, WHERE).</summary>
+internal abstract record SqlExpr;
+
+/// <summary>An alias-qualified column reference, rendered as <c>"alias"."column"</c>.</summary>
+internal sealed record ColumnExpr(string Alias, string Column) : SqlExpr;
+
+/// <summary>A one-based positional bound parameter.</summary>
+internal sealed record ParamExpr(int Index) : SqlExpr;
+
+/// <summary>A binary expression; <paramref name="Operator"/> is the canonical SQL keyword (renderer remaps).</summary>
+internal sealed record BinaryExpr(SqlExpr Left, string Operator, SqlExpr Right) : SqlExpr;
+
+/// <summary>A JOIN onto an aliased table with an ON predicate.</summary>
+internal sealed record SqlJoin(FromItem Target, JoinKind Kind, SqlExpr On);
+
+/// <summary>A select-list item: an expression with an optional output alias.</summary>
+internal sealed record SqlSelectItem(SqlExpr Expr, string? Alias = null);
+
+/// <summary>An ORDER BY term over an expression.</summary>
+internal sealed record SqlOrderExpr(SqlExpr Expr, bool Descending);
+
+/// <summary>
+/// A relational SELECT: an aliased FROM, zero or more JOINs, expression select-items, a conjunctive
+/// WHERE, ORDER BY, and LIMIT/OFFSET. Emitted when a query navigates relationships; the flat
+/// <see cref="SelectStatement"/> remains for single-table queries so their output stays byte-identical.
+/// </summary>
+internal sealed record JoinedSelectStatement(
+    FromItem From,
+    IReadOnlyList<SqlJoin> Joins,
+    IReadOnlyList<SqlSelectItem> Items,
+    IReadOnlyList<SqlExpr> Where,
+    IReadOnlyList<SqlOrderExpr> OrderBy,
+    SqlLimit? Limit,
+    SqlLimit? Offset
+) : SqlStatement;
