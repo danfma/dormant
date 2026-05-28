@@ -250,6 +250,35 @@ public sealed class ConformanceTests
         }
     }
 
+    [Test]
+    [Arguments("postgres")]
+    [Arguments("sqlite")]
+    public async Task Into_materializes_user_owned_record(string provider)
+    {
+        await using var harness = await ProviderHarness.CreateAsync(provider);
+        var authorId = Guid.NewGuid();
+        var articleId = Guid.NewGuid();
+
+        await using (var session = await harness.Factory.OpenSessionAsync())
+        {
+            await session.CreateAuthorWithArticle(
+                authorId,
+                "knuth",
+                articleId,
+                "the art of computer programming"
+            );
+            await session.CommitAsync();
+        }
+
+        await using (var session = await harness.Factory.OpenSessionAsync())
+        {
+            // `select { … } into ArticleFeedDto` materializes the user-owned record directly.
+            ArticleFeedDto dto = (await Drain(session.ArticleDto(articleId)))[0];
+            await Assert.That(dto.Headline).IsEqualTo("the art of computer programming");
+            await Assert.That(dto.AuthorName).IsEqualTo("knuth");
+        }
+    }
+
     private static async Task<List<T>> Drain<T>(IAsyncEnumerable<T> source)
     {
         var list = new List<T>();

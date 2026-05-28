@@ -93,3 +93,10 @@ query article_feed_item(id: uuid) {
   where a.id == id
   select { headline = a.title, authorName = a.writer.name }
 }
+
+# into (009 US3): materialize the composition into a user-owned record (positional, by declaration order).
+query article_dto(id: uuid) {
+  from Article a
+  where a.id == id
+  select { headline = a.title, authorName = a.writer.name } into Dormant.Providers.ConformanceTests.ArticleFeedDto
+}

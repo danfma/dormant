@@ -362,8 +362,27 @@ internal static class QueryEmitter
         {
             // 009 US2: a free composition → a flat record of named members drawn from own columns and
             // to-one navigation paths; materialized positionally from a JOIN-flattened SELECT.
-            resultType = methodName + "Result";
-            projection = BuildCompositionRecord(resultType, query, entity, convention, entities);
+            // 009 US3: `into <Type>` materializes into a user-owned record instead of the generated one
+            // (positional, by declaration order; a name/type mismatch surfaces as a C# build error on the
+            // generated constructor call — by-name structural matching needs compilation symbols and is a
+            // follow-up).
+            if (query.IntoType is { } into)
+            {
+                resultType = "global::" + into;
+                projection = null;
+            }
+            else
+            {
+                resultType = methodName + "Result";
+                projection = BuildCompositionRecord(
+                    resultType,
+                    query,
+                    entity,
+                    convention,
+                    entities
+                );
+            }
+
             materializer = BuildCompositionMaterializer(
                 resultType,
                 query,

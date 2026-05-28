@@ -35,6 +35,12 @@ public sealed class CompositionEmitTests
           where a.id == id
           select { headline = a.title, authorName = a.writer.name }
         }
+
+        query feed_dto(id: uuid) {
+          from Article a
+          where a.id == id
+          select { headline = a.title, authorName = a.writer.name } into App.FeedDto
+        }
         """;
 
     private static string Run()
@@ -71,5 +77,24 @@ public sealed class CompositionEmitTests
             .Contains(
                 "static reader => new FeedItemResult(reader.GetValue<string>(0), reader.GetValue<string>(1))"
             );
+    }
+
+    [Test]
+    public async Task Into_materializes_user_record()
+    {
+        var generated = Run();
+
+        // The method returns the user-owned type; no generated result record is emitted for it.
+        await Assert
+            .That(generated)
+            .Contains(
+                "global::System.Collections.Generic.IAsyncEnumerable<global::App.FeedDto> FeedDto("
+            );
+        await Assert
+            .That(generated)
+            .Contains(
+                "static reader => new global::App.FeedDto(reader.GetValue<string>(0), reader.GetValue<string>(1))"
+            );
+        await Assert.That(generated).DoesNotContain("record FeedDtoResult");
     }
 }

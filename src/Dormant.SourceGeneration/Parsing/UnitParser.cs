@@ -184,6 +184,7 @@ internal sealed class UnitParser
         var projection = new List<string>();
         SelectShape? shape = null;
         FreeComposition? composition = null;
+        string? intoType = null;
         var seenWhere = false;
         var seenOrder = false;
         var seenSelect = false;
@@ -220,6 +221,18 @@ internal sealed class UnitParser
                 {
                     RecoverToUnitEnd();
                     return null;
+                }
+
+                // 009 US3: optional `into <Type>` binds the result to a user-owned record type.
+                if (IsKeyword("into"))
+                {
+                    _pos++;
+                    intoType = ParseTypeName();
+                    if (intoType is null)
+                    {
+                        RecoverToUnitEnd();
+                        return null;
+                    }
                 }
             }
             else if (Current.Kind == TokenKind.Semicolon)
@@ -261,8 +274,36 @@ internal sealed class UnitParser
             Limit: null,
             Offset: null,
             Shape: shape,
-            Composition: composition
+            Composition: composition,
+            IntoType: intoType
         );
+    }
+
+    // type-name := IDENT ('.' IDENT)*  — a (possibly qualified) user record type for `into` (009 US3).
+    private string? ParseTypeName()
+    {
+        if (Current.Kind != TokenKind.Identifier)
+        {
+            Error($"expected a type name after 'into' but found '{Describe(Current)}'");
+            return null;
+        }
+
+        var sb = new System.Text.StringBuilder(Current.Text);
+        _pos++;
+        while (Current.Kind == TokenKind.Dot)
+        {
+            _pos++;
+            if (Current.Kind != TokenKind.Identifier)
+            {
+                Error("expected an identifier after '.' in the type name");
+                return null;
+            }
+
+            sb.Append('.').Append(Current.Text);
+            _pos++;
+        }
+
+        return sb.ToString();
     }
 
     // mutation := 'mutation' snake_name '(' params? ')' '{' command '}'

@@ -30,6 +30,7 @@ internal sealed record QueryFile(
 /// <param name="Offset">Optional OFFSET (literal or parameter). // TODO(003): no surface grammar yet; always null.</param>
 /// <param name="Shape">The 009 root-object select shape, or null for full-entity / flat-projection selects.</param>
 /// <param name="Composition">The 009 free-composition select, or null.</param>
+/// <param name="IntoType">The 009 US3 <c>into</c> target — a user-owned record type name to materialize into, or null.</param>
 internal sealed record QueryModel(
     string Name,
     string RootEntity,
@@ -41,7 +42,8 @@ internal sealed record QueryModel(
     LimitValue? Limit,
     LimitValue? Offset,
     SelectShape? Shape = null,
-    FreeComposition? Composition = null
+    FreeComposition? Composition = null,
+    string? IntoType = null
 )
 {
     /// <summary>Whether the result is a flat projection (vs a full entity).</summary>
