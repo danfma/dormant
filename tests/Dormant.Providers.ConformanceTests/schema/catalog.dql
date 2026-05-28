@@ -86,3 +86,10 @@ query article_with_tags(id: uuid) {
     tags: { label }
   }
 }
+
+# Free composition (009 US2): assemble a new result object from a field plus a navigated value.
+query article_feed_item(id: uuid) {
+  from Article a
+  where a.id == id
+  select { headline = a.title, authorName = a.writer.name }
+}

@@ -29,6 +29,7 @@ internal sealed record QueryFile(
 /// <param name="Limit">Optional LIMIT (literal or parameter). // TODO(003): no surface grammar yet; always null.</param>
 /// <param name="Offset">Optional OFFSET (literal or parameter). // TODO(003): no surface grammar yet; always null.</param>
 /// <param name="Shape">The 009 root-object select shape, or null for full-entity / flat-projection selects.</param>
+/// <param name="Composition">The 009 free-composition select, or null.</param>
 internal sealed record QueryModel(
     string Name,
     string RootEntity,
@@ -39,7 +40,8 @@ internal sealed record QueryModel(
     EquatableArray<OrderTerm> OrderBy,
     LimitValue? Limit,
     LimitValue? Offset,
-    SelectShape? Shape = null
+    SelectShape? Shape = null,
+    FreeComposition? Composition = null
 )
 {
     /// <summary>Whether the result is a flat projection (vs a full entity).</summary>
@@ -47,7 +49,26 @@ internal sealed record QueryModel(
 
     /// <summary>Whether the result is an EdgeQL-style root-object shape (009 US1).</summary>
     public bool IsShaped => Shape is not null;
+
+    /// <summary>Whether the result is a free composition of named members (009 US2).</summary>
+    public bool IsComposed => Composition is not null;
 }
+
+/// <summary>
+/// A free-composition select: <c>select { name = expr, … }</c> — a brand-new result object whose named
+/// members are drawn from in-scope sources/navigation (009 US2). This slice supports scalar members
+/// (own column or a to-one navigation path); nested-shape members and multi-source <c>with</c> are later.
+/// </summary>
+/// <param name="Members">The named members, in source order.</param>
+internal sealed record FreeComposition(EquatableArray<CompositionMember> Members);
+
+/// <summary>
+/// One named member of a <see cref="FreeComposition"/>: <c>name = alias.[ref.]*column</c>.
+/// </summary>
+/// <param name="Name">The result member name.</param>
+/// <param name="Alias">The source alias the path is rooted at.</param>
+/// <param name="Path">The member's value path after the alias (to-one refs then a terminal column).</param>
+internal sealed record CompositionMember(string Name, string Alias, EquatableArray<string> Path);
 
 /// <summary>
 /// A root-object select shape: <c>select alias { node, ref: { … } }</c> (009 US1). The result type is a

@@ -183,6 +183,7 @@ internal sealed class UnitParser
         var orderBy = new List<OrderTerm>();
         var projection = new List<string>();
         SelectShape? shape = null;
+        FreeComposition? composition = null;
         var seenWhere = false;
         var seenOrder = false;
         var seenSelect = false;
@@ -215,7 +216,7 @@ internal sealed class UnitParser
             {
                 seenSelect = true;
                 _pos++;
-                if (!ParseSelect(alias, projection, out shape))
+                if (!ParseSelect(alias, projection, out shape, out composition))
                 {
                     RecoverToUnitEnd();
                     return null;
@@ -259,7 +260,8 @@ internal sealed class UnitParser
             new EquatableArray<OrderTerm>([.. orderBy]),
             Limit: null,
             Offset: null,
-            Shape: shape
+            Shape: shape,
+            Composition: composition
         );
     }
 
@@ -790,9 +792,15 @@ internal sealed class UnitParser
 
     // select := alias  |  alias '{' shape-node* '}'  |  '{' member (','? member)* '}'
     // (the middle form is the 009 root-object shape; commas optional; newline-separated)
-    private bool ParseSelect(string alias, List<string> projection, out SelectShape? shape)
+    private bool ParseSelect(
+        string alias,
+        List<string> projection,
+        out SelectShape? shape,
+        out FreeComposition? composition
+    )
     {
         shape = null;
+        composition = null;
 
         // 009 US1: root-object shape — `select alias { … }` (alias immediately before a brace).
         if (Current.Kind == TokenKind.Identifier && Peek().Kind == TokenKind.LeftBrace)
@@ -819,6 +827,60 @@ internal sealed class UnitParser
 
         if (Current.Kind == TokenKind.LeftBrace)
         {
+            // 009 US2: free composition — `{ name = path, … }` (named members; an '=' after the first
+            // member name distinguishes it from a flat `{ alias.field … }` projection).
+            if (
+                _pos + 2 < _tokens.Count
+                && _tokens[_pos + 1].Kind == TokenKind.Identifier
+                && _tokens[_pos + 2].Kind == TokenKind.Equals
+            )
+            {
+                _pos++; // '{'
+                var members = new List<CompositionMember>();
+                while (Current.Kind != TokenKind.RightBrace && Current.Kind != TokenKind.EndOfFile)
+                {
+                    if (Current.Kind != TokenKind.Identifier)
+                    {
+                        Error(
+                            $"expected a composition member name but found '{Describe(Current)}'"
+                        );
+                        return false;
+                    }
+
+                    var name = Current.Text;
+                    _pos++;
+                    if (!Expect(TokenKind.Equals, "'=' after the composition member name"))
+                    {
+                        return false;
+                    }
+
+                    var path = ParseMemberPath(alias);
+                    if (path is null || path.Count == 0)
+                    {
+                        return false;
+                    }
+
+                    members.Add(
+                        new CompositionMember(name, alias, new EquatableArray<string>([.. path]))
+                    );
+
+                    if (Current.Kind == TokenKind.Comma)
+                    {
+                        _pos++;
+                    }
+                }
+
+                if (!Expect(TokenKind.RightBrace, "'}' to close the composition"))
+                {
+                    return false;
+                }
+
+                composition = new FreeComposition(
+                    new EquatableArray<CompositionMember>([.. members])
+                );
+                return true;
+            }
+
             _pos++; // '{'
             while (Current.Kind != TokenKind.RightBrace && Current.Kind != TokenKind.EndOfFile)
             {

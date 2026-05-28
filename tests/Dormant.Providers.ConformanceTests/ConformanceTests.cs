@@ -221,6 +221,35 @@ public sealed class ConformanceTests
         }
     }
 
+    [Test]
+    [Arguments("postgres")]
+    [Arguments("sqlite")]
+    public async Task Free_composition_assembles_from_navigation(string provider)
+    {
+        await using var harness = await ProviderHarness.CreateAsync(provider);
+        var authorId = Guid.NewGuid();
+        var articleId = Guid.NewGuid();
+
+        await using (var session = await harness.Factory.OpenSessionAsync())
+        {
+            await session.CreateAuthorWithArticle(
+                authorId,
+                "dijkstra",
+                articleId,
+                "goto considered harmful"
+            );
+            await session.CommitAsync();
+        }
+
+        await using (var session = await harness.Factory.OpenSessionAsync())
+        {
+            // `select { headline = a.title, authorName = a.writer.name }` → a new DTO from a field + a join.
+            var item = (await Drain(session.ArticleFeedItem(articleId)))[0];
+            await Assert.That(item.Headline).IsEqualTo("goto considered harmful");
+            await Assert.That(item.AuthorName).IsEqualTo("dijkstra");
+        }
+    }
+
     private static async Task<List<T>> Drain<T>(IAsyncEnumerable<T> source)
     {
         var list = new List<T>();

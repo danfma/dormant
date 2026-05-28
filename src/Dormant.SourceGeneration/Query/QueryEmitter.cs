@@ -264,6 +264,55 @@ internal static class QueryEmitter
             );
         }
 
+        if (query.IsComposed)
+        {
+            foreach (var member in query.Composition!.Members)
+            {
+                var cur = entity;
+                var navOk = true;
+                for (var i = 0; i < member.Path.Count - 1; i++)
+                {
+                    var reference = cur.References.FirstOrDefault(r =>
+                        r.Kind == ReferenceKind.Ref && r.Name == member.Path[i]
+                    );
+                    if (
+                        reference is null
+                        || !entities.TryGetValue(reference.TargetEntity, out var target)
+                    )
+                    {
+                        diagnostics.Add(
+                            Diag(
+                                DiagnosticDescriptors.UnknownQueryColumn,
+                                filePath,
+                                query.Name,
+                                member.Path[i],
+                                cur.Name
+                            )
+                        );
+                        ok = false;
+                        navOk = false;
+                        break;
+                    }
+
+                    cur = target.Entity;
+                }
+
+                if (navOk && !cur.Properties.Any(p => p.Name == member.Path[member.Path.Count - 1]))
+                {
+                    diagnostics.Add(
+                        Diag(
+                            DiagnosticDescriptors.UnknownQueryColumn,
+                            filePath,
+                            query.Name,
+                            member.Path[member.Path.Count - 1],
+                            cur.Name
+                        )
+                    );
+                    ok = false;
+                }
+            }
+        }
+
         return ok;
     }
 
@@ -308,6 +357,20 @@ internal static class QueryEmitter
                 helperMethods
             );
             helpers = helperMethods.Count > 0 ? string.Join("\n", helperMethods) : null;
+        }
+        else if (query.IsComposed)
+        {
+            // 009 US2: a free composition → a flat record of named members drawn from own columns and
+            // to-one navigation paths; materialized positionally from a JOIN-flattened SELECT.
+            resultType = methodName + "Result";
+            projection = BuildCompositionRecord(resultType, query, entity, convention, entities);
+            materializer = BuildCompositionMaterializer(
+                resultType,
+                query,
+                entity,
+                convention,
+                entities
+            );
         }
         else if (query.IsProjection)
         {
@@ -383,6 +446,17 @@ internal static class QueryEmitter
         if (query.IsShaped)
         {
             select = BuildShapeSelect(query, entity, schema, convention, entities, parameterOrder);
+        }
+        else if (query.IsComposed)
+        {
+            select = BuildCompositionSelect(
+                query,
+                entity,
+                schema,
+                convention,
+                entities,
+                parameterOrder
+            );
         }
         else if (query.Filters.Any(f => f.NavRefs.Count > 0))
         {
@@ -1151,6 +1225,221 @@ internal static class QueryEmitter
         }
 
         return ok;
+    }
+
+    // 009 US2: build the JOIN-flattened SELECT for a free composition — one column per named member
+    // (own column or a to-one navigation path), with a JOIN per distinct navigated reference.
+    private static JoinedSelectStatement BuildCompositionSelect(
+        QueryModel query,
+        EntityModel entity,
+        string schema,
+        NamingConvention convention,
+        IReadOnlyDictionary<string, (EntityModel Entity, string Schema)> entities,
+        List<string> parameterOrder
+    )
+    {
+        var rootAlias = query.Alias;
+        var rootFrom = new FromItem(
+            new TableRef(
+                schema,
+                NamingConventions.Resolve(entity.Name, entity.NameOverride, convention)
+            ),
+            rootAlias
+        );
+
+        var joins = new List<SqlJoin>();
+        var joined = new HashSet<string>(System.StringComparer.Ordinal);
+
+        var items = query
+            .Composition!.Members.Select(m =>
+            {
+                var (ownerAlias, terminal) = WalkPath(
+                    entity,
+                    rootAlias,
+                    m.Path,
+                    convention,
+                    entities,
+                    joins,
+                    joined
+                );
+                return new SqlSelectItem(
+                    new ColumnExpr(
+                        ownerAlias,
+                        NamingConventions.Resolve(terminal.Name, terminal.NameOverride, convention)
+                    )
+                );
+            })
+            .ToList();
+
+        var where = new List<SqlExpr>(query.Filters.Count);
+        foreach (var filter in query.Filters)
+        {
+            string ownerAlias;
+            PropertyModel terminal;
+            if (filter.NavRefs.Count == 0)
+            {
+                ownerAlias = rootAlias;
+                terminal = entity.Properties.First(p => p.Name == filter.Column);
+            }
+            else
+            {
+                var path = new List<string>(filter.NavRefs) { filter.Column };
+                (ownerAlias, terminal) = WalkPath(
+                    entity,
+                    rootAlias,
+                    new EquatableArray<string>([.. path]),
+                    convention,
+                    entities,
+                    joins,
+                    joined
+                );
+            }
+
+            parameterOrder.Add(filter.ParameterName);
+            where.Add(
+                new BinaryExpr(
+                    new ColumnExpr(
+                        ownerAlias,
+                        NamingConventions.Resolve(terminal.Name, terminal.NameOverride, convention)
+                    ),
+                    OperatorSql(filter.Op),
+                    new ParamExpr(parameterOrder.Count)
+                )
+            );
+        }
+
+        var orderBy = query
+            .OrderBy.Select(t => new SqlOrderExpr(
+                new ColumnExpr(rootAlias, ColByName(entity, t.Column, convention)),
+                t.Descending
+            ))
+            .ToList();
+
+        return new JoinedSelectStatement(
+            rootFrom,
+            joins,
+            items,
+            where,
+            orderBy,
+            ToLimit(query.Limit, parameterOrder),
+            ToLimit(query.Offset, parameterOrder)
+        );
+    }
+
+    // Walks a to-one navigation path (refs then a terminal column), adding a deduplicated LEFT/INNER JOIN
+    // per reference, and returns the owning alias + the terminal property.
+    private static (string Alias, PropertyModel Terminal) WalkPath(
+        EntityModel rootEntity,
+        string rootAlias,
+        EquatableArray<string> path,
+        NamingConvention convention,
+        IReadOnlyDictionary<string, (EntityModel Entity, string Schema)> entities,
+        List<SqlJoin> joins,
+        HashSet<string> joined
+    )
+    {
+        var cur = rootEntity;
+        var alias = rootAlias;
+        for (var i = 0; i < path.Count - 1; i++)
+        {
+            var reference = cur.References.First(r =>
+                r.Kind == ReferenceKind.Ref && r.Name == path[i]
+            );
+            var target = entities[reference.TargetEntity];
+            var childAlias = path[i];
+            if (joined.Add(childAlias))
+            {
+                var targetPk = target.Entity.Properties.First(p => p.IsPrimary);
+                joins.Add(
+                    new SqlJoin(
+                        new FromItem(
+                            new TableRef(
+                                target.Schema,
+                                NamingConventions.Resolve(
+                                    target.Entity.Name,
+                                    target.Entity.NameOverride,
+                                    convention
+                                )
+                            ),
+                            childAlias
+                        ),
+                        reference.IsRequired ? JoinKind.Inner : JoinKind.Left,
+                        new BinaryExpr(
+                            new ColumnExpr(
+                                alias,
+                                EntityColumns.ForeignKeyColumn(reference, convention)
+                            ),
+                            "=",
+                            new ColumnExpr(
+                                childAlias,
+                                NamingConventions.Resolve(
+                                    targetPk.Name,
+                                    targetPk.NameOverride,
+                                    convention
+                                )
+                            )
+                        )
+                    )
+                );
+            }
+
+            alias = childAlias;
+            cur = target.Entity;
+        }
+
+        return (alias, cur.Properties.First(p => p.Name == path[path.Count - 1]));
+    }
+
+    private static string BuildCompositionRecord(
+        string resultType,
+        QueryModel query,
+        EntityModel entity,
+        NamingConvention convention,
+        IReadOnlyDictionary<string, (EntityModel Entity, string Schema)> entities
+    )
+    {
+        var members = query.Composition!.Members.Select(m =>
+        {
+            var (_, terminal) = WalkPath(
+                entity,
+                query.Alias,
+                m.Path,
+                convention,
+                entities,
+                new List<SqlJoin>(),
+                new HashSet<string>(System.StringComparer.Ordinal)
+            );
+            var clr = terminal.IsNullable ? terminal.ClrType + "?" : terminal.ClrType;
+            return $"{clr} {Naming.ToPascalCase(m.Name)}";
+        });
+        return $"public sealed record {resultType}({string.Join(", ", members)});";
+    }
+
+    private static string BuildCompositionMaterializer(
+        string resultType,
+        QueryModel query,
+        EntityModel entity,
+        NamingConvention convention,
+        IReadOnlyDictionary<string, (EntityModel Entity, string Schema)> entities
+    )
+    {
+        var args = query.Composition!.Members.Select(
+            (m, i) =>
+            {
+                var (_, terminal) = WalkPath(
+                    entity,
+                    query.Alias,
+                    m.Path,
+                    convention,
+                    entities,
+                    new List<SqlJoin>(),
+                    new HashSet<string>(System.StringComparer.Ordinal)
+                );
+                var read = $"reader.GetValue<{terminal.ClrType}>({i})";
+                return terminal.IsNullable ? $"reader.IsNull({i}) ? null : {read}" : read;
+            }
+        );
+        return $"static reader => new {resultType}({string.Join(", ", args)})";
     }
 
     private static SqlLimit? ToLimit(LimitValue? value, List<string> parameterOrder)
