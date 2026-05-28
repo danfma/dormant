@@ -96,4 +96,13 @@ public sealed class GrammarDiagnosticsTests
         );
         await Assert.That(ids).Contains("ORM022");
     }
+
+    [Test]
+    public async Task Duplicate_composition_member_reports_ORM028()
+    {
+        var ids = DiagnosticIds(
+            "module catalog;\nquery dup(p: int) { from Widget w where w.quantity == p select { label = w.name, label = w.quantity } }"
+        );
+        await Assert.That(ids).Contains("ORM028");
+    }
 }

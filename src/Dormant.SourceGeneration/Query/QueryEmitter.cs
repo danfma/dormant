@@ -266,8 +266,22 @@ internal static class QueryEmitter
 
         if (query.IsComposed)
         {
+            var seenMembers = new HashSet<string>(System.StringComparer.Ordinal);
             foreach (var member in query.Composition!.Members)
             {
+                if (!seenMembers.Add(member.Name))
+                {
+                    diagnostics.Add(
+                        Diag(
+                            DiagnosticDescriptors.DuplicateCompositionMember,
+                            filePath,
+                            query.Name,
+                            member.Name
+                        )
+                    );
+                    ok = false;
+                }
+
                 var cur = entity;
                 var navOk = true;
                 for (var i = 0; i < member.Path.Count - 1; i++)

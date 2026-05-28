@@ -163,6 +163,16 @@ internal static class DiagnosticDescriptors
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true
     );
+
+    /// <summary>A free-composition select declares the same member name twice (009 US2, FR-010).</summary>
+    public static readonly DiagnosticDescriptor DuplicateCompositionMember = new(
+        id: "ORM028",
+        title: "Duplicate composition member",
+        messageFormat: "Composition in query '{0}' declares member '{1}' more than once",
+        category: Category,
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true
+    );
 }
 
 /// <summary>An equatable, pipeline-safe description of a diagnostic (research §5).</summary>

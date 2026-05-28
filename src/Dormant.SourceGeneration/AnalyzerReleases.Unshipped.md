@@ -20,3 +20,4 @@ ORM024  | DormantQL | Error    | Member reference is not alias-qualified
 ORM025  | DormantQL | Error    | Clauses are out of canonical order
 ORM026  | DormantQL | Error    | Insert is missing a required member
 ORM027  | DormantQL | Error    | Result member is not in the projected shape
+ORM028  | DormantQL | Error    | Duplicate composition member
