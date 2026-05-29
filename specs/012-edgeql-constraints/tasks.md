@@ -19,6 +19,23 @@ mapping to plan.md: Setup+Foundational ≈ P-A; US1–US3 ≈ P-B; US4 ≈ P-C; 
 - `- [ ] T### [P?] [USx?] Description with exact file path`
 - `[P]` = parallelizable (different files, no incomplete deps); story label only on US phases.
 
+## Implementation status (Slice 2 — P-B constraint IR + DDL, 2026-05-29)
+
+**Landed & verified** (build 0/0, generator tests 45/45 incl. new `ConstraintEmitTests`, CSharpier clean):
+- T011 — `ConstraintIrKind` + `ConstraintDef` IR; `CreateTableStatement.TableConstraints`.
+- T012 — `RenderCreateTable` emits named table-level constraints; `RenderConstraint` (shared, virtual)
+  renders PRIMARY KEY / UNIQUE / CHECK. Both PG + SQLite produce correct DDL (verified output).
+- Member-level lowering (part of T015): `unique` → UNIQUE; `max`/`min`/`max_exclusive`/`min_exclusive`/
+  `max_length`/`min_length`/`length`/`range` → CHECK. `as` name honored, else deterministic default
+  (`<table>_<col>_<suffix>`). Single-column `primary` stays inline on the column (no double PK).
+  Covers part of T017/T018 (shared render — no dialect-specific code needed for these kinds) and
+  T028/T029 (naming). Verified by `ConstraintEmitTests` (UNIQUE + CHECK + names, both dialects).
+
+**Deferred (next slices)**: `one_of` (string-literal quoting), `regex` (PG `~` / SQLite fallback,
+T017/T018 remainder), `check`-expression lowering (T016), entity-level constraint DDL (US2),
+`concurrency` DEFAULT (T019), conformance tests (Docker, T021), scalars (US4), inheritance (US5),
+grammar 011 (P-E), migration guide + MAJOR bump (P-F).
+
 ## Implementation status (Slice 1 — P-A front-end core, 2026-05-29)
 
 **Landed & verified** (build 0/0, generator tests 42/42, Core 1/1, CSharpier clean):
@@ -64,8 +81,8 @@ constraints beyond primary/concurrency parse into the model but are not yet emit
 - [ ] T008 Add `scalar Name extending Base { constraint…; }` parsing in `src/Dormant.SourceGeneration/Parsing/SchemaParser.cs`
 - [ ] T009 Add `abstract` entity flag + `extending Base(, …)` clause parsing in `src/Dormant.SourceGeneration/Parsing/SchemaParser.cs`
 - [ ] T010 Extend `src/Dormant.SourceGeneration/Parsing/SchemaValidator.cs` with: unknown constraint (ORM029), type-incompatible constraint (ORM030), missing target member (ORM031), unknown/non-scalar base (ORM033), unknown/misshaped annotation + constraint/annotation on a reference/collection member (ORM036); leave `as`-collision (ORM032) and inheritance-conflict (ORM034) stubs for US3/US5
-- [ ] T011 [P] Add `ConstraintDef` IR node + extend `CreateTableStatement` with table-level constraints in `src/Dormant.SourceGeneration/Ir/SqlIr.cs` per data-model.md
-- [ ] T012 [P] Add `RenderConstraints()` + overridable `RenderUnique`/`RenderCheck`/`RenderPrimaryKey`/`RenderConstraintName`/`RenderRegexConstraint` hooks (default impls) in `src/Dormant.SourceGeneration/Ir/Dialects/SqlDialectRendererBase.cs` and call them from `RenderCreateTable()`
+- [X] T011 [P] Add `ConstraintDef` IR node + extend `CreateTableStatement` with table-level constraints in `src/Dormant.SourceGeneration/Ir/SqlIr.cs` per data-model.md
+- [X] T012 [P] Add `RenderConstraints()` + overridable `RenderUnique`/`RenderCheck`/`RenderPrimaryKey`/`RenderConstraintName`/`RenderRegexConstraint` hooks (default impls) in `src/Dormant.SourceGeneration/Ir/Dialects/SqlDialectRendererBase.cs` and call them from `RenderCreateTable()`
 - [X] T013 Migrate ALL in-repo schemas to the new syntax (`samples/Dormant.Sample.Quickstart/schema/*.dqls`, `tests/**/schema/*.dqls`): `id: uuid primary;` → `id: uuid { constraint primary; }`, `version: int concurrency;` → `version: int { constraint concurrency; }`
 - [ ] T014 [P] Add generator unit tests (Verify) asserting the parser produces the expected `ConstraintModel`/`ScalarTypeModel`/inheritance model for a representative schema in `tests/Dormant.SourceGeneration.Tests/`
 

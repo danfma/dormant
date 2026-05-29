@@ -71,9 +71,38 @@ internal sealed record UpdateStatement(
 /// <summary>A <c>CREATE SCHEMA IF NOT EXISTS</c> for a module's database schema (FR-045).</summary>
 internal sealed record CreateSchemaStatement(string Schema) : SqlStatement;
 
-/// <summary>A <c>CREATE TABLE IF NOT EXISTS</c> with column definitions (FR-020/FR-045).</summary>
-internal sealed record CreateTableStatement(TableRef Table, IReadOnlyList<ColumnDef> Columns)
-    : SqlStatement;
+/// <summary>The kind of a table-level constraint (Feature 012).</summary>
+internal enum ConstraintIrKind
+{
+    /// <summary>Composite PRIMARY KEY (single-column PK stays inline on the column).</summary>
+    PrimaryKey,
+
+    /// <summary>UNIQUE over one or more columns.</summary>
+    Unique,
+
+    /// <summary>CHECK with a dialect-neutral boolean expression (<see cref="ConstraintDef.CheckSql"/>).</summary>
+    Check,
+}
+
+/// <summary>
+/// A table-level constraint emitted into <c>CREATE TABLE</c> (Feature 012). Names are resolved
+/// (explicit <c>as</c> or a deterministic default); <paramref name="CheckSql"/> is dialect-neutral
+/// SQL (column names already quoted by the renderer's helper) used only for <see cref="ConstraintIrKind.Check"/>.
+/// </summary>
+internal sealed record ConstraintDef(
+    ConstraintIrKind Kind,
+    IReadOnlyList<string> Columns,
+    string? CheckSql,
+    string Name
+);
+
+/// <summary>A <c>CREATE TABLE IF NOT EXISTS</c> with column definitions and optional table-level
+/// constraints (FR-020/FR-045; constraints from Feature 012).</summary>
+internal sealed record CreateTableStatement(
+    TableRef Table,
+    IReadOnlyList<ColumnDef> Columns,
+    IReadOnlyList<ConstraintDef>? TableConstraints = null
+) : SqlStatement;
 
 /// <summary>A <c>"column" op $index</c> comparison (database column name already resolved; operator is the
 /// canonical SQL keyword — the renderer remaps where a dialect differs, e.g. <c>ILIKE</c> → <c>LIKE</c>).</summary>

@@ -88,26 +88,57 @@ internal abstract class SqlDialectRendererBase : ISqlDialectRenderer
 
     private string RenderCreateTable(CreateTableStatement createTable)
     {
-        var columns = string.Join(
-            ", ",
-            createTable.Columns.Select(c =>
+        var parts = new List<string>();
+        foreach (var c in createTable.Columns)
+        {
+            var col = Quote(c.Name) + " " + TypeName(c.DslType);
+            if (c.NotNull)
             {
-                var parts = Quote(c.Name) + " " + TypeName(c.DslType);
-                if (c.NotNull)
-                {
-                    parts += " NOT NULL";
-                }
+                col += " NOT NULL";
+            }
 
-                if (c.PrimaryKey)
-                {
-                    parts += " PRIMARY KEY";
-                }
+            if (c.PrimaryKey)
+            {
+                col += " PRIMARY KEY";
+            }
 
-                return parts;
-            })
-        );
-        return $"CREATE TABLE IF NOT EXISTS {QualifyTable(createTable.Table.Schema, createTable.Table.Name)} ({columns})";
+            parts.Add(col);
+        }
+
+        // Feature 012: table-level constraints (named UNIQUE / CHECK / composite PRIMARY KEY).
+        // Both PostgreSQL and SQLite accept inline named constraints in CREATE TABLE, so the
+        // rendering is shared; dialect-specific cases (e.g. regex) are added by overrides later.
+        if (createTable.TableConstraints is { Count: > 0 } constraints)
+        {
+            foreach (var c in constraints)
+            {
+                parts.Add(RenderConstraint(c));
+            }
+        }
+
+        var body = string.Join(", ", parts);
+        return $"CREATE TABLE IF NOT EXISTS {QualifyTable(createTable.Table.Schema, createTable.Table.Name)} ({body})";
     }
+
+    /// <summary>Renders one table-level constraint. Shared across dialects (named inline constraints).</summary>
+    protected virtual string RenderConstraint(ConstraintDef constraint)
+    {
+        var name = "CONSTRAINT " + Quote(constraint.Name) + " ";
+        switch (constraint.Kind)
+        {
+            case ConstraintIrKind.PrimaryKey:
+                return name + "PRIMARY KEY (" + RenderColumnList(constraint.Columns) + ")";
+            case ConstraintIrKind.Unique:
+                return name + "UNIQUE (" + RenderColumnList(constraint.Columns) + ")";
+            case ConstraintIrKind.Check:
+                return name + "CHECK (" + constraint.CheckSql + ")";
+            default:
+                return string.Empty;
+        }
+    }
+
+    private string RenderColumnList(IReadOnlyList<string> columns) =>
+        string.Join(", ", columns.Select(Quote));
 
     private string RenderSelect(SelectStatement select)
     {
