@@ -68,6 +68,24 @@ public sealed class ConstraintDiagnosticsTests
     }
 
     [Test]
+    public async Task Inheritance_duplicate_member_reports_ORM034()
+    {
+        var ids = DiagnosticIds(
+            "module d;\nabstract entity A { x: Int; }\nentity B extending A { id: Uuid { constraint primary; } x: Int; }"
+        );
+        await Assert.That(ids).Contains("ORM034");
+    }
+
+    [Test]
+    public async Task Unknown_base_reports_ORM034()
+    {
+        var ids = DiagnosticIds(
+            "module d;\nentity B extending Ghost { id: Uuid { constraint primary; } }"
+        );
+        await Assert.That(ids).Contains("ORM034");
+    }
+
+    [Test]
     public async Task Unknown_annotation_reports_ORM036()
     {
         var ids = DiagnosticIds(

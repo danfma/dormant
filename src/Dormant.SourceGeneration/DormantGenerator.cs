@@ -108,6 +108,13 @@ public sealed class DormantGenerator : IIncrementalGenerator
 
                 foreach (var entity in schema.Entities)
                 {
+                    // Abstract entities (US5) are inheritance templates: their members/constraints are
+                    // flattened into concrete entities at parse time, so they emit no type and no table.
+                    if (entity.IsAbstract)
+                    {
+                        continue;
+                    }
+
                     foreach (
                         var collision in NameResolution.FindColumnCollisions(
                             entity,

@@ -19,6 +19,23 @@ mapping to plan.md: Setup+Foundational ≈ P-A; US1–US3 ≈ P-B; US4 ≈ P-C; 
 - `- [ ] T### [P?] [USx?] Description with exact file path`
 - `[P]` = parallelizable (different files, no incomplete deps); story label only on US phases.
 
+## Implementation status (Slice 8 — US5 inheritance & composition, 2026-05-29)
+
+**Landed & verified** (build 0/0, generator tests 59/59, CSharpier clean):
+- T009/T039/T040/T041/T042 — `abstract entity` + `entity Y extending A, B`. Inheritance is **flattened
+  at parse time**: a derived entity composes each base's members + references + entity-constraints +
+  annotations, then its own, into one table (single-table flat model — Principle III preserved).
+- Abstract entities emit **no type and no table** (`DormantGenerator` skips `IsAbstract`).
+- Bases must be declared before use (forward/self reference = cycle → simply not found → ORM034).
+  Duplicate member name across base+derived (or two bases) → ORM034.
+- Verified by `ConstraintEmitTests` (Article2 extends abstract Timestamped: inherited columns + base
+  `check` + own constraint; no `timestamped` table) and `ConstraintDiagnosticsTests` (ORM034 on
+  duplicate member + unknown base).
+
+**Now complete**: US1–US5 + PascalCase types. **Still deferred**: `concurrency` DEFAULT (T019),
+`T015a` (remove `NameOverride`), ORM032 (`as`-collision), conformance (Docker, T021/T026/T032/T038/T043),
+grammar 011 (P-E, T045–T048), migration guide (T049) + MAJOR bump (T050), AOT smoke (T051).
+
 ## Implementation status (Slice 7 — US4 custom scalar types, 2026-05-29)
 
 **Landed & verified** (build 0/0, generator tests 56/56, CSharpier clean):
@@ -153,7 +170,7 @@ constraints beyond primary/concurrency parse into the model but are not yet emit
 - [X] T006 Replace `ParseModifiers()` with member-block parsing (`{ constraint …; annotation …; }`) in `src/Dormant.SourceGeneration/Parsing/SchemaParser.cs`: parse `constraint name[(args)] [as name];` and `annotation name[(args)];` (function-call form, positional/named args, optional parens); the `column(...)` annotation supplies the DB column name (replacing `db("…")`); emit ORM035 when legacy trailing `primary`/`concurrency`/`db("…")` modifiers are encountered
 - [X] T007 Add entity-level constraint parsing (`constraint … [on (…)] [(check expr)] [as name];`) in `src/Dormant.SourceGeneration/Parsing/SchemaParser.cs`
 - [X] T008 Add `scalar Name extending Base { constraint…; }` parsing in `src/Dormant.SourceGeneration/Parsing/SchemaParser.cs`
-- [ ] T009 Add `abstract` entity flag + `extending Base(, …)` clause parsing in `src/Dormant.SourceGeneration/Parsing/SchemaParser.cs`
+- [X] T009 Add `abstract` entity flag + `extending Base(, …)` clause parsing in `src/Dormant.SourceGeneration/Parsing/SchemaParser.cs`
 - [X] T010 Extend `src/Dormant.SourceGeneration/Parsing/SchemaValidator.cs` with: unknown constraint (ORM029), type-incompatible constraint (ORM030), missing target member (ORM031), unknown/non-scalar base (ORM033), unknown/misshaped annotation + constraint/annotation on a reference/collection member (ORM036); leave `as`-collision (ORM032) and inheritance-conflict (ORM034) stubs for US3/US5
 - [X] T011 [P] Add `ConstraintDef` IR node + extend `CreateTableStatement` with table-level constraints in `src/Dormant.SourceGeneration/Ir/SqlIr.cs` per data-model.md
 - [X] T012 [P] Add `RenderConstraints()` + overridable `RenderUnique`/`RenderCheck`/`RenderPrimaryKey`/`RenderConstraintName`/`RenderRegexConstraint` hooks (default impls) in `src/Dormant.SourceGeneration/Ir/Dialects/SqlDialectRendererBase.cs` and call them from `RenderCreateTable()`
@@ -239,10 +256,10 @@ constraints beyond primary/concurrency parse into the model but are not yet emit
 
 **Independent Test**: An abstract base with a member + constraint, extended by a concrete entity, yields a table with the inherited member and constraint enforced.
 
-- [ ] T039 [US5] Implement inheritance resolution (flatten base members + constraints into derived entity, dedup identical, research R-05) in `src/Dormant.SourceGeneration/Schema/EntityBindingEmitter.cs`
-- [ ] T040 [US5] Skip table emission for `abstract` entities in `src/Dormant.SourceGeneration/Schema/EntityBindingEmitter.cs`
-- [ ] T041 [US5] Implement ORM034 inheritance conflict + cycle detection in `src/Dormant.SourceGeneration/Parsing/SchemaValidator.cs`
-- [ ] T042 [P] [US5] Verify snapshot for an abstract base + extending entity (flattened DDL, no table for abstract) in `tests/Dormant.SourceGeneration.Tests/`
+- [X] T039 [US5] Implement inheritance resolution (flatten base members + constraints into derived entity, dedup identical, research R-05) in `src/Dormant.SourceGeneration/Schema/EntityBindingEmitter.cs`
+- [X] T040 [US5] Skip table emission for `abstract` entities in `src/Dormant.SourceGeneration/Schema/EntityBindingEmitter.cs`
+- [X] T041 [US5] Implement ORM034 inheritance conflict + cycle detection in `src/Dormant.SourceGeneration/Parsing/SchemaValidator.cs`
+- [X] T042 [P] [US5] Verify snapshot for an abstract base + extending entity (flattened DDL, no table for abstract) in `tests/Dormant.SourceGeneration.Tests/`
 - [ ] T043 [US5] Conformance: inherited member + constraint enforced on the derived entity (PG + SQLite) in `tests/Dormant.Providers.ConformanceTests/`
 - [ ] T044 [P] [US5] Diagnostic tests for ORM034 (conflict + cycle)
 

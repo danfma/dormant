@@ -61,6 +61,21 @@ public sealed class ConstraintEmitTests
         }
         """;
 
+    private const string InheritanceSchema = """
+        module shop;
+
+        abstract entity Timestamped {
+          created_at: DateTime;
+          updated_at: DateTime;
+          constraint check (created_at <= updated_at);
+        }
+
+        entity Article2 extending Timestamped {
+          id: Uuid { constraint primary; }
+          title: String { constraint max_length(200); }
+        }
+        """;
+
     private static string Generate() => GenerateFrom("schema/shop.dqls", Schema);
 
     private static string GenerateFrom(string path, string schema)
@@ -134,6 +149,24 @@ public sealed class ConstraintEmitTests
         await Assert
             .That(generated)
             .Contains("CONSTRAINT \"accounts_name\" UNIQUE (\"first\", \"last\")");
+    }
+
+    [Test]
+    public async Task Inheritance_flattens_base_members_and_constraints()
+    {
+        var generated = GenerateFrom("schema/inherit.dqls", InheritanceSchema);
+        // Concrete entity gets the inherited columns + the base's check + its own constraint.
+        await Assert.That(generated).Contains("CREATE TABLE IF NOT EXISTS \"shop\".\"article2\"");
+        await Assert.That(generated).Contains("\"created_at\"");
+        await Assert.That(generated).Contains("\"updated_at\"");
+        await Assert
+            .That(generated)
+            .Contains("CONSTRAINT \"article2_check\" CHECK (\"created_at\" <= \"updated_at\")");
+        await Assert
+            .That(generated)
+            .Contains("CONSTRAINT \"article2_title_maxlen\" CHECK (length(\"title\") <= 200)");
+        // The abstract base emits no table.
+        await Assert.That(generated).DoesNotContain("\"timestamped\"");
     }
 
     [Test]

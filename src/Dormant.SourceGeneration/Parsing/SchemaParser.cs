@@ -33,6 +33,12 @@ internal sealed class SchemaParser
     private readonly Dictionary<string, ScalarTypeModel> _scalars = new(
         System.StringComparer.Ordinal
     );
+
+    // Feature 012 US5: entities parsed so far (for `extending` base lookup; bases must precede use,
+    // which also makes inheritance cycles impossible — a forward/self reference is simply not found).
+    private readonly Dictionary<string, EntityModel> _entitiesByName = new(
+        System.StringComparer.Ordinal
+    );
     private int _pos;
 
     private SchemaParser(string filePath, List<Token> tokens)
@@ -77,10 +83,26 @@ internal sealed class SchemaParser
         {
             if (IsKeyword("entity"))
             {
-                var entity = ParseEntity();
+                var entity = ParseEntity(isAbstract: false);
                 if (entity is not null)
                 {
                     entities.Add(entity);
+                }
+            }
+            else if (IsKeyword("abstract"))
+            {
+                _pos++; // 'abstract'
+                if (IsKeyword("entity"))
+                {
+                    var entity = ParseEntity(isAbstract: true);
+                    if (entity is not null)
+                    {
+                        entities.Add(entity);
+                    }
+                }
+                else
+                {
+                    Error("expected 'entity' after 'abstract'");
                 }
             }
             else if (IsKeyword("scalar"))
@@ -89,7 +111,9 @@ internal sealed class SchemaParser
             }
             else
             {
-                Error($"unexpected '{Describe(Current)}'; expected 'entity' or 'scalar'");
+                Error(
+                    $"unexpected '{Describe(Current)}'; expected 'entity', 'abstract', or 'scalar'"
+                );
                 _pos++;
             }
         }
@@ -97,7 +121,7 @@ internal sealed class SchemaParser
         return new ParseResult(moduleName, entities, _diagnostics);
     }
 
-    private EntityModel? ParseEntity()
+    private EntityModel? ParseEntity(bool isAbstract)
     {
         _pos++; // 'entity'
         if (Current.Kind != TokenKind.Identifier)
@@ -107,7 +131,28 @@ internal sealed class SchemaParser
         }
 
         var name = Current.Text;
+        var nameToken = Current;
         _pos++;
+
+        // Optional inheritance: `entity Y extending A, B { … }` (US5). Bases must be declared earlier.
+        var extends = new List<string>();
+        if (IsKeyword("extending"))
+        {
+            _pos++; // 'extending'
+            do
+            {
+                if (Current.Kind == TokenKind.Identifier)
+                {
+                    extends.Add(Current.Text);
+                    _pos++;
+                }
+                else
+                {
+                    Error("expected a base entity name after 'extending'");
+                    break;
+                }
+            } while (Current.Kind == TokenKind.Comma && (_pos++ >= 0));
+        }
 
         // Optional explicit table name: `entity RecentPost db("recent_post") { … }` (FR-054).
         var nameOverride = TryParseDbOverride();
@@ -146,17 +191,99 @@ internal sealed class SchemaParser
         }
 
         Expect(TokenKind.RightBrace, "'}' to close the entity body");
-        return new EntityModel(
+
+        // Flatten inheritance (US5): inherited members + constraints from each base are composed into
+        // this entity's single table. Bases are looked up among already-parsed entities (so a cycle
+        // or forward reference simply isn't found). A duplicate member name → ORM034.
+        var finalProps = new List<PropertyModel>();
+        var finalRefs = new List<ReferenceModel>();
+        var finalConstraints = new List<ConstraintModel>();
+        var finalAnnotations = new List<AnnotationModel>();
+        var memberNames = new HashSet<string>(System.StringComparer.Ordinal);
+
+        void AddProp(PropertyModel p)
+        {
+            if (!memberNames.Add(p.Name))
+            {
+                ReportInheritanceConflict(name, $"duplicate member '{p.Name}'", nameToken);
+                return;
+            }
+
+            finalProps.Add(p);
+        }
+
+        void AddRef(ReferenceModel r)
+        {
+            if (!memberNames.Add(r.Name))
+            {
+                ReportInheritanceConflict(name, $"duplicate member '{r.Name}'", nameToken);
+                return;
+            }
+
+            finalRefs.Add(r);
+        }
+
+        foreach (var baseName in extends)
+        {
+            if (!_entitiesByName.TryGetValue(baseName, out var baseEntity))
+            {
+                ReportInheritanceConflict(
+                    name,
+                    $"unknown or not-yet-declared base '{baseName}'",
+                    nameToken
+                );
+                continue;
+            }
+
+            foreach (var p in baseEntity.Properties)
+            {
+                AddProp(p);
+            }
+
+            foreach (var r in baseEntity.References)
+            {
+                AddRef(r);
+            }
+
+            finalConstraints.AddRange(baseEntity.Constraints);
+            finalAnnotations.AddRange(baseEntity.Annotations);
+        }
+
+        foreach (var p in properties)
+        {
+            AddProp(p);
+        }
+
+        foreach (var r in references)
+        {
+            AddRef(r);
+        }
+
+        finalConstraints.AddRange(entityConstraints);
+        finalAnnotations.AddRange(entityAnnotations);
+
+        var model = new EntityModel(
             name,
-            new EquatableArray<PropertyModel>([.. properties]),
-            new EquatableArray<ReferenceModel>([.. references]),
+            new EquatableArray<PropertyModel>([.. finalProps]),
+            new EquatableArray<ReferenceModel>([.. finalRefs]),
             nameOverride,
-            IsAbstract: false,
-            Extends: default,
-            Constraints: new EquatableArray<ConstraintModel>([.. entityConstraints]),
-            Annotations: new EquatableArray<AnnotationModel>([.. entityAnnotations])
+            IsAbstract: isAbstract,
+            Extends: new EquatableArray<string>([.. extends]),
+            Constraints: new EquatableArray<ConstraintModel>([.. finalConstraints]),
+            Annotations: new EquatableArray<AnnotationModel>([.. finalAnnotations])
         );
+        _entitiesByName[name] = model;
+        return model;
     }
+
+    private void ReportInheritanceConflict(string entity, string detail, Token at) =>
+        _diagnostics.Add(
+            new DiagnosticInfo(
+                DiagnosticDescriptors.InheritanceConflict,
+                LocationOf(at),
+                new EquatableArray<string>([entity, detail])
+            )
+        );
 
     // scalar_decl := 'scalar' Name 'extending' Base '{' (constraint_stmt | annotation_stmt)* '}'
     private void ParseScalar()
