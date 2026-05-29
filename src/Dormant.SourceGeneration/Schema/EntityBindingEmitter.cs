@@ -40,18 +40,7 @@ internal static class EntityBindingEmitter
         // reference (FR-020): typed as the target entity's primary-key DormantQL type (the renderer maps it
         // per dialect), NOT NULL iff the ref is required. Reads materialize value columns only; the FK
         // column is written by commands, read via the relationship.
-        var ddlColumns = columns
-            .Select(p => new ColumnDef(
-                Col(p, convention),
-                p.DslType,
-                !p.IsNullable,
-                p.IsPrimary,
-                // Feature 012: the optimistic-concurrency token defaults to 0 (incremented on update).
-                p.IsConcurrency
-                    ? "0"
-                    : null
-            ))
-            .ToList();
+        var ddlColumns = columns.Select(p => ValueColumn(p, convention)).ToList();
         foreach (var reference in entity.References.Where(r => r.Kind == ReferenceKind.Ref))
         {
             var fkDslType = refPkDslTypes.TryGetValue(reference.TargetEntity, out var t)
@@ -379,6 +368,19 @@ internal static class EntityBindingEmitter
 
     private static string Table(EntityModel entity, NamingConvention convention) =>
         NamingConventions.Resolve(entity.Name, entity.NameOverride, convention);
+
+    // A value column; the optimistic-concurrency token (012) defaults to 0 (incremented on update).
+    private static ColumnDef ValueColumn(PropertyModel p, NamingConvention convention)
+    {
+        var defaultValue = p.IsConcurrency ? "0" : null;
+        return new ColumnDef(
+            Col(p, convention),
+            p.DslType,
+            !p.IsNullable,
+            p.IsPrimary,
+            defaultValue
+        );
+    }
 
     private static string Col(PropertyModel property, NamingConvention convention) =>
         NamingConventions.Resolve(property.Name, property.NameOverride, convention);
