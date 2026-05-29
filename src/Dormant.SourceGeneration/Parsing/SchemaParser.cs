@@ -445,12 +445,12 @@ internal sealed class SchemaParser
         _pos++;
 
         var args = new List<ConstraintArg>();
-        string? checkExpr = null;
+        var checkTokens = new List<CheckToken>();
         if (Current.Kind == TokenKind.LeftParen)
         {
             if (cname == "check")
             {
-                checkExpr = ParseParenthesizedExpressionText();
+                ParseCheckTokens(checkTokens);
             }
             else
             {
@@ -499,7 +499,7 @@ internal sealed class SchemaParser
                 kind,
                 new EquatableArray<ConstraintArg>([.. args]),
                 new EquatableArray<string>([.. targets]),
-                checkExpr,
+                new EquatableArray<CheckToken>([.. checkTokens]),
                 sqlName,
                 LocationOf(nameToken)
             )
@@ -607,35 +607,72 @@ internal sealed class SchemaParser
         Expect(TokenKind.RightParen, "')' to close 'on (…)'");
     }
 
-    // Captures the raw text of a parenthesized boolean expression for `constraint check (…)`,
-    // by joining the inner token texts. Full expression lowering to DDL happens in a later phase.
-    private string ParseParenthesizedExpressionText()
+    // Captures a parenthesized boolean expression for `constraint check (…)` as classified tokens.
+    // Operators are mapped to their SQL spelling here (no convention needed); identifiers are resolved
+    // to columns at emit time. No relationship navigation: a '.' is rejected.
+    private void ParseCheckTokens(List<CheckToken> tokens)
     {
         Expect(TokenKind.LeftParen, "'(' after 'check'");
-        var parts = new List<string>();
         var depth = 1;
         while (depth > 0 && Current.Kind != TokenKind.EndOfFile)
         {
             if (Current.Kind == TokenKind.LeftParen)
             {
                 depth++;
+                tokens.Add(new CheckToken(CheckTokenKind.LParen, "("));
+                _pos++;
+                continue;
             }
-            else if (Current.Kind == TokenKind.RightParen)
+
+            if (Current.Kind == TokenKind.RightParen)
             {
                 depth--;
                 if (depth == 0)
                 {
                     break;
                 }
+
+                tokens.Add(new CheckToken(CheckTokenKind.RParen, ")"));
+                _pos++;
+                continue;
             }
 
-            parts.Add(Current.Text);
+            switch (Current.Kind)
+            {
+                case TokenKind.Identifier:
+                    tokens.Add(new CheckToken(CheckTokenKind.Identifier, Current.Text));
+                    break;
+                case TokenKind.Number:
+                    tokens.Add(new CheckToken(CheckTokenKind.Number, Current.Text));
+                    break;
+                case TokenKind.String:
+                    tokens.Add(new CheckToken(CheckTokenKind.String, Current.Text));
+                    break;
+                case TokenKind.Dot:
+                    Error("relationship navigation is not allowed in a check expression");
+                    break;
+                default:
+                    tokens.Add(new CheckToken(CheckTokenKind.Operator, MapCheckOperator(Current)));
+                    break;
+            }
+
             _pos++;
         }
 
         Expect(TokenKind.RightParen, "')' to close the check expression");
-        return string.Join(" ", parts);
     }
+
+    private static string MapCheckOperator(Token token) =>
+        token.Kind switch
+        {
+            TokenKind.EqualEqual => "=",
+            TokenKind.Equals => "=",
+            TokenKind.BangEqual => "<>",
+            TokenKind.AmpAmp => "AND",
+            TokenKind.PipePipe => "OR",
+            TokenKind.Bang => "NOT",
+            _ => token.Text, // <=, >=, <, > carry through unchanged
+        };
 
     private static bool TryMapConstraintKind(string name, out ConstraintKind kind)
     {

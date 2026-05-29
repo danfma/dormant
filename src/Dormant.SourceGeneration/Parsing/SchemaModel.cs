@@ -43,6 +43,33 @@ internal enum ConstraintKind
 /// <param name="IsString">Whether the value came from a string literal (so SQL rendering quotes it).</param>
 internal sealed record ConstraintArg(string? Name, string Value, bool IsString = false);
 
+/// <summary>The lexical role of a token captured from a <c>check (…)</c> expression.</summary>
+internal enum CheckTokenKind
+{
+    /// <summary>A member/identifier reference (resolved to a quoted column at emit time).</summary>
+    Identifier,
+
+    /// <summary>An operator, already mapped to its SQL spelling (e.g. <c>==</c> → <c>=</c>).</summary>
+    Operator,
+
+    /// <summary>A numeric literal (emitted verbatim).</summary>
+    Number,
+
+    /// <summary>A string literal (emitted single-quoted, with quotes escaped).</summary>
+    String,
+
+    /// <summary><c>(</c>.</summary>
+    LParen,
+
+    /// <summary><c>)</c>.</summary>
+    RParen,
+}
+
+/// <summary>One token of a captured <c>check (…)</c> expression (Feature 012).</summary>
+/// <param name="Kind">The token's role.</param>
+/// <param name="Text">SQL-ready text for operators/parens; raw identifier/number/string content otherwise.</param>
+internal sealed record CheckToken(CheckTokenKind Kind, string Text);
+
 /// <summary>
 /// A declared constraint (Feature 012): function-call form attached to a member or an entity,
 /// e.g. <c>constraint unique as users_email_key</c>, <c>constraint range(min = 0, max = 130)</c>,
@@ -51,14 +78,14 @@ internal sealed record ConstraintArg(string? Name, string Value, bool IsString =
 /// <param name="Kind">The standard-library constraint kind.</param>
 /// <param name="Args">Call arguments (positional or named); empty for zero-arg constraints.</param>
 /// <param name="Targets">Member names for an entity-level <c>on (…)</c> constraint; empty for member-level.</param>
-/// <param name="CheckExpression">Raw boolean expression text for <see cref="ConstraintKind.Check"/>; otherwise null.</param>
+/// <param name="CheckTokens">Captured tokens of a <c>check (…)</c> expression; empty otherwise.</param>
 /// <param name="SqlName">Explicit SQL constraint name from <c>as {name}</c>; null ⇒ deterministic default.</param>
 /// <param name="Location">Source location (for diagnostics).</param>
 internal sealed record ConstraintModel(
     ConstraintKind Kind,
     EquatableArray<ConstraintArg> Args,
     EquatableArray<string> Targets,
-    string? CheckExpression,
+    EquatableArray<CheckToken> CheckTokens,
     string? SqlName,
     LocationInfo Location
 );

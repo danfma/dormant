@@ -19,6 +19,23 @@ mapping to plan.md: Setup+Foundational ≈ P-A; US1–US3 ≈ P-B; US4 ≈ P-C; 
 - `- [ ] T### [P?] [USx?] Description with exact file path`
 - `[P]` = parallelizable (different files, no incomplete deps); story label only on US phases.
 
+## Implementation status (Slice 4 — check-expression lowering, 2026-05-29)
+
+**Landed & verified** (build 0/0, generator tests 49/49, CSharpier clean):
+- `check (…)` lowering (T016) for both member-level and entity-level: the expression is captured as
+  classified tokens (`CheckToken`/`CheckTokenKind`; operators mapped `==`→`=`, `!=`→`<>`, `&&`→`AND`,
+  `||`→`OR`, `!`→`NOT`; navigation `.` rejected), then translated at emit time — identifiers →
+  quoted columns via the entity's member→column map, string literals quoted/escaped.
+- This completes the member-level standard library (T015) and entity-level constraint DDL (T023/T024):
+  `unique`, `check`, `one_of`, `max`/`min`/`*_exclusive`, `max_length`/`min_length`/`length`, `range`,
+  `regex`, composite `unique on (…)` / `primary on (…)`, plus member + entity `check (…)`.
+- Naming (T028/T029) and PG/SQLite rendering (T017/T018) done for all these kinds. Verified by
+  `ConstraintEmitTests` (member `"qty" > 0`, entity `"start_at" <= "end_at"`).
+
+**Still deferred**: `T015a` (remove `NameOverride`), SQLite regex build-warning (R-01), `concurrency`
+DEFAULT (T019), validator ORM029–036 wiring (T010), conformance (Docker, T021/T026/T032), scalars
+(US4), inheritance (US5), grammar 011 (P-E), migration guide + MAJOR bump (P-F).
+
 ## Implementation status (Slice 3 — one_of + regex + entity-level, 2026-05-29)
 
 **Landed & verified** (build 0/0, generator tests 48/48, CSharpier clean):
@@ -111,11 +128,11 @@ constraints beyond primary/concurrency parse into the model but are not yet emit
 
 **Independent Test**: A schema member declaring `unique` + a length + a range constraint compiles, the generated DDL enforces them, and the database rejects violating rows.
 
-- [ ] T015 [US1] Lower member `ConstraintModel`s to `ConstraintDef`s in `src/Dormant.SourceGeneration/Schema/EntityBindingEmitter.cs` (length/range/one_of → CHECK; `unique` → Unique; `primary` → PrimaryKey; `concurrency` → column default)
+- [X] T015 [US1] Lower member `ConstraintModel`s to `ConstraintDef`s in `src/Dormant.SourceGeneration/Schema/EntityBindingEmitter.cs` (length/range/one_of → CHECK; `unique` → Unique; `primary` → PrimaryKey; `concurrency` → column default)
 - [ ] T015a [US1] Resolve each column's DB name from a `column(...)` annotation (else naming convention) in `src/Dormant.SourceGeneration/Schema/EntityBindingEmitter.cs`, and remove all references to the deleted `PropertyModel.NameOverride` (e.g. the `Col(p, convention)` path) — replacing the old `db("…")` behavior
-- [ ] T016 [US1] Implement `check`/range/length/one_of expression lowering reusing the query-expression IR (research R-03); render in **literal/DDL mode** (bare column names, inline literals, NO placeholders/aliases, no navigation) for member-level `check`
-- [ ] T017 [US1] Implement PostgreSQL rendering of Unique/Check/PrimaryKey + `regex` via `~` in `src/Dormant.SourceGeneration/Ir/Dialects/PostgreSqlRenderer.cs`
-- [ ] T018 [US1] Implement SQLite rendering of Unique/Check/PrimaryKey + `regex` fallback (GLOB/LIKE or omit+warn, research R-01) in `src/Dormant.SourceGeneration/Ir/Dialects/SqliteRenderer.cs`
+- [X] T016 [US1] Implement `check`/range/length/one_of expression lowering reusing the query-expression IR (research R-03); render in **literal/DDL mode** (bare column names, inline literals, NO placeholders/aliases, no navigation) for member-level `check`
+- [X] T017 [US1] Implement PostgreSQL rendering of Unique/Check/PrimaryKey + `regex` via `~` in `src/Dormant.SourceGeneration/Ir/Dialects/PostgreSqlRenderer.cs`
+- [X] T018 [US1] Implement SQLite rendering of Unique/Check/PrimaryKey + `regex` fallback (GLOB/LIKE or omit+warn, research R-01) in `src/Dormant.SourceGeneration/Ir/Dialects/SqliteRenderer.cs`
 - [ ] T019 [US1] Wire `concurrency` token DDL (default) + confirm existing mutation WHERE-match path still works in `src/Dormant.SourceGeneration/Schema/EntityBindingEmitter.cs`
 - [ ] T020 [P] [US1] Verify snapshot of generated DDL (PG + SQLite) for a member-constraint schema in `tests/Dormant.SourceGeneration.Tests/`
 - [ ] T021 [US1] Conformance: add a schema + tests in `tests/Dormant.Providers.ConformanceTests/` asserting each member constraint kind rejects violating rows on PostgreSQL and SQLite (regex SQLite per fallback)
@@ -131,8 +148,8 @@ constraints beyond primary/concurrency parse into the model but are not yet emit
 
 **Independent Test**: An entity with `unique on (first, last)` and `check (start <= end)` rejects duplicate pairs and rows violating the expression.
 
-- [ ] T023 [US2] Lower entity-level `EntityConstraints` (composite `unique on (…)`, `check (expr)`, composite `primary on (…)`) to table-level `ConstraintDef`s in `src/Dormant.SourceGeneration/Schema/EntityBindingEmitter.cs`
-- [ ] T024 [US2] Render composite UNIQUE + table-level CHECK across both dialects (extend `RenderConstraints`/PG/SQLite renderers)
+- [X] T023 [US2] Lower entity-level `EntityConstraints` (composite `unique on (…)`, `check (expr)`, composite `primary on (…)`) to table-level `ConstraintDef`s in `src/Dormant.SourceGeneration/Schema/EntityBindingEmitter.cs`
+- [X] T024 [US2] Render composite UNIQUE + table-level CHECK across both dialects (extend `RenderConstraints`/PG/SQLite renderers)
 - [ ] T025 [P] [US2] Verify snapshot for an entity-level multi-field + check schema in `tests/Dormant.SourceGeneration.Tests/`
 - [ ] T026 [US2] Conformance: composite-uniqueness + cross-field check rejection on PG + SQLite in `tests/Dormant.Providers.ConformanceTests/`
 - [ ] T027 [P] [US2] Diagnostic test for ORM031 on a multi-field constraint referencing a missing member
@@ -147,8 +164,8 @@ constraints beyond primary/concurrency parse into the model but are not yet emit
 
 **Independent Test**: `constraint unique as users_email_key` yields a DB constraint named exactly that; two same `as` names in a module produce ORM032.
 
-- [ ] T028 [US3] Implement constraint-name resolution (explicit `as` else deterministic `<table>_<cols>_<kind>`, research R-02) in `src/Dormant.SourceGeneration/Schema/EntityBindingEmitter.cs`
-- [ ] T029 [US3] Render the resolved name via `RenderConstraintName` in both dialect renderers (inline `CONSTRAINT <name>`)
+- [X] T028 [US3] Implement constraint-name resolution (explicit `as` else deterministic `<table>_<cols>_<kind>`, research R-02) in `src/Dormant.SourceGeneration/Schema/EntityBindingEmitter.cs`
+- [X] T029 [US3] Render the resolved name via `RenderConstraintName` in both dialect renderers (inline `CONSTRAINT <name>`)
 - [ ] T030 [US3] Implement ORM032 duplicate-`as`-name detection (per module) in `src/Dormant.SourceGeneration/Parsing/SchemaValidator.cs`
 - [ ] T031 [P] [US3] Verify snapshot asserting explicit + default constraint names are stable across builds in `tests/Dormant.SourceGeneration.Tests/`
 - [ ] T032 [P] [US3] Conformance: query DB catalog to assert the constraint name on PG (and SQLite where applicable) in `tests/Dormant.Providers.ConformanceTests/`

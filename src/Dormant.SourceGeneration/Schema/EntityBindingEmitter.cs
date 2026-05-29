@@ -101,6 +101,11 @@ internal static class EntityBindingEmitter
     {
         var result = new List<ConstraintDef>();
         var table = Table(entity, convention);
+        var colByMember = new Dictionary<string, string>();
+        foreach (var p in entity.Properties)
+        {
+            colByMember[p.Name] = Col(p, convention);
+        }
 
         foreach (var property in entity.Properties)
         {
@@ -191,24 +196,40 @@ internal static class EntityBindingEmitter
                             )
                         );
                         break;
-                    // Primary/Concurrency handled on the column; member-level `check` (expression
-                    // lowering) deferred to a later slice.
+                    case ConstraintKind.Check:
+                        AddCheck(
+                            result,
+                            c,
+                            RenderCheckSql(c.CheckTokens, colByMember),
+                            table,
+                            col,
+                            "check"
+                        );
+                        break;
+                    // Primary/Concurrency handled on the column.
                 }
             }
         }
 
         // Entity-level constraints (Feature 012 US2): composite UNIQUE / PRIMARY KEY over `on (…)`
-        // members. Entity-level `check` (expression lowering) is deferred to a later slice.
+        // members, plus a cross-field `check (…)` expression.
         if (entity.Constraints.Count > 0)
         {
-            var colByMember = new Dictionary<string, string>();
-            foreach (var p in entity.Properties)
-            {
-                colByMember[p.Name] = Col(p, convention);
-            }
-
             foreach (var ec in entity.Constraints)
             {
+                if (ec.Kind == ConstraintKind.Check)
+                {
+                    result.Add(
+                        new ConstraintDef(
+                            ConstraintIrKind.Check,
+                            [],
+                            RenderCheckSql(ec.CheckTokens, colByMember),
+                            ec.SqlName ?? $"{table}_check"
+                        )
+                    );
+                    continue;
+                }
+
                 if (ec.Targets.Count == 0)
                 {
                     continue;
@@ -260,6 +281,34 @@ internal static class EntityBindingEmitter
         }
 
         return result.Count > 0 ? result : null;
+    }
+
+    // Translates a captured `check (…)` token stream to SQL: identifiers → quoted columns (resolved
+    // via the entity's member→column map), string literals → quoted+escaped, operators already SQL.
+    private static string RenderCheckSql(
+        EquatableArray<CheckToken> tokens,
+        Dictionary<string, string> colByMember
+    )
+    {
+        var parts = new List<string>();
+        foreach (var t in tokens)
+        {
+            switch (t.Kind)
+            {
+                case CheckTokenKind.Identifier:
+                    var col = colByMember.TryGetValue(t.Text, out var c) ? c : t.Text;
+                    parts.Add("\"" + col + "\"");
+                    break;
+                case CheckTokenKind.String:
+                    parts.Add("'" + t.Text.Replace("'", "''") + "'");
+                    break;
+                default:
+                    parts.Add(t.Text);
+                    break;
+            }
+        }
+
+        return string.Join(" ", parts);
     }
 
     // Renders the value list for a `one_of(...)` CHECK, quoting string literals and escaping quotes.

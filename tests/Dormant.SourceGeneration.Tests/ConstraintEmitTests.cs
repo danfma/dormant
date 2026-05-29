@@ -36,6 +36,15 @@ public sealed class ConstraintEmitTests
 
           constraint unique on (first, last) as accounts_name;
         }
+
+        entity Booking {
+          id: uuid { constraint primary; }
+          start_at: datetime;
+          end_at: datetime;
+          qty: int { constraint check (qty > 0); }
+
+          constraint check (start_at <= end_at);
+        }
         """;
 
     private static string Generate() => GenerateFrom("schema/shop.dqls", Schema);
@@ -111,5 +120,19 @@ public sealed class ConstraintEmitTests
         await Assert
             .That(generated)
             .Contains("CONSTRAINT \"accounts_name\" UNIQUE (\"first\", \"last\")");
+    }
+
+    [Test]
+    public async Task Member_and_entity_check_expressions_lower_to_sql()
+    {
+        var generated = GenerateFrom("schema/shop2.dqls", Schema2);
+        // Member-level check: identifier → quoted column, operator carried through.
+        await Assert
+            .That(generated)
+            .Contains("CONSTRAINT \"booking_qty_check\" CHECK (\"qty\" > 0)");
+        // Entity-level cross-field check.
+        await Assert
+            .That(generated)
+            .Contains("CONSTRAINT \"booking_check\" CHECK (\"start_at\" <= \"end_at\")");
     }
 }
