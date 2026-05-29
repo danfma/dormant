@@ -39,8 +39,9 @@ internal enum ConstraintKind
 
 /// <summary>One argument of a constraint/annotation call: positional (<c>Name</c> null) or named.</summary>
 /// <param name="Name">Argument name for a named arg (<c>min = 1</c>); <see langword="null"/> when positional.</param>
-/// <param name="Value">The literal value as written (string/number/bool text).</param>
-internal sealed record ConstraintArg(string? Name, string Value);
+/// <param name="Value">The literal value as written (string content without quotes, or number/bool text).</param>
+/// <param name="IsString">Whether the value came from a string literal (so SQL rendering quotes it).</param>
+internal sealed record ConstraintArg(string? Name, string Value, bool IsString = false);
 
 /// <summary>
 /// A declared constraint (Feature 012): function-call form attached to a member or an entity,

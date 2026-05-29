@@ -178,12 +178,100 @@ internal static class EntityBindingEmitter
                             "range"
                         );
                         break;
-                    // Primary/Concurrency handled on the column; OneOf/Regex/Check deferred to a later slice.
+                    case ConstraintKind.OneOf:
+                        AddCheck(result, c, $"{qcol} IN ({OneOfValues(c)})", table, col, "oneof");
+                        break;
+                    case ConstraintKind.Regex:
+                        result.Add(
+                            new ConstraintDef(
+                                ConstraintIrKind.Regex,
+                                [col],
+                                c.Args.Count > 0 ? c.Args[0].Value : string.Empty,
+                                c.SqlName ?? $"{table}_{col}_regex"
+                            )
+                        );
+                        break;
+                    // Primary/Concurrency handled on the column; member-level `check` (expression
+                    // lowering) deferred to a later slice.
+                }
+            }
+        }
+
+        // Entity-level constraints (Feature 012 US2): composite UNIQUE / PRIMARY KEY over `on (…)`
+        // members. Entity-level `check` (expression lowering) is deferred to a later slice.
+        if (entity.Constraints.Count > 0)
+        {
+            var colByMember = new Dictionary<string, string>();
+            foreach (var p in entity.Properties)
+            {
+                colByMember[p.Name] = Col(p, convention);
+            }
+
+            foreach (var ec in entity.Constraints)
+            {
+                if (ec.Targets.Count == 0)
+                {
+                    continue;
+                }
+
+                var cols = new List<string>();
+                var resolved = true;
+                foreach (var t in ec.Targets)
+                {
+                    if (colByMember.TryGetValue(t, out var cc))
+                    {
+                        cols.Add(cc);
+                    }
+                    else
+                    {
+                        resolved = false;
+                    }
+                }
+
+                if (!resolved || cols.Count == 0)
+                {
+                    continue;
+                }
+
+                var joined = string.Join("_", cols);
+                if (ec.Kind == ConstraintKind.Unique)
+                {
+                    result.Add(
+                        new ConstraintDef(
+                            ConstraintIrKind.Unique,
+                            cols,
+                            null,
+                            ec.SqlName ?? $"{table}_{joined}_key"
+                        )
+                    );
+                }
+                else if (ec.Kind == ConstraintKind.Primary)
+                {
+                    result.Add(
+                        new ConstraintDef(
+                            ConstraintIrKind.PrimaryKey,
+                            cols,
+                            null,
+                            ec.SqlName ?? $"{table}_pkey"
+                        )
+                    );
                 }
             }
         }
 
         return result.Count > 0 ? result : null;
+    }
+
+    // Renders the value list for a `one_of(...)` CHECK, quoting string literals and escaping quotes.
+    private static string OneOfValues(ConstraintModel c)
+    {
+        var parts = new List<string>();
+        foreach (var a in c.Args)
+        {
+            parts.Add(a.IsString ? "'" + a.Value.Replace("'", "''") + "'" : a.Value);
+        }
+
+        return string.Join(", ", parts);
     }
 
     private static void AddCheck(

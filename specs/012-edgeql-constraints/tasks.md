@@ -19,6 +19,21 @@ mapping to plan.md: Setup+Foundational ≈ P-A; US1–US3 ≈ P-B; US4 ≈ P-C; 
 - `- [ ] T### [P?] [USx?] Description with exact file path`
 - `[P]` = parallelizable (different files, no incomplete deps); story label only on US phases.
 
+## Implementation status (Slice 3 — one_of + regex + entity-level, 2026-05-29)
+
+**Landed & verified** (build 0/0, generator tests 48/48, CSharpier clean):
+- `one_of` → CHECK `IN (...)` with string-literal quoting (`ConstraintArg.IsString` added).
+- `regex` → dialect-specific: PostgreSQL CHECK with `~` (`PostgreSqlRenderer.RenderRegexConstraint`);
+  SQLite omits it (no native REGEXP — base `RenderRegexConstraint` returns empty; `RenderCreateTable`
+  skips empties). `ConstraintIrKind.Regex` added.
+- Entity-level **composite** constraints (US2 DDL): `constraint unique on (a, b)` → composite UNIQUE;
+  `constraint primary on (a, b)` → composite PRIMARY KEY (member→column resolution).
+- Verified by `ConstraintEmitTests` (one_of IN-list, PG regex `~`, composite UNIQUE).
+
+**Still deferred**: `check`-expression lowering (member + entity, T016 — needs DQL→SQL expression
+translation), SQLite regex build-warning diagnostic (R-01), `concurrency` DEFAULT (T019), conformance
+(Docker, T021/T026), scalars (US4), inheritance (US5), grammar 011 (P-E), migration guide + MAJOR bump.
+
 ## Implementation status (Slice 2 — P-B constraint IR + DDL, 2026-05-29)
 
 **Landed & verified** (build 0/0, generator tests 45/45 incl. new `ConstraintEmitTests`, CSharpier clean):

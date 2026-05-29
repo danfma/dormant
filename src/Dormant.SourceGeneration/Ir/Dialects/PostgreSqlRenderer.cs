@@ -18,6 +18,15 @@ internal sealed class PostgreSqlRenderer : SqlDialectRendererBase
 
     public override string Quote(string identifier) => "\"" + identifier + "\"";
 
+    // Feature 012: PostgreSQL has a native regex match operator (~), so a `regex` constraint becomes
+    // a CHECK. SQLite has no native REGEXP and inherits the base (no enforcement).
+    protected override string RenderRegexConstraint(ConstraintDef constraint)
+    {
+        var col = Quote(constraint.Columns[0]);
+        var pattern = (constraint.CheckSql ?? string.Empty).Replace("'", "''");
+        return "CONSTRAINT " + Quote(constraint.Name) + " CHECK (" + col + " ~ '" + pattern + "')";
+    }
+
     protected override string Placeholder(int index) =>
         "$" + index.ToString(CultureInfo.InvariantCulture);
 

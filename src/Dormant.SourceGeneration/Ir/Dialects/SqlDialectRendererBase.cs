@@ -112,7 +112,11 @@ internal abstract class SqlDialectRendererBase : ISqlDialectRenderer
         {
             foreach (var c in constraints)
             {
-                parts.Add(RenderConstraint(c));
+                var rendered = RenderConstraint(c);
+                if (!string.IsNullOrEmpty(rendered))
+                {
+                    parts.Add(rendered);
+                }
             }
         }
 
@@ -132,10 +136,18 @@ internal abstract class SqlDialectRendererBase : ISqlDialectRenderer
                 return name + "UNIQUE (" + RenderColumnList(constraint.Columns) + ")";
             case ConstraintIrKind.Check:
                 return name + "CHECK (" + constraint.CheckSql + ")";
+            case ConstraintIrKind.Regex:
+                return RenderRegexConstraint(constraint);
             default:
                 return string.Empty;
         }
     }
+
+    /// <summary>
+    /// Renders a regex constraint. Default: no DB-level enforcement (returned empty), for dialects
+    /// without a native regex operator (e.g. SQLite). PostgreSQL overrides this to a <c>~</c> CHECK.
+    /// </summary>
+    protected virtual string RenderRegexConstraint(ConstraintDef constraint) => string.Empty;
 
     private string RenderColumnList(IReadOnlyList<string> columns) =>
         string.Join(", ", columns.Select(Quote));

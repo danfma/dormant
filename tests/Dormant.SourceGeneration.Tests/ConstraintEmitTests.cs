@@ -24,11 +24,25 @@ public sealed class ConstraintEmitTests
         }
         """;
 
-    private static string Generate()
+    private const string Schema2 = """
+        module shop;
+
+        entity Account {
+          id: uuid { constraint primary; }
+          status: str { constraint one_of("Open", "Closed", "Merged"); }
+          email: str { constraint regex("^[^@]+@[^@]+$"); }
+          first: str;
+          last: str;
+
+          constraint unique on (first, last) as accounts_name;
+        }
+        """;
+
+    private static string Generate() => GenerateFrom("schema/shop.dqls", Schema);
+
+    private static string GenerateFrom(string path, string schema)
     {
-        var driver = GeneratorTestHarness.CreateDriver(
-            new TestAdditionalText("schema/shop.dqls", Schema)
-        );
+        var driver = GeneratorTestHarness.CreateDriver(new TestAdditionalText(path, schema));
         driver = driver.RunGenerators(CSharpCompilation.Create("Tests"));
         var sources = driver.GetRunResult().Results[0].GeneratedSources;
         return string.Join("\n", sources.Select(s => s.SourceText.ToString()));
@@ -68,5 +82,34 @@ public sealed class ConstraintEmitTests
         // Single-column primary remains an inline column constraint, not a table constraint.
         await Assert.That(generated).Contains("\"id\" uuid NOT NULL PRIMARY KEY");
         await Assert.That(generated).DoesNotContain("PRIMARY KEY (\"id\")");
+    }
+
+    [Test]
+    public async Task OneOf_emits_in_list_check_with_quoted_strings()
+    {
+        var generated = GenerateFrom("schema/shop2.dqls", Schema2);
+        await Assert
+            .That(generated)
+            .Contains(
+                "CONSTRAINT \"account_status_oneof\" CHECK (\"status\" IN ('Open', 'Closed', 'Merged'))"
+            );
+    }
+
+    [Test]
+    public async Task Regex_emits_postgres_tilde_check()
+    {
+        var generated = GenerateFrom("schema/shop2.dqls", Schema2);
+        await Assert
+            .That(generated)
+            .Contains("CONSTRAINT \"account_email_regex\" CHECK (\"email\" ~ '^[^@]+@[^@]+$')");
+    }
+
+    [Test]
+    public async Task Entity_level_unique_emits_composite_constraint()
+    {
+        var generated = GenerateFrom("schema/shop2.dqls", Schema2);
+        await Assert
+            .That(generated)
+            .Contains("CONSTRAINT \"accounts_name\" UNIQUE (\"first\", \"last\")");
     }
 }

@@ -82,6 +82,10 @@ internal enum ConstraintIrKind
 
     /// <summary>CHECK with a dialect-neutral boolean expression (<see cref="ConstraintDef.CheckSql"/>).</summary>
     Check,
+
+    /// <summary>Regular-expression match on a single column (<see cref="ConstraintDef.CheckSql"/> holds the
+    /// pattern). Rendered per dialect: PostgreSQL <c>~</c>; SQLite has no native REGEXP and omits it.</summary>
+    Regex,
 }
 
 /// <summary>

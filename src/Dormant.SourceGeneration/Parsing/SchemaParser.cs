@@ -553,7 +553,9 @@ internal sealed class SchemaParser
 
             if (Current.Kind is TokenKind.String or TokenKind.Number or TokenKind.Identifier)
             {
-                args.Add(new ConstraintArg(argName, Current.Text));
+                args.Add(
+                    new ConstraintArg(argName, Current.Text, Current.Kind == TokenKind.String)
+                );
                 _pos++;
             }
             else
