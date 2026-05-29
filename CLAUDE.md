@@ -1,8 +1,21 @@
 <!-- SPECKIT START -->
 For additional context about technologies, project structure, conventions, and
 important decisions for the active feature, read the current plan:
-`specs/011-dql-syntax-highlighting/plan.md` (with `research.md`, `data-model.md`,
+`specs/012-edgeql-constraints/plan.md` (with `research.md`, `data-model.md`,
 `contracts/`, `quickstart.md`).
+
+**Feature 012 – EdgeQL-Style Constraints** replaces DormantQL's ad-hoc trailing type-modifiers
+(`primary`, `concurrency`, `db("…")`) with a uniform **constraint system** modeled on Gel/EdgeDB:
+named constraints in a `{ constraint …; }` block on a member or at the entity level, from a standard
+library with familiar names (`exclusive`→`unique`, `expression`→`check`, `max_len_value`→`max_length`,
+…). Constraints can span multiple members (`constraint unique on (a, b)`), carry boolean expressions
+(`constraint check (…)`), and pin the SQL constraint name via `as {name}`. Adds **custom scalar
+types** (`scalar X extending str { … }`) and **entity inheritance/composition** (`abstract entity` +
+`extending`, flattened into one table). `primary`/`concurrency` become constraints; the old modifier
+syntax is **removed (clean break, MAJOR)** with a migration guide. Touches lexer→parser→`SchemaModel`
+→validator(ORM029+)→`SqlIr`(`ConstraintDef`)→per-dialect DDL renderers (PG full; SQLite `regex`
+fallback)→`EntityBindingEmitter`, plus the 011 grammar and all in-repo `.dqls`. Phased P-A…P-F;
+constraint IR + DDL is the high-risk core. The background plans below remain completed-feature context:
 
 **Feature 011 – DQL Syntax Highlighting** turns the DormantQL DSL into a first-class citizen in editors. It delivers:
 - A portable grammar (Tree-sitter primary + TextMate secondary) maintained in `tooling/grammar/`.
