@@ -16,12 +16,12 @@ public sealed class NavigationEmitTests
         module app;
 
         entity Author {
-          id: uuid primary;
+          id: uuid { constraint primary; }
           name: string;
         }
 
         entity Article {
-          id: uuid primary;
+          id: uuid { constraint primary; }
           title: string;
           writer: Author;
         }

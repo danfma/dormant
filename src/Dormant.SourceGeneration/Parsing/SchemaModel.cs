@@ -18,16 +18,82 @@ internal sealed record SchemaModel(
     public bool IsValid => Diagnostics.Count == 0;
 }
 
+/// <summary>The standard-library kind of a constraint (Feature 012, EdgeQL-inspired).</summary>
+internal enum ConstraintKind
+{
+    Primary,
+    Concurrency,
+    Unique,
+    Check,
+    OneOf,
+    Max,
+    Min,
+    MaxExclusive,
+    MinExclusive,
+    MaxLength,
+    MinLength,
+    Length,
+    Range,
+    Regex,
+}
+
+/// <summary>One argument of a constraint/annotation call: positional (<c>Name</c> null) or named.</summary>
+/// <param name="Name">Argument name for a named arg (<c>min = 1</c>); <see langword="null"/> when positional.</param>
+/// <param name="Value">The literal value as written (string/number/bool text).</param>
+internal sealed record ConstraintArg(string? Name, string Value);
+
+/// <summary>
+/// A declared constraint (Feature 012): function-call form attached to a member or an entity,
+/// e.g. <c>constraint unique as users_email_key</c>, <c>constraint range(min = 0, max = 130)</c>,
+/// <c>constraint unique on (a, b)</c>, <c>constraint check (start &lt;= end)</c>.
+/// </summary>
+/// <param name="Kind">The standard-library constraint kind.</param>
+/// <param name="Args">Call arguments (positional or named); empty for zero-arg constraints.</param>
+/// <param name="Targets">Member names for an entity-level <c>on (…)</c> constraint; empty for member-level.</param>
+/// <param name="CheckExpression">Raw boolean expression text for <see cref="ConstraintKind.Check"/>; otherwise null.</param>
+/// <param name="SqlName">Explicit SQL constraint name from <c>as {name}</c>; null ⇒ deterministic default.</param>
+/// <param name="Location">Source location (for diagnostics).</param>
+internal sealed record ConstraintModel(
+    ConstraintKind Kind,
+    EquatableArray<ConstraintArg> Args,
+    EquatableArray<string> Targets,
+    string? CheckExpression,
+    string? SqlName,
+    LocationInfo Location
+);
+
+/// <summary>
+/// A declared annotation (Feature 012): metadata, not validation. Same function-call form as a
+/// constraint, e.g. <c>annotation column("email_addr")</c>. The <c>column</c> annotation supplies the
+/// database column name (replacing the old <c>db("…")</c> member modifier on the DSL surface).
+/// </summary>
+/// <param name="Name">The annotation name (e.g. <c>column</c>).</param>
+/// <param name="Args">Call arguments (positional or named).</param>
+/// <param name="Location">Source location (for diagnostics).</param>
+internal sealed record AnnotationModel(
+    string Name,
+    EquatableArray<ConstraintArg> Args,
+    LocationInfo Location
+);
+
 /// <summary>A declared entity.</summary>
 /// <param name="Name">The entity (type) name.</param>
 /// <param name="Properties">Scalar/value properties, in source order.</param>
 /// <param name="References">Relationship references, in source order.</param>
 /// <param name="NameOverride">Explicit database table name (<c>db("…")</c>); overrides the convention (FR-054).</param>
+/// <param name="IsAbstract">Whether the entity is abstract (emits no table; Feature 012 US5).</param>
+/// <param name="Extends">Base entity names this entity extends/composes (Feature 012 US5).</param>
+/// <param name="Constraints">Entity-level constraints (multi-field / <c>check</c>; Feature 012 US2).</param>
+/// <param name="Annotations">Entity-level annotations (Feature 012).</param>
 internal sealed record EntityModel(
     string Name,
     EquatableArray<PropertyModel> Properties,
     EquatableArray<ReferenceModel> References,
-    string? NameOverride = null
+    string? NameOverride = null,
+    bool IsAbstract = false,
+    EquatableArray<string> Extends = default,
+    EquatableArray<ConstraintModel> Constraints = default,
+    EquatableArray<AnnotationModel> Annotations = default
 );
 
 /// <summary>A declared value property.</summary>
@@ -37,7 +103,9 @@ internal sealed record EntityModel(
 /// <param name="IsNullable">Whether the property is nullable (declared with a trailing <c>?</c>).</param>
 /// <param name="IsPrimary">Whether the property is part of the primary key.</param>
 /// <param name="IsConcurrency">Whether the property is the optimistic-concurrency token.</param>
-/// <param name="NameOverride">Explicit database column name (<c>db("…")</c>); overrides the convention (FR-054).</param>
+/// <param name="NameOverride">Resolved database column name (from a <c>column(…)</c> annotation); overrides the convention (FR-054).</param>
+/// <param name="Constraints">Member-level constraints from the <c>{ … }</c> block (Feature 012).</param>
+/// <param name="Annotations">Member-level annotations from the <c>{ … }</c> block (Feature 012).</param>
 internal sealed record PropertyModel(
     string Name,
     string DslType,
@@ -45,7 +113,9 @@ internal sealed record PropertyModel(
     bool IsNullable,
     bool IsPrimary,
     bool IsConcurrency,
-    string? NameOverride = null
+    string? NameOverride = null,
+    EquatableArray<ConstraintModel> Constraints = default,
+    EquatableArray<AnnotationModel> Annotations = default
 );
 
 /// <summary>The kind of relationship reference (FR-049): single, or an NHibernate collection.</summary>

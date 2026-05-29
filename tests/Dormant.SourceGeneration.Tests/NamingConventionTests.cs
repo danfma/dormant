@@ -16,7 +16,7 @@ public sealed class NamingConventionTests
         module shop;
 
         entity RecentPost {
-          id: uuid primary;
+          id: uuid { constraint primary; }
           createdAt: datetime;
           title: str;
         }

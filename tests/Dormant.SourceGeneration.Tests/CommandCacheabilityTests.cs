@@ -12,7 +12,7 @@ namespace Dormant.SourceGeneration.Tests;
 public sealed class CommandCacheabilityTests
 {
     private const string Schema =
-        "module catalog;\nentity Widget { id: uuid primary; name: str; quantity: int; }";
+        "module catalog;\nentity Widget { id: uuid { constraint primary; } name: str; quantity: int; }";
     private const string Commands =
         "module catalog;\nmutation create_widget(id: uuid, name: string, quantity: int) { insert Widget w { w.id = id w.name = name w.quantity = quantity } }";
 

@@ -15,7 +15,7 @@ public sealed class DialectBoundaryTests
         module catalog;
 
         entity Doc {
-          id: uuid primary;
+          id: uuid { constraint primary; }
           data: json;
         }
         """;

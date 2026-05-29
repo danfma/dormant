@@ -15,7 +15,7 @@ public sealed class ProjectionEmitTests
         module catalog;
 
         entity Widget {
-          id: uuid primary;
+          id: uuid { constraint primary; }
           name: str;
           quantity: int;
         }

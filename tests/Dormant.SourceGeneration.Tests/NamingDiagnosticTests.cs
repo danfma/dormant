@@ -19,7 +19,7 @@ public sealed class NamingDiagnosticTests
             module shop;
 
             entity Thing {
-              id: uuid primary;
+              id: uuid { constraint primary; }
               userId: int;
               user_id: int;
             }
@@ -40,7 +40,7 @@ public sealed class NamingDiagnosticTests
             module shop;
 
             entity Thing {
-              id: uuid primary;
+              id: uuid { constraint primary; }
               userId: int;
               tenantId: int;
             }

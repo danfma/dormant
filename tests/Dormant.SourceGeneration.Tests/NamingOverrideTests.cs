@@ -14,8 +14,8 @@ public sealed class NamingOverrideTests
         module shop;
 
         entity RecentPost db("posts") {
-          id: uuid primary;
-          createdAt: datetime db("created");
+          id: uuid { constraint primary; }
+          createdAt: datetime { annotation column("created"); }
           title: str;
         }
         """;

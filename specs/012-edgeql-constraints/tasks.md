@@ -19,13 +19,35 @@ mapping to plan.md: Setup+Foundational ≈ P-A; US1–US3 ≈ P-B; US4 ≈ P-C; 
 - `- [ ] T### [P?] [USx?] Description with exact file path`
 - `[P]` = parallelizable (different files, no incomplete deps); story label only on US phases.
 
+## Implementation status (Slice 1 — P-A front-end core, 2026-05-29)
+
+**Landed & verified** (build 0/0, generator tests 42/42, Core 1/1, CSharpier clean):
+- T003 — diagnostic descriptors ORM029–ORM036 + AnalyzerReleases rows.
+- T006 — member `{ constraint…; annotation…; }` block parsing (function-call/named args, optional
+  parens), legacy `primary`/`concurrency`/`db("…")` rejected via ORM035, `column(...)` annotation →
+  resolved column name.
+- T007 — entity-level `constraint … [on (…)] [(check …)] [as …]` + `annotation …` parsing.
+- T013 — all in-repo `.dqls` (+ generator test inline schemas) migrated to the new syntax.
+
+**Partially landed** (enough for the green slice; finish next):
+- T002 — `ConstraintKind` enum done (incl. `Range`); the metadata table (arity/types/scope) not yet.
+- T004 — `ConstraintModel`+`ConstraintArg`+`AnnotationModel` done; `ScalarTypeModel` deferred.
+- T005 — `EntityModel`/`PropertyModel` extended with constraints/annotations; `NameOverride` kept
+  (populated from `column` annotation) so the ~25 DDL/naming readers stay unchanged — full removal
+  (T015a) deferred; `Scalars` on `SchemaModel`/`ParseResult` deferred.
+
+**Deferred to later slices**: T008/T009 (scalar + abstract/extending parsing), T010 (full validator),
+T011/T012 + T015–T052 (constraint IR + per-dialect DDL, scalars, inheritance, grammar 011, migration
+guide, conformance, MAJOR bump). DDL still works via derived `IsPrimary`/`IsConcurrency` + column name;
+constraints beyond primary/concurrency parse into the model but are not yet emitted to DDL.
+
 ---
 
 ## Phase 1: Setup (shared front-end plumbing)
 
 - [ ] T001 Add the constraint/scalar/inheritance keyword set recognition path in `src/Dormant.SourceGeneration/Parsing/Lexer.cs` is confirmed unchanged (keywords stay identifiers) and document the reserved words (`constraint`, `scalar`, `extending`, `abstract`, `unique`, `check`, `one_of`, `max`, `min`, `max_exclusive`, `min_exclusive`, `max_length`, `min_length`, `length`, `regex`, `primary`, `concurrency`, `on`, `as`) in a comment
 - [ ] T002 [P] Add a `ConstraintKind` enum (incl. `Range` sugar) + a static metadata table (arg arity, accepted named-arg keys, applicable base types, member/entity scope) in `src/Dormant.SourceGeneration/Parsing/SchemaModel.cs`
-- [ ] T003 [P] Register diagnostic descriptors ORM029–ORM036 (incl. ORM035 dedicated removed-syntax with a migration message, ORM036 unknown/misshaped annotation + constraint-on-reference) in `src/Dormant.SourceGeneration/Diagnostics/DiagnosticDescriptors.cs` and add rows to `src/Dormant.SourceGeneration/AnalyzerReleases.Unshipped.md`
+- [X] T003 [P] Register diagnostic descriptors ORM029–ORM036 (incl. ORM035 dedicated removed-syntax with a migration message, ORM036 unknown/misshaped annotation + constraint-on-reference) in `src/Dormant.SourceGeneration/Diagnostics/DiagnosticDescriptors.cs` and add rows to `src/Dormant.SourceGeneration/AnalyzerReleases.Unshipped.md`
 
 **Checkpoint**: Keyword vocabulary fixed; constraint-kind metadata + diagnostic IDs exist.
 
@@ -37,14 +59,14 @@ mapping to plan.md: Setup+Foundational ≈ P-A; US1–US3 ≈ P-B; US4 ≈ P-C; 
 
 - [ ] T004 Add `ConstraintModel` (with `ConstraintArg` named/positional args), `AnnotationModel`, and `ScalarTypeModel` records to `src/Dormant.SourceGeneration/Parsing/SchemaModel.cs` per data-model.md; remove `PropertyModel.NameOverride` (column name now via `column(...)` annotation)
 - [ ] T005 Extend `EntityModel` (`IsAbstract`, `Extends`, `EntityConstraints`) and `PropertyModel` (`Constraints`, with `IsPrimary`/`IsConcurrency` derived) in `src/Dormant.SourceGeneration/Parsing/SchemaModel.cs`; add `Scalars` to `SchemaModel`/`ParseResult`
-- [ ] T006 Replace `ParseModifiers()` with member-block parsing (`{ constraint …; annotation …; }`) in `src/Dormant.SourceGeneration/Parsing/SchemaParser.cs`: parse `constraint name[(args)] [as name];` and `annotation name[(args)];` (function-call form, positional/named args, optional parens); the `column(...)` annotation supplies the DB column name (replacing `db("…")`); emit ORM035 when legacy trailing `primary`/`concurrency`/`db("…")` modifiers are encountered
-- [ ] T007 Add entity-level constraint parsing (`constraint … [on (…)] [(check expr)] [as name];`) in `src/Dormant.SourceGeneration/Parsing/SchemaParser.cs`
+- [X] T006 Replace `ParseModifiers()` with member-block parsing (`{ constraint …; annotation …; }`) in `src/Dormant.SourceGeneration/Parsing/SchemaParser.cs`: parse `constraint name[(args)] [as name];` and `annotation name[(args)];` (function-call form, positional/named args, optional parens); the `column(...)` annotation supplies the DB column name (replacing `db("…")`); emit ORM035 when legacy trailing `primary`/`concurrency`/`db("…")` modifiers are encountered
+- [X] T007 Add entity-level constraint parsing (`constraint … [on (…)] [(check expr)] [as name];`) in `src/Dormant.SourceGeneration/Parsing/SchemaParser.cs`
 - [ ] T008 Add `scalar Name extending Base { constraint…; }` parsing in `src/Dormant.SourceGeneration/Parsing/SchemaParser.cs`
 - [ ] T009 Add `abstract` entity flag + `extending Base(, …)` clause parsing in `src/Dormant.SourceGeneration/Parsing/SchemaParser.cs`
 - [ ] T010 Extend `src/Dormant.SourceGeneration/Parsing/SchemaValidator.cs` with: unknown constraint (ORM029), type-incompatible constraint (ORM030), missing target member (ORM031), unknown/non-scalar base (ORM033), unknown/misshaped annotation + constraint/annotation on a reference/collection member (ORM036); leave `as`-collision (ORM032) and inheritance-conflict (ORM034) stubs for US3/US5
 - [ ] T011 [P] Add `ConstraintDef` IR node + extend `CreateTableStatement` with table-level constraints in `src/Dormant.SourceGeneration/Ir/SqlIr.cs` per data-model.md
 - [ ] T012 [P] Add `RenderConstraints()` + overridable `RenderUnique`/`RenderCheck`/`RenderPrimaryKey`/`RenderConstraintName`/`RenderRegexConstraint` hooks (default impls) in `src/Dormant.SourceGeneration/Ir/Dialects/SqlDialectRendererBase.cs` and call them from `RenderCreateTable()`
-- [ ] T013 Migrate ALL in-repo schemas to the new syntax (`samples/Dormant.Sample.Quickstart/schema/*.dqls`, `tests/**/schema/*.dqls`): `id: uuid primary;` → `id: uuid { constraint primary; }`, `version: int concurrency;` → `version: int { constraint concurrency; }`
+- [X] T013 Migrate ALL in-repo schemas to the new syntax (`samples/Dormant.Sample.Quickstart/schema/*.dqls`, `tests/**/schema/*.dqls`): `id: uuid primary;` → `id: uuid { constraint primary; }`, `version: int concurrency;` → `version: int { constraint concurrency; }`
 - [ ] T014 [P] Add generator unit tests (Verify) asserting the parser produces the expected `ConstraintModel`/`ScalarTypeModel`/inheritance model for a representative schema in `tests/Dormant.SourceGeneration.Tests/`
 
 **Checkpoint**: New schema syntax parses into the model; legacy syntax is rejected with a diagnostic; repo builds; IR can carry constraints (not yet rendered per kind).

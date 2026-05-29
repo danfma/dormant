@@ -15,12 +15,12 @@ public sealed class ShapeEmitTests
         module app;
 
         entity Author {
-          id: uuid primary;
+          id: uuid { constraint primary; }
           name: string;
         }
 
         entity Article {
-          id: uuid primary;
+          id: uuid { constraint primary; }
           title: string;
           writer: Author;
         }
@@ -43,13 +43,13 @@ public sealed class ShapeEmitTests
         module app;
 
         entity Article {
-          id: uuid primary;
+          id: uuid { constraint primary; }
           title: string;
           tags: Set<Tag>;
         }
 
         entity Tag {
-          id: uuid primary;
+          id: uuid { constraint primary; }
           label: string;
           article: Article;
         }

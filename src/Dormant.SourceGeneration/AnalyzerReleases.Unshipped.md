@@ -21,3 +21,11 @@ ORM025  | DormantQL | Error    | Clauses are out of canonical order
 ORM026  | DormantQL | Error    | Insert is missing a required member
 ORM027  | DormantQL | Error    | Result member is not in the projected shape
 ORM028  | DormantQL | Error    | Duplicate composition member
+ORM029  | DormantQL | Error    | Unknown constraint
+ORM030  | DormantQL | Error    | Constraint not applicable to member type
+ORM031  | DormantQL | Error    | Constraint references an unknown member
+ORM032  | DormantQL | Error    | Duplicate constraint name
+ORM033  | DormantQL | Error    | Unknown scalar base type
+ORM034  | DormantQL | Error    | Inheritance conflict
+ORM035  | DormantQL | Error    | Removed member modifier syntax
+ORM036  | DormantQL | Error    | Invalid annotation or constraint target

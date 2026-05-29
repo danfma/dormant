@@ -14,7 +14,7 @@ public sealed class CommandEmitTests
         module catalog;
 
         entity Widget {
-          id: uuid primary;
+          id: uuid { constraint primary; }
           name: str;
           quantity: int;
         }
@@ -189,8 +189,8 @@ public sealed class CommandEmitTests
         const string refSchema = """
             module app;
 
-            entity User { id: uuid primary; name: str; }
-            entity Post { id: uuid primary; title: str; author: User; }
+            entity User { id: uuid { constraint primary; } name: str; }
+            entity Post { id: uuid { constraint primary; } title: str; author: User; }
             """;
         const string commands =
             "module app;\nmutation create_post(id: uuid, title: string, author: uuid) { insert Post p { p.id = id p.title = title p.author = author } }";
@@ -226,8 +226,8 @@ public sealed class CommandEmitTests
         const string refSchema = """
             module app;
 
-            entity User { id: uuid primary; name: str; }
-            entity Post { id: uuid primary; title: str; author: User; }
+            entity User { id: uuid { constraint primary; } name: str; }
+            entity Post { id: uuid { constraint primary; } title: str; author: User; }
             """;
         const string commands =
             "module app;\nmutation create_user_with_post(uid: uuid, name: string, pid: uuid, title: string) { with u = (insert User x { x.id = uid x.name = name }) insert Post p { p.id = pid p.title = title p.author = u } returning p.id }";

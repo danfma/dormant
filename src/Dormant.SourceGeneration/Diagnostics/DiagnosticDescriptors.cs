@@ -173,6 +173,89 @@ internal static class DiagnosticDescriptors
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true
     );
+
+    // --- Feature 012: EdgeQL-style constraints, scalar types, inheritance, annotations ---
+
+    /// <summary>A constraint name is not part of the standard library (012 FR-003/FR-009).</summary>
+    public static readonly DiagnosticDescriptor UnknownConstraint = new(
+        id: "ORM029",
+        title: "Unknown constraint",
+        messageFormat: "Unknown constraint '{0}'",
+        category: Category,
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true,
+        description: "Use a standard constraint: unique, check, one_of, max, min, max_exclusive, min_exclusive, max_length, min_length, length, range, regex, primary, or concurrency."
+    );
+
+    /// <summary>A constraint is applied to a member whose type does not support it (012 FR-009).</summary>
+    public static readonly DiagnosticDescriptor ConstraintTypeMismatch = new(
+        id: "ORM030",
+        title: "Constraint not applicable to member type",
+        messageFormat: "Constraint '{0}' cannot be applied to member '{1}' of type '{2}'",
+        category: Category,
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true
+    );
+
+    /// <summary>A constraint references a member that does not exist on the entity (012 FR-009).</summary>
+    public static readonly DiagnosticDescriptor ConstraintUnknownMember = new(
+        id: "ORM031",
+        title: "Constraint references an unknown member",
+        messageFormat: "Constraint references member '{0}', which is not defined on entity '{1}'",
+        category: Category,
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true
+    );
+
+    /// <summary>Two constraints in the same module request the same <c>as</c> name (012 FR-005/SC-003).</summary>
+    public static readonly DiagnosticDescriptor DuplicateConstraintName = new(
+        id: "ORM032",
+        title: "Duplicate constraint name",
+        messageFormat: "Constraint name '{0}' is declared more than once",
+        category: Category,
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true
+    );
+
+    /// <summary>A scalar type extends an unknown or non-scalar base (012 FR-007).</summary>
+    public static readonly DiagnosticDescriptor UnknownScalarBase = new(
+        id: "ORM033",
+        title: "Unknown scalar base type",
+        messageFormat: "Scalar type '{0}' extends '{1}', which is not a known base scalar type",
+        category: Category,
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true
+    );
+
+    /// <summary>Entity inheritance has a conflict or a cycle (012 FR-008).</summary>
+    public static readonly DiagnosticDescriptor InheritanceConflict = new(
+        id: "ORM034",
+        title: "Inheritance conflict",
+        messageFormat: "Entity '{0}' has an inheritance conflict or cycle ({1})",
+        category: Category,
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true
+    );
+
+    /// <summary>A removed legacy member modifier was used; migrate to the constraint syntax (012 FR-012).</summary>
+    public static readonly DiagnosticDescriptor RemovedModifierSyntax = new(
+        id: "ORM035",
+        title: "Removed member modifier syntax",
+        messageFormat: "The '{0}' member modifier was removed, use the constraint block form '{1}' instead",
+        category: Category,
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true
+    );
+
+    /// <summary>An unknown/misshaped annotation, or a constraint/annotation on a reference/collection (012 FR-015/FR-016).</summary>
+    public static readonly DiagnosticDescriptor InvalidAnnotationOrTarget = new(
+        id: "ORM036",
+        title: "Invalid annotation or constraint target",
+        messageFormat: "{0}",
+        category: Category,
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true
+    );
 }
 
 /// <summary>An equatable, pipeline-safe description of a diagnostic (research §5).</summary>
