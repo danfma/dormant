@@ -19,6 +19,21 @@ mapping to plan.md: Setup+Foundational ≈ P-A; US1–US3 ≈ P-B; US4 ≈ P-C; 
 - `- [ ] T### [P?] [USx?] Description with exact file path`
 - `[P]` = parallelizable (different files, no incomplete deps); story label only on US phases.
 
+## Implementation status (Slice 7 — US4 custom scalar types, 2026-05-29)
+
+**Landed & verified** (build 0/0, generator tests 56/56, CSharpier clean):
+- T008/T034/T035/T036/T037 — `scalar Name extending Base { constraint…; }` parsing; a scalar is a
+  **parse-time macro**: a member typed with a scalar expands into a value property of the base type
+  carrying the scalar's constraints (scalar's first, then member's). No pipeline/emitter change.
+- Scalars must be declared before use (preserves column order). Bad base → ORM033.
+- `ScalarTypeModel` now wired (resolves the prior dead-code finding). Verified by `ConstraintEmitTests`
+  (`handle: Username` → `text` column + inherited min/max length CHECKs) and `ConstraintDiagnosticsTests`
+  (ORM033). I1 (analyze): plan.md now records the PascalCase rename as BC-2.
+
+**Still deferred**: US5 inheritance (`abstract`/`extending`, T009/T039–T044), `concurrency` DEFAULT
+(T019), `T015a` (remove `NameOverride`), ORM032 (`as`-collision), conformance (Docker, T021/T026/T032),
+grammar 011 (P-E), migration guide + MAJOR bump (P-F).
+
 ## Implementation status (Slice 6 — PascalCase type vocabulary, 2026-05-29)
 
 **Landed & verified** (build 0/0, generator tests 54/54, Core 1/1, CSharpier clean):
@@ -137,7 +152,7 @@ constraints beyond primary/concurrency parse into the model but are not yet emit
 - [ ] T005 Extend `EntityModel` (`IsAbstract`, `Extends`, `EntityConstraints`) and `PropertyModel` (`Constraints`, with `IsPrimary`/`IsConcurrency` derived) in `src/Dormant.SourceGeneration/Parsing/SchemaModel.cs`; add `Scalars` to `SchemaModel`/`ParseResult`
 - [X] T006 Replace `ParseModifiers()` with member-block parsing (`{ constraint …; annotation …; }`) in `src/Dormant.SourceGeneration/Parsing/SchemaParser.cs`: parse `constraint name[(args)] [as name];` and `annotation name[(args)];` (function-call form, positional/named args, optional parens); the `column(...)` annotation supplies the DB column name (replacing `db("…")`); emit ORM035 when legacy trailing `primary`/`concurrency`/`db("…")` modifiers are encountered
 - [X] T007 Add entity-level constraint parsing (`constraint … [on (…)] [(check expr)] [as name];`) in `src/Dormant.SourceGeneration/Parsing/SchemaParser.cs`
-- [ ] T008 Add `scalar Name extending Base { constraint…; }` parsing in `src/Dormant.SourceGeneration/Parsing/SchemaParser.cs`
+- [X] T008 Add `scalar Name extending Base { constraint…; }` parsing in `src/Dormant.SourceGeneration/Parsing/SchemaParser.cs`
 - [ ] T009 Add `abstract` entity flag + `extending Base(, …)` clause parsing in `src/Dormant.SourceGeneration/Parsing/SchemaParser.cs`
 - [X] T010 Extend `src/Dormant.SourceGeneration/Parsing/SchemaValidator.cs` with: unknown constraint (ORM029), type-incompatible constraint (ORM030), missing target member (ORM031), unknown/non-scalar base (ORM033), unknown/misshaped annotation + constraint/annotation on a reference/collection member (ORM036); leave `as`-collision (ORM032) and inheritance-conflict (ORM034) stubs for US3/US5
 - [X] T011 [P] Add `ConstraintDef` IR node + extend `CreateTableStatement` with table-level constraints in `src/Dormant.SourceGeneration/Ir/SqlIr.cs` per data-model.md
@@ -208,10 +223,10 @@ constraints beyond primary/concurrency parse into the model but are not yet emit
 
 **Independent Test**: `scalar Username extending str { constraint max_length(30); }` typed on a member enforces the constraint without restating it.
 
-- [ ] T034 [US4] Make `TypeMap`/type resolution scalar-aware (custom scalar → base CLR type) in `src/Dormant.SourceGeneration/Emit/EmitHelpers.cs` + schema-local scalar registry
-- [ ] T035 [US4] In `src/Dormant.SourceGeneration/Schema/EntityBindingEmitter.cs`, apply a scalar's constraints to every member typed with it (member-level constraints add on top)
-- [ ] T036 [US4] Extend `SchemaValidator` so scalar constraints are type-checked against the base (ORM030/ORM033)
-- [ ] T037 [P] [US4] Verify snapshot for a scalar-typed schema (DDL carries the scalar's constraints) in `tests/Dormant.SourceGeneration.Tests/`
+- [X] T034 [US4] Make `TypeMap`/type resolution scalar-aware (custom scalar → base CLR type) in `src/Dormant.SourceGeneration/Emit/EmitHelpers.cs` + schema-local scalar registry
+- [X] T035 [US4] In `src/Dormant.SourceGeneration/Schema/EntityBindingEmitter.cs`, apply a scalar's constraints to every member typed with it (member-level constraints add on top)
+- [X] T036 [US4] Extend `SchemaValidator` so scalar constraints are type-checked against the base (ORM030/ORM033)
+- [X] T037 [P] [US4] Verify snapshot for a scalar-typed schema (DDL carries the scalar's constraints) in `tests/Dormant.SourceGeneration.Tests/`
 - [ ] T038 [US4] Conformance: scalar-derived constraints enforced on PG + SQLite (incl. a `one_of` enum scalar) in `tests/Dormant.Providers.ConformanceTests/`
 
 **Checkpoint**: Reusable domain scalar types with constraints.

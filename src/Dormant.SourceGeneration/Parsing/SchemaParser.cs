@@ -27,6 +27,12 @@ internal sealed class SchemaParser
     private readonly string _filePath;
     private readonly List<Token> _tokens;
     private readonly List<DiagnosticInfo> _diagnostics = [];
+
+    // Feature 012 US4: custom scalar types declared so far (must precede their use). A member typed
+    // with a scalar expands at parse time into a base-typed property carrying the scalar's constraints.
+    private readonly Dictionary<string, ScalarTypeModel> _scalars = new(
+        System.StringComparer.Ordinal
+    );
     private int _pos;
 
     private SchemaParser(string filePath, List<Token> tokens)
@@ -77,9 +83,13 @@ internal sealed class SchemaParser
                     entities.Add(entity);
                 }
             }
+            else if (IsKeyword("scalar"))
+            {
+                ParseScalar();
+            }
             else
             {
-                Error($"unexpected '{Describe(Current)}'; expected 'entity'");
+                Error($"unexpected '{Describe(Current)}'; expected 'entity' or 'scalar'");
                 _pos++;
             }
         }
@@ -145,6 +155,62 @@ internal sealed class SchemaParser
             Extends: default,
             Constraints: new EquatableArray<ConstraintModel>([.. entityConstraints]),
             Annotations: new EquatableArray<AnnotationModel>([.. entityAnnotations])
+        );
+    }
+
+    // scalar_decl := 'scalar' Name 'extending' Base '{' (constraint_stmt | annotation_stmt)* '}'
+    private void ParseScalar()
+    {
+        _pos++; // 'scalar'
+        if (Current.Kind != TokenKind.Identifier)
+        {
+            Error("expected a scalar type name after 'scalar'");
+            return;
+        }
+
+        var nameToken = Current;
+        var name = Current.Text;
+        _pos++;
+
+        if (!IsKeyword("extending"))
+        {
+            Error("expected 'extending' after the scalar name");
+            return;
+        }
+
+        _pos++; // 'extending'
+        if (Current.Kind != TokenKind.Identifier)
+        {
+            Error("expected a base type after 'extending'");
+            return;
+        }
+
+        var baseType = Current.Text;
+        var baseToken = Current;
+        _pos++;
+
+        var constraints = new List<ConstraintModel>();
+        var annotations = new List<AnnotationModel>();
+        ParseMemberBlock(constraints, annotations);
+
+        // The base must be a known value type (ORM033 otherwise).
+        if (!TypeMap.TryMap(baseType, out _))
+        {
+            _diagnostics.Add(
+                new DiagnosticInfo(
+                    DiagnosticDescriptors.UnknownScalarBase,
+                    LocationOf(baseToken),
+                    new EquatableArray<string>([name, baseType])
+                )
+            );
+            return;
+        }
+
+        _scalars[name] = new ScalarTypeModel(
+            name,
+            baseType,
+            new EquatableArray<ConstraintModel>([.. constraints]),
+            LocationOf(nameToken)
         );
     }
 
@@ -263,6 +329,52 @@ internal sealed class SchemaParser
         }
 
         var nameOverride = ColumnNameFrom(annotations);
+
+        // Custom scalar (US4): a member typed with a declared scalar is a value property of the
+        // scalar's base type that inherits the scalar's constraints (scalar's first, then the
+        // member's). Scalars must be declared before use.
+        if (
+            _scalars.TryGetValue(typeName, out var scalar)
+            && TypeMap.TryMap(scalar.BaseDslType, out var scalarClr)
+        )
+        {
+            var combined = new List<ConstraintModel>();
+            foreach (var sc in scalar.Constraints)
+            {
+                combined.Add(sc);
+            }
+
+            combined.AddRange(constraints);
+
+            var scalarPrimary = isPrimary;
+            var scalarConcurrency = isConcurrency;
+            foreach (var c in scalar.Constraints)
+            {
+                if (c.Kind == ConstraintKind.Primary)
+                {
+                    scalarPrimary = true;
+                }
+                else if (c.Kind == ConstraintKind.Concurrency)
+                {
+                    scalarConcurrency = true;
+                }
+            }
+
+            properties.Add(
+                new PropertyModel(
+                    name,
+                    scalar.BaseDslType,
+                    scalarClr,
+                    isNullable,
+                    scalarPrimary,
+                    scalarConcurrency,
+                    nameOverride,
+                    new EquatableArray<ConstraintModel>([.. combined]),
+                    new EquatableArray<AnnotationModel>([.. annotations])
+                )
+            );
+            return;
+        }
 
         // Known value type → property; lowercase unknown → likely a mistyped value type (ORM003);
         // PascalCase → single reference (validated against the entity set → ORM002 if undefined).

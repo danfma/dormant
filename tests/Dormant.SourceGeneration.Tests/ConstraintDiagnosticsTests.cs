@@ -59,6 +59,15 @@ public sealed class ConstraintDiagnosticsTests
     }
 
     [Test]
+    public async Task Scalar_with_unknown_base_reports_ORM033()
+    {
+        var ids = DiagnosticIds(
+            "module d;\nscalar Bad extending Nope { constraint min_length(1); }\nentity E { id: Uuid { constraint primary; } }"
+        );
+        await Assert.That(ids).Contains("ORM033");
+    }
+
+    [Test]
     public async Task Unknown_annotation_reports_ORM036()
     {
         var ids = DiagnosticIds(

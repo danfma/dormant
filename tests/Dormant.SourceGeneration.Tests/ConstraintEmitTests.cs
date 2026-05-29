@@ -47,6 +47,20 @@ public sealed class ConstraintEmitTests
         }
         """;
 
+    private const string ScalarSchema = """
+        module shop;
+
+        scalar Username extending String {
+          constraint min_length(3);
+          constraint max_length(30);
+        }
+
+        entity Account2 {
+          id: Uuid { constraint primary; }
+          handle: Username;
+        }
+        """;
+
     private static string Generate() => GenerateFrom("schema/shop.dqls", Schema);
 
     private static string GenerateFrom(string path, string schema)
@@ -120,6 +134,20 @@ public sealed class ConstraintEmitTests
         await Assert
             .That(generated)
             .Contains("CONSTRAINT \"accounts_name\" UNIQUE (\"first\", \"last\")");
+    }
+
+    [Test]
+    public async Task Scalar_typed_member_inherits_scalar_constraints()
+    {
+        var generated = GenerateFrom("schema/scalars.dqls", ScalarSchema);
+        // handle: Username → base String column with the scalar's length constraints.
+        await Assert.That(generated).Contains("\"handle\" text NOT NULL");
+        await Assert
+            .That(generated)
+            .Contains("CONSTRAINT \"account2_handle_minlen\" CHECK (length(\"handle\") >= 3)");
+        await Assert
+            .That(generated)
+            .Contains("CONSTRAINT \"account2_handle_maxlen\" CHECK (length(\"handle\") <= 30)");
     }
 
     [Test]
