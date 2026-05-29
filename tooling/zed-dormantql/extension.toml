@@ -1,14 +1,19 @@
+schema_version = 1
+
 id = "dormantql"
 name = "DormantQL"
 version = "0.1.0"
 description = "Syntax highlighting and language support for DormantQL (.dql and .dqls files)"
 authors = ["Dormant Team"]
-repository = "https://github.com/your-org/dormant"
+repository = "https://github.com/danfma/dormant"
 
+# Zed clones the grammar from a git repository at a specific commit and compiles its
+# src/parser.c — it does NOT support local/file:// grammar paths. Because the grammar
+# lives in a subdirectory of this monorepo, we point `repository` at the repo, `path` at
+# the grammar subdir, and pin `commit` to a SHA that is PUSHED to GitHub and contains
+# tooling/grammar/dormantql-tree-sitter/src/parser.c.
 [grammars.dormantql]
-# For local development, you can point to the local grammar.
-# In production, this should point to a published Tree-sitter grammar repository.
-repository = "file://../../grammar/dormantql-tree-sitter"
-# Or for a real release, use a git reference like:
-# repository = "https://github.com/dormant/tree-sitter-dormantql"
-# rev = "main"
+repository = "https://github.com/danfma/dormant"
+path = "tooling/grammar/dormantql-tree-sitter"
+# Replace with the pushed commit SHA (see tooling/zed-dormantql/README.md):
+commit = "REPLACE_WITH_PUSHED_COMMIT_SHA"
