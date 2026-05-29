@@ -1,8 +1,17 @@
 <!-- SPECKIT START -->
 For additional context about technologies, project structure, conventions, and
 important decisions for the active feature, read the current plan:
-`specs/009-shape-selection/plan.md` (with `research.md`, `data-model.md`,
-`contracts/query-shape-grammar.md`, `quickstart.md`).
+`specs/011-dql-syntax-highlighting/plan.md` (with `research.md`, `data-model.md`,
+`contracts/`, `quickstart.md`).
+
+**Feature 011 – DQL Syntax Highlighting** turns the DormantQL DSL into a first-class citizen in editors. It delivers:
+- A portable grammar (Tree-sitter primary + TextMate secondary) maintained in `tooling/grammar/`.
+- A proper VS Code extension (initial focus) with automatic activation for `.dql` and `.dqls`.
+- Support for Zed (via Tree-sitter queries) immediately after VS Code.
+- Best-effort repository viewing (GitHub etc.) via `.gitattributes` + planned future Linguist contribution.
+- Explicit design for future expansion to JetBrains Rider and other editors.
+
+Key decisions from clarify: web/repository highlighting stays in scope; grammar must be designed for extensibility from day one; implementation order is VS Code extension first, then Zed; the grammar is owned and maintained in our repository rather than depending on external projects. All of this is in service of Principle IV (First-Class Tooling) and Principle I (Developer Experience First). Background completed features remain below.
 Feature 009 turns the query `select` into an **EdgeQL-style shape** blended with the
 LINQ grammar and **flattens entities** by removing the runtime relationship wrappers
 (`Ref`/`RefSet`/…). Shaped reads return nested immutable projections (shape = type);

@@ -87,3 +87,15 @@ jobs:
           name: test-results
           path: '**/TestResults/**'
           if-no-files-found: ignore
+
+  grammar:
+    # Feature 011: validate the portable DormantQL grammar (Tree-sitter + TextMate) as
+    # first-class tooling per Constitution Principle IV/VI. Auxiliary to the .NET build, so it
+    # runs as its own lightweight job (no .NET, no Postgres).
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate DormantQL grammar
+        working-directory: tooling/grammar
+        run: bash validate-grammar.sh

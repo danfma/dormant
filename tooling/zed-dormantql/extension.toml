@@ -1,0 +1,14 @@
+id = "dormantql"
+name = "DormantQL"
+version = "0.1.0"
+description = "Syntax highlighting and language support for DormantQL (.dql and .dqls files)"
+authors = ["Dormant Team"]
+repository = "https://github.com/your-org/dormant"
+
+[grammars.dormantql]
+# For local development, you can point to the local grammar.
+# In production, this should point to a published Tree-sitter grammar repository.
+repository = "file://../../grammar/dormantql-tree-sitter"
+# Or for a real release, use a git reference like:
+# repository = "https://github.com/dormant/tree-sitter-dormantql"
+# rev = "main"

@@ -38,3 +38,10 @@ Thumbs.db
 .env
 .env.*
 !.env.example
+
+# Node.js / editor tooling (Feature 011 — tooling/)
+node_modules/
+tooling/vscode-dormantql/out/
+# Note: dormantql-*.vsix and the generated tree-sitter parser (parser.c, grammar.json,
+# node-types.json, tree_sitter/) ARE committed — they are distributable artifacts so
+# consumers (Zed, sideload) do not need the tree-sitter CLI to build the grammar.

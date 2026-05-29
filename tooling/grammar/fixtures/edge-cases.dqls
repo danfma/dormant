@@ -1,0 +1,18 @@
+module edge;
+
+# Edge-case schema fixture for grammar validation (Feature 011 / spec Edge Cases).
+# Exercises: comments, optional members, collections, concurrency/primary modifiers,
+# and an entity name adjacent to a keyword-like field.
+
+entity Note {
+  id: uuid primary;
+  title: str?;
+  body: str;
+  tags: Set<Tag>;
+  version: int concurrency;
+}
+
+entity Tag {
+  id: uuid primary;
+  name: str;
+}

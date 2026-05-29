@@ -1,0 +1,8 @@
+# Feature 011 — DQL Syntax Highlighting (best-effort GitHub viewing)
+# DormantQL has no first-class GitHub Linguist support yet. Map .dql/.dqls to a close
+# existing language so the repo's schema/operation files render with usable coloring on
+# GitHub instead of plain text. This is a deliberate best-effort fallback; first-class
+# highlighting via a Linguist Tree-sitter contribution remains planned follow-up work.
+# Repo owners adopting DormantQL can copy these two lines into their own .gitattributes.
+*.dql  linguist-language=TypeScript
+*.dqls linguist-language=TypeScript

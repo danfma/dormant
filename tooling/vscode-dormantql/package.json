@@ -1,0 +1,52 @@
+{
+  "name": "dormantql",
+  "displayName": "DormantQL",
+  "description": "Syntax highlighting and language support for DormantQL (.dql and .dqls files)",
+  "version": "0.1.0",
+  "publisher": "dormant",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "dormantql",
+        "aliases": [
+          "DormantQL",
+          "dormantql"
+        ],
+        "extensions": [
+          ".dql",
+          ".dqls"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "dormantql",
+        "scopeName": "source.dormantql",
+        "path": "./syntaxes/dormantql.tmLanguage.json"
+      }
+    ]
+  },
+  "activationEvents": [
+    "onLanguage:dormantql"
+  ],
+  "main": "./out/extension.js",
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.85.0",
+    "@vscode/vsce": "^3.9.1",
+    "typescript": "^5.3.0"
+  }
+}

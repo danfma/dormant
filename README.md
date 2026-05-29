@@ -91,6 +91,16 @@ Common local commands:
 
 `./build.sh all` runs provider tests that require Docker.
 
+## Editor Support
+
+DormantQL has dedicated editor tooling:
+
+- **VS Code**: Best experience via the official DormantQL extension (syntax highlighting + language configuration).
+- **Zed**: Supported via a development extension using the shared Tree-sitter grammar.
+- **GitHub / repository viewers**: Best-effort support via `.gitattributes` language mapping (see the [Editor Integration Guide](tooling/docs/editor-integration.md)).
+
+All grammars and extensions are maintained under `tooling/`. See the [Editor Integration Guide](tooling/docs/editor-integration.md) for installation and usage details.
+
 ## Where To Go Next
 
 - [Documentation index](docs/index.md)

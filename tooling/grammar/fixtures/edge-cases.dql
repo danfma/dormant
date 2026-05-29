@@ -1,0 +1,18 @@
+module edge;
+
+# Edge-case operations fixture (Feature 011 / spec Edge Cases): escaped strings,
+# special characters inside string literals, and operators packed without spaces.
+
+# String literal containing escaped quotes, backslashes and a newline escape.
+query notes_by_title(needle: string) {
+  from Note n
+  where n.title == "a \"quoted\" word, a backslash \\ and a tab \t end"
+  select n
+}
+
+# Operators with no surrounding whitespace + comparison chain.
+query dense(min: int, max: int) {
+  from Note n
+  where n.version>=min&&n.version<=max
+  select { n.id n.title }
+}
