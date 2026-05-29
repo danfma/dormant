@@ -17,4 +17,4 @@ repository = "https://github.com/danfma/dormant"
 path = "tooling/grammar/dormantql-tree-sitter"
 # Pinned to a pushed commit that contains tooling/grammar/dormantql-tree-sitter/src/parser.c.
 # Bump this whenever the grammar changes (regenerate parser.c, push, update SHA).
-commit = "027e06a0604816e6537adfa91c420e84ac338459"
+commit = "222467c1ac4751e5dfcc2a9e4dfecaf69ea60d51"
