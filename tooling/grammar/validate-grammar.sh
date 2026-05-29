@@ -66,7 +66,7 @@ if command -v tree-sitter >/dev/null 2>&1; then
   {
     echo "module big;"
     for i in $(seq 1 2000); do
-      printf 'entity E%d { id: uuid primary; name: str; n: int; }\n' "$i"
+      printf 'entity E%d { id: Uuid { constraint primary; } name: String; n: Int; }\n' "$i"
     done
   } > "$big"
   ( cd dormantql-tree-sitter && tree-sitter parse "$big" >/dev/null 2>&1 ) \

@@ -19,6 +19,21 @@ mapping to plan.md: Setup+Foundational ≈ P-A; US1–US3 ≈ P-B; US4 ≈ P-C; 
 - `- [ ] T### [P?] [USx?] Description with exact file path`
 - `[P]` = parallelizable (different files, no incomplete deps); story label only on US phases.
 
+## Implementation status (Slice 9 — grammar 011 update, 2026-05-29)
+
+**Landed & verified** (`validate-grammar.sh` green: parser generates, parses fixtures + real samples
+incl. 009 catalog + 2000-entity file, highlight query valid):
+- T045 — Tree-sitter `grammar.js`: member `{ constraint…; annotation…; }` block, `scalar … extending`,
+  `abstract` entity, `extending` clause, `constraint`/`annotation`/`on`/`as` keywords, `argument_list`
+  (positional/named/`check`-expr), PascalCase `primitive_type`. Parser regenerated (`src/parser.c`).
+- T046 — `highlights.scm`: new keywords + constraint/annotation names as `@function`; synced to Zed copy.
+- T047 — TextMate grammar: keyword + `storage.type` (PascalCase) regexes updated, `#` line comments;
+  synced to the vendored VS Code copy.
+- Edge-case fixtures + the large-file generator in `validate-grammar.sh` migrated to the new syntax.
+
+**Pending in T048**: bump the Zed grammar `commit` SHA in `tooling/zed-dormantql/extension.toml` after
+the branch is pushed (Zed fetches the grammar from GitHub at that SHA).
+
 ## Implementation status (Slice 8 — US5 inheritance & composition, 2026-05-29)
 
 **Landed & verified** (build 0/0, generator tests 59/59, CSharpier clean):
@@ -269,9 +284,9 @@ constraints beyond primary/concurrency parse into the model but are not yet emit
 
 ## Phase 8: Polish & Cross-Cutting (grammar 011, migration, release)
 
-- [ ] T045 [P] Update the Tree-sitter grammar for the new syntax (member block with `constraint` + `annotation` statements, function-call args incl. named `name = value`, optional parens, `scalar`, `extending`, `abstract`, `on`, `as`, constraint/annotation names like `column`/`range`) in `tooling/grammar/dormantql-tree-sitter/grammar.js`; run `tree-sitter generate` and commit `src/parser.c`
-- [ ] T046 [P] Update `highlights.scm` (constraint names, keywords) in `tooling/grammar/dormantql-tree-sitter/src/highlights.scm` and sync the Zed copy `tooling/zed-dormantql/languages/dormantql/highlights.scm`
-- [ ] T047 [P] Update the TextMate keyword list (add `constraint`, `annotation`, `scalar`, `extending`, `abstract`, `on`, `as` + constraint/annotation names) in `tooling/grammar/dormantql-textmate/dormantql.tmLanguage.json` and the vendored copy `tooling/vscode-dormantql/syntaxes/dormantql.tmLanguage.json`
+- [X] T045 [P] Update the Tree-sitter grammar for the new syntax (member block with `constraint` + `annotation` statements, function-call args incl. named `name = value`, optional parens, `scalar`, `extending`, `abstract`, `on`, `as`, constraint/annotation names like `column`/`range`) in `tooling/grammar/dormantql-tree-sitter/grammar.js`; run `tree-sitter generate` and commit `src/parser.c`
+- [X] T046 [P] Update `highlights.scm` (constraint names, keywords) in `tooling/grammar/dormantql-tree-sitter/src/highlights.scm` and sync the Zed copy `tooling/zed-dormantql/languages/dormantql/highlights.scm`
+- [X] T047 [P] Update the TextMate keyword list (add `constraint`, `annotation`, `scalar`, `extending`, `abstract`, `on`, `as` + constraint/annotation names) in `tooling/grammar/dormantql-textmate/dormantql.tmLanguage.json` and the vendored copy `tooling/vscode-dormantql/syntaxes/dormantql.tmLanguage.json`
 - [ ] T048 Add constraint/scalar/inheritance fixtures + update real-sample parsing in `tooling/grammar/fixtures/` and run `tooling/grammar/validate-grammar.sh` (must stay green); bump the Zed grammar `commit` SHA in `tooling/zed-dormantql/extension.toml` after push
 - [ ] T049 Write the migration guide (old modifiers → constraints) under `tooling/docs/` (or `docs/`) and link from `specs/012-edgeql-constraints/quickstart.md`
 - [ ] T050 Update the DSL compatibility baseline + bump the package MAJOR version; record the breaking change + migration in release notes

@@ -16,6 +16,7 @@ module.exports = grammar({
   rules: {
     source_file: $ => repeat(choice(
       $.module_declaration,
+      $.scalar_definition,
       $.entity_definition,
       $.query_definition,
       $.mutation_definition,
@@ -25,27 +26,79 @@ module.exports = grammar({
 
     // --- Schema (.dqls) ---------------------------------------------------
 
+    // Custom scalar type (012 US4): `scalar Name extending Base { constraint…; }`.
+    scalar_definition: $ => seq(
+      'scalar',
+      field('name', $.identifier),
+      'extending',
+      $.type_identifier,
+      $.member_block,
+    ),
+
+    // `[abstract] entity Name [extending A, B] { … }` (012 US5).
     entity_definition: $ => seq(
+      optional('abstract'),
       'entity',
       $.identifier,
+      optional($.extends_clause),
       '{',
-      repeat($.member_declaration),
+      repeat($.entity_member),
       '}',
     ),
 
-    // Unified member: `name: TypeExpr[?] [modifier...] ;`. A single rule covers both value
-    // fields (`email: str`) and single refs (`author: User`) — they are syntactically
-    // identical, so distinguishing them is a semantic concern, not a highlighting one.
+    extends_clause: $ => seq('extending', $.identifier, repeat(seq(',', $.identifier))),
+
+    entity_member: $ => choice(
+      $.member_declaration,
+      $.constraint_statement,
+      $.annotation_statement,
+    ),
+
+    // `name: TypeExpr[?]` terminated by either a `{ constraint…; annotation…; }` block or ';'.
     member_declaration: $ => seq(
       field('name', $.identifier),
       ':',
       $.type_expression,
       optional('?'),
-      repeat($.member_modifier),
+      choice($.member_block, ';'),
+    ),
+
+    member_block: $ => seq(
+      '{',
+      repeat(choice($.constraint_statement, $.annotation_statement)),
+      '}',
+    ),
+
+    // constraint name[(args)] [on (…)] [as name] ;  (012)
+    constraint_statement: $ => seq(
+      'constraint',
+      field('name', $.identifier),
+      optional($.argument_list),
+      optional($.on_clause),
+      optional($.as_clause),
       ';',
     ),
 
-    member_modifier: $ => choice('primary', 'concurrency'),
+    annotation_statement: $ => seq(
+      'annotation',
+      field('name', $.identifier),
+      optional($.argument_list),
+      ';',
+    ),
+
+    on_clause: $ => seq('on', '(', $.identifier, repeat(seq(',', $.identifier)), ')'),
+    as_clause: $ => seq('as', $.identifier),
+
+    argument_list: $ => seq(
+      '(',
+      optional(seq($.argument, repeat(seq(',', $.argument)))),
+      ')',
+    ),
+    // Positional or named (`min = 1`); the `check` expression is just a (binary) expression argument.
+    argument: $ => choice(
+      seq(field('name', $.identifier), '=', $.expression),
+      $.expression,
+    ),
 
     type_expression: $ => choice(
       $.primitive_type,
@@ -54,9 +107,10 @@ module.exports = grammar({
 
     type_identifier: $ => $.identifier,
 
+    // 012: PascalCase value-type vocabulary.
     primitive_type: $ => choice(
-      'uuid', 'string', 'str', 'int', 'long', 'double', 'decimal',
-      'bool', 'boolean', 'datetime', 'date', 'json',
+      'String', 'Char', 'Byte', 'Short', 'Int', 'Long', 'Float', 'Double',
+      'Decimal', 'Bool', 'Uuid', 'DateTime', 'Date', 'Time', 'Json',
     ),
 
     generic_arguments: $ => seq(

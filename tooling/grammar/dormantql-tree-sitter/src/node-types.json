@@ -1,5 +1,87 @@
 [
   {
+    "type": "annotation_statement",
+    "named": true,
+    "fields": {
+      "name": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "identifier",
+            "named": true
+          }
+        ]
+      }
+    },
+    "children": {
+      "multiple": false,
+      "required": false,
+      "types": [
+        {
+          "type": "argument_list",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "argument",
+    "named": true,
+    "fields": {
+      "name": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "identifier",
+            "named": true
+          }
+        ]
+      }
+    },
+    "children": {
+      "multiple": false,
+      "required": true,
+      "types": [
+        {
+          "type": "expression",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "argument_list",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": false,
+      "types": [
+        {
+          "type": "argument",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "as_clause",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": false,
+      "required": true,
+      "types": [
+        {
+          "type": "identifier",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
     "type": "assignment",
     "named": true,
     "fields": {},
@@ -52,6 +134,40 @@
     "fields": {}
   },
   {
+    "type": "constraint_statement",
+    "named": true,
+    "fields": {
+      "name": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "identifier",
+            "named": true
+          }
+        ]
+      }
+    },
+    "children": {
+      "multiple": true,
+      "required": false,
+      "types": [
+        {
+          "type": "argument_list",
+          "named": true
+        },
+        {
+          "type": "as_clause",
+          "named": true
+        },
+        {
+          "type": "on_clause",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
     "type": "delete_statement",
     "named": true,
     "fields": {},
@@ -79,7 +195,34 @@
       "required": true,
       "types": [
         {
+          "type": "entity_member",
+          "named": true
+        },
+        {
+          "type": "extends_clause",
+          "named": true
+        },
+        {
           "type": "identifier",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "entity_member",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": false,
+      "required": true,
+      "types": [
+        {
+          "type": "annotation_statement",
+          "named": true
+        },
+        {
+          "type": "constraint_statement",
           "named": true
         },
         {
@@ -123,6 +266,21 @@
         },
         {
           "type": "string_literal",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "extends_clause",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "identifier",
           "named": true
         }
       ]
@@ -193,6 +351,25 @@
     }
   },
   {
+    "type": "member_block",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": false,
+      "types": [
+        {
+          "type": "annotation_statement",
+          "named": true
+        },
+        {
+          "type": "constraint_statement",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
     "type": "member_declaration",
     "named": true,
     "fields": {
@@ -212,7 +389,7 @@
       "required": true,
       "types": [
         {
-          "type": "member_modifier",
+          "type": "member_block",
           "named": true
         },
         {
@@ -240,11 +417,6 @@
         }
       ]
     }
-  },
-  {
-    "type": "member_modifier",
-    "named": true,
-    "fields": {}
   },
   {
     "type": "module_declaration",
@@ -310,6 +482,21 @@
         },
         {
           "type": "with_clause",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "on_clause",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "identifier",
           "named": true
         }
       ]
@@ -495,6 +682,36 @@
     }
   },
   {
+    "type": "scalar_definition",
+    "named": true,
+    "fields": {
+      "name": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "identifier",
+            "named": true
+          }
+        ]
+      }
+    },
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "member_block",
+          "named": true
+        },
+        {
+          "type": "type_identifier",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
     "type": "select_clause",
     "named": true,
     "fields": {},
@@ -585,6 +802,10 @@
         },
         {
           "type": "query_definition",
+          "named": true
+        },
+        {
+          "type": "scalar_definition",
           "named": true
         }
       ]
@@ -758,15 +979,79 @@
     "named": false
   },
   {
+    "type": "Bool",
+    "named": false
+  },
+  {
+    "type": "Byte",
+    "named": false
+  },
+  {
+    "type": "Char",
+    "named": false
+  },
+  {
+    "type": "Date",
+    "named": false
+  },
+  {
+    "type": "DateTime",
+    "named": false
+  },
+  {
+    "type": "Decimal",
+    "named": false
+  },
+  {
+    "type": "Double",
+    "named": false
+  },
+  {
+    "type": "Float",
+    "named": false
+  },
+  {
+    "type": "Int",
+    "named": false
+  },
+  {
+    "type": "Json",
+    "named": false
+  },
+  {
+    "type": "Long",
+    "named": false
+  },
+  {
+    "type": "Short",
+    "named": false
+  },
+  {
+    "type": "String",
+    "named": false
+  },
+  {
+    "type": "Time",
+    "named": false
+  },
+  {
+    "type": "Uuid",
+    "named": false
+  },
+  {
+    "type": "abstract",
+    "named": false
+  },
+  {
+    "type": "annotation",
+    "named": false
+  },
+  {
+    "type": "as",
+    "named": false
+  },
+  {
     "type": "asc",
-    "named": false
-  },
-  {
-    "type": "bool",
-    "named": false
-  },
-  {
-    "type": "boolean",
     "named": false
   },
   {
@@ -779,19 +1064,7 @@
     "extra": true
   },
   {
-    "type": "concurrency",
-    "named": false
-  },
-  {
-    "type": "date",
-    "named": false
-  },
-  {
-    "type": "datetime",
-    "named": false
-  },
-  {
-    "type": "decimal",
+    "type": "constraint",
     "named": false
   },
   {
@@ -803,11 +1076,11 @@
     "named": false
   },
   {
-    "type": "double",
+    "type": "entity",
     "named": false
   },
   {
-    "type": "entity",
+    "type": "extending",
     "named": false
   },
   {
@@ -827,19 +1100,7 @@
     "named": false
   },
   {
-    "type": "int",
-    "named": false
-  },
-  {
     "type": "into",
-    "named": false
-  },
-  {
-    "type": "json",
-    "named": false
-  },
-  {
-    "type": "long",
     "named": false
   },
   {
@@ -855,15 +1116,15 @@
     "named": true
   },
   {
+    "type": "on",
+    "named": false
+  },
+  {
     "type": "optional",
     "named": false
   },
   {
     "type": "order",
-    "named": false
-  },
-  {
-    "type": "primary",
     "named": false
   },
   {
@@ -875,19 +1136,15 @@
     "named": false
   },
   {
+    "type": "scalar",
+    "named": false
+  },
+  {
     "type": "select",
     "named": false
   },
   {
     "type": "set",
-    "named": false
-  },
-  {
-    "type": "str",
-    "named": false
-  },
-  {
-    "type": "string",
     "named": false
   },
   {
@@ -900,10 +1157,6 @@
   },
   {
     "type": "update",
-    "named": false
-  },
-  {
-    "type": "uuid",
     "named": false
   },
   {

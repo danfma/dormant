@@ -23,10 +23,20 @@
   "asc"
   "desc"
   "into"
-  "primary"
   "optional"
-  "concurrency"
+  ; 012: schema vocabulary
+  "scalar"
+  "extending"
+  "abstract"
+  "constraint"
+  "annotation"
+  "on"
+  "as"
 ] @keyword
+
+; Constraint / annotation names read like calls (012): `unique`, `max_length`, `column`, …
+(constraint_statement name: (identifier) @function)
+(annotation_statement name: (identifier) @function)
 
 ; Operators
 (binary_operator) @operator

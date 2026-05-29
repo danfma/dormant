@@ -1,18 +1,33 @@
 module edge;
 
-# Edge-case schema fixture for grammar validation (Feature 011 / spec Edge Cases).
-# Exercises: comments, optional members, collections, concurrency/primary modifiers,
-# and an entity name adjacent to a keyword-like field.
+# Edge-case schema fixture for grammar validation (Feature 012 / spec Edge Cases).
+# Exercises: comments, optional members, collections, constraint + annotation blocks,
+# scalar types, abstract + extending, PascalCase value types, multi-field + check constraints.
 
-entity Note {
-  id: uuid primary;
-  title: str?;
-  body: str;
+scalar Username extending String {
+  constraint min_length(3);
+  constraint max_length(30);
+  constraint regex("^[a-z0-9_]+$");
+}
+
+abstract entity Timestamped {
+  created_at: DateTime;
+  updated_at: DateTime;
+  constraint check (created_at <= updated_at);
+}
+
+entity Note extending Timestamped {
+  id: Uuid { constraint primary; }
+  title: String? { annotation column("note_title"); }
+  body: String { constraint max_length(4000); }
+  author: Username;
   tags: Set<Tag>;
-  version: int concurrency;
+  version: Int { constraint concurrency; }
+
+  constraint unique on (author, body) as note_author_body;
 }
 
 entity Tag {
-  id: uuid primary;
-  name: str;
+  id: Uuid { constraint primary; }
+  name: String { constraint unique; }
 }

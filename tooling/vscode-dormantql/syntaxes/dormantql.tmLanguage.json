@@ -13,12 +13,12 @@
   "repository": {
     "comment": {
       "patterns": [
-        { "match": "//.*$", "name": "comment.line.double-slash.dormantql" },
+        { "match": "(#|//).*$", "name": "comment.line.double-slash.dormantql" },
         { "begin": "/\\*", "end": "\\*/", "name": "comment.block.dormantql" }
       ]
     },
     "keyword": {
-      "match": "\\b(module|entity|query|mutation|from|where|select|insert|update|delete|with|returning|set|order|by|primary|optional|concurrency)\\b",
+      "match": "\\b(module|entity|query|mutation|from|where|select|insert|update|delete|with|returning|set|order|by|optional|scalar|extending|abstract|constraint|annotation|on|as)\\b",
       "name": "keyword.control.dormantql"
     },
     "entity": {
@@ -49,7 +49,7 @@
       ]
     },
     "type": {
-      "match": "\\b(uuid|string|str|int|long|double|decimal|bool|boolean|datetime|date|json)\\b",
+      "match": "\\b(String|Char|Byte|Short|Int|Long|Float|Double|Decimal|Bool|Uuid|DateTime|Date|Time|Json)\\b",
       "name": "storage.type.dormantql"
     },
     "string": {
