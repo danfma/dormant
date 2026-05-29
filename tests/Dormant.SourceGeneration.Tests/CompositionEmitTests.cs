@@ -16,13 +16,13 @@ public sealed class CompositionEmitTests
         module app;
 
         entity Author {
-          id: uuid { constraint primary; }
-          name: string;
+          id: Uuid { constraint primary; }
+          name: String;
         }
 
         entity Article {
-          id: uuid { constraint primary; }
-          title: string;
+          id: Uuid { constraint primary; }
+          title: String;
           writer: Author;
         }
         """;
@@ -30,13 +30,13 @@ public sealed class CompositionEmitTests
     private const string Queries = """
         module app;
 
-        query feed_item(id: uuid) {
+        query feed_item(id: Uuid) {
           from Article a
           where a.id == id
           select { headline = a.title, authorName = a.writer.name }
         }
 
-        query feed_dto(id: uuid) {
+        query feed_dto(id: Uuid) {
           from Article a
           where a.id == id
           select { headline = a.title, authorName = a.writer.name } into App.FeedDto

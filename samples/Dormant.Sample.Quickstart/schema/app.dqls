@@ -1,16 +1,16 @@
 module app;
 
 entity User {
-  id: uuid { constraint primary; }
-  email: str;
-  created_at: datetime;
-  bio: str?;
+  id: Uuid { constraint primary; }
+  email: String;
+  created_at: DateTime;
+  bio: String?;
   posts: Set<Post>;
-  version: int { constraint concurrency; }
+  version: Int { constraint concurrency; }
 }
 
 entity Post {
-  id: uuid { constraint primary; }
-  title: str;
+  id: Uuid { constraint primary; }
+  title: String;
   author: User;
 }

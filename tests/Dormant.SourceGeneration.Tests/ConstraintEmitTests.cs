@@ -14,13 +14,13 @@ public sealed class ConstraintEmitTests
         module shop;
 
         entity Product {
-          id: uuid { constraint primary; }
-          sku: str {
+          id: Uuid { constraint primary; }
+          sku: String {
             constraint unique as products_sku_unique;
             constraint max_length(32);
           }
-          price: int { constraint range(min = 0, max = 1000000); }
-          name: str { constraint min_length(1); }
+          price: Int { constraint range(min = 0, max = 1000000); }
+          name: String { constraint min_length(1); }
         }
         """;
 
@@ -28,20 +28,20 @@ public sealed class ConstraintEmitTests
         module shop;
 
         entity Account {
-          id: uuid { constraint primary; }
-          status: str { constraint one_of("Open", "Closed", "Merged"); }
-          email: str { constraint regex("^[^@]+@[^@]+$"); }
-          first: str;
-          last: str;
+          id: Uuid { constraint primary; }
+          status: String { constraint one_of("Open", "Closed", "Merged"); }
+          email: String { constraint regex("^[^@]+@[^@]+$"); }
+          first: String;
+          last: String;
 
           constraint unique on (first, last) as accounts_name;
         }
 
         entity Booking {
-          id: uuid { constraint primary; }
-          start_at: datetime;
-          end_at: datetime;
-          qty: int { constraint check (qty > 0); }
+          id: Uuid { constraint primary; }
+          start_at: DateTime;
+          end_at: DateTime;
+          qty: Int { constraint check (qty > 0); }
 
           constraint check (start_at <= end_at);
         }

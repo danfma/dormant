@@ -35,7 +35,7 @@ internal static class EntityColumns
         IReadOnlyDictionary<string, string> refPkDslTypes
     )
     {
-        var dsl = refPkDslTypes.TryGetValue(reference.TargetEntity, out var t) ? t : "uuid";
+        var dsl = refPkDslTypes.TryGetValue(reference.TargetEntity, out var t) ? t : "Uuid";
         return TypeMap.TryMap(dsl, out var clr) ? clr : "global::System.Guid";
     }
 

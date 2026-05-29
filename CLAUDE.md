@@ -73,8 +73,9 @@ unit surface becomes a **LINQ-/SQL-hybrid, brace-delimited grammar** with explic
 aliases and C#/TypeScript operators. Units are `query name(...) { from E u where
 u.x == p select u }` (reads) and `mutation name(...) { insert|update|delete E u …
 [returning …] }` (writes); unit names are snake_case → PascalCase C# methods;
-entities PascalCase; type keywords lowercase (`string bool int long double decimal
-uuid datetime date json` + `optional T`). Operators: `== != < <= > >= && || !`,
+entities PascalCase; value types **PascalCase** (Feature 012): `String Char Byte Short Int Long
+Float Double Decimal Bool Uuid DateTime Date Time Json` (+ `optional T`); old lowercase aliases
+removed (ORM003). Operators: `== != < <= > >= && || !`,
 assignment `=`; members alias-qualified (`u.email`). Mutation result is inferred
 (insert→id, update/delete→affected count) and optionally shaped by `returning`
 (mirrors `select`) or a trailing read; multi-command blocks flow values via `with`.

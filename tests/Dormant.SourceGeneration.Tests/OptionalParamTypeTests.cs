@@ -14,16 +14,16 @@ public sealed class OptionalParamTypeTests
         module catalog;
 
         entity Widget {
-          id: uuid { constraint primary; }
-          name: str;
-          quantity: int;
+          id: Uuid { constraint primary; }
+          name: String;
+          quantity: Int;
         }
         """;
 
     private const string Queries = """
         module catalog;
 
-        query search_widgets(minQuantity: optional int, name: optional string) {
+        query search_widgets(minQuantity: optional Int, name: optional String) {
           from Widget w
           where w.quantity >= minQuantity && w.name == name
           order by w.name asc

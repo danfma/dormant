@@ -27,7 +27,7 @@ public sealed class ConstraintDiagnosticsTests
     public async Task Unknown_constraint_reports_ORM029()
     {
         var ids = DiagnosticIds(
-            "module d;\nentity E { id: uuid { constraint primary; } a: str { constraint bogus; } }"
+            "module d;\nentity E { id: Uuid { constraint primary; } a: String { constraint bogus; } }"
         );
         await Assert.That(ids).Contains("ORM029");
     }
@@ -37,7 +37,7 @@ public sealed class ConstraintDiagnosticsTests
     {
         // max_length on an int member.
         var ids = DiagnosticIds(
-            "module d;\nentity E { id: uuid { constraint primary; } n: int { constraint max_length(5); } }"
+            "module d;\nentity E { id: Uuid { constraint primary; } n: Int { constraint max_length(5); } }"
         );
         await Assert.That(ids).Contains("ORM030");
     }
@@ -46,7 +46,7 @@ public sealed class ConstraintDiagnosticsTests
     public async Task Entity_constraint_unknown_member_reports_ORM031()
     {
         var ids = DiagnosticIds(
-            "module d;\nentity E { id: uuid { constraint primary; } a: str; constraint unique on (a, ghost); }"
+            "module d;\nentity E { id: Uuid { constraint primary; } a: String; constraint unique on (a, ghost); }"
         );
         await Assert.That(ids).Contains("ORM031");
     }
@@ -54,7 +54,7 @@ public sealed class ConstraintDiagnosticsTests
     [Test]
     public async Task Removed_modifier_reports_ORM035()
     {
-        var ids = DiagnosticIds("module d;\nentity E { id: uuid primary; }");
+        var ids = DiagnosticIds("module d;\nentity E { id: Uuid primary; }");
         await Assert.That(ids).Contains("ORM035");
     }
 
@@ -62,7 +62,7 @@ public sealed class ConstraintDiagnosticsTests
     public async Task Unknown_annotation_reports_ORM036()
     {
         var ids = DiagnosticIds(
-            "module d;\nentity E { id: uuid { constraint primary; } a: str { annotation foo(\"x\"); } }"
+            "module d;\nentity E { id: Uuid { constraint primary; } a: String { annotation foo(\"x\"); } }"
         );
         await Assert.That(ids).Contains("ORM036");
     }

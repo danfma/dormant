@@ -1,30 +1,30 @@
 module catalog;
 
 entity Widget {
-  id: uuid { constraint primary; }
-  name: str;
-  quantity: int;
+  id: Uuid { constraint primary; }
+  name: String;
+  quantity: Int;
 }
 
 entity Author {
-  id: uuid { constraint primary; }
-  name: str;
+  id: Uuid { constraint primary; }
+  name: String;
 }
 
 entity Article {
-  id: uuid { constraint primary; }
-  title: str;
+  id: Uuid { constraint primary; }
+  title: String;
   writer: Author;
   tags: Set<Tag>;
 }
 
 entity Tag {
-  id: uuid { constraint primary; }
-  label: str;
+  id: Uuid { constraint primary; }
+  label: String;
   article: Article;
 }
 
 entity Document {
-  id: uuid { constraint primary; }
-  data: json;
+  id: Uuid { constraint primary; }
+  data: Json;
 }

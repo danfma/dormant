@@ -16,13 +16,13 @@ public sealed class NavigationEmitTests
         module app;
 
         entity Author {
-          id: uuid { constraint primary; }
-          name: string;
+          id: Uuid { constraint primary; }
+          name: String;
         }
 
         entity Article {
-          id: uuid { constraint primary; }
-          title: string;
+          id: Uuid { constraint primary; }
+          title: String;
           writer: Author;
         }
         """;
@@ -30,7 +30,7 @@ public sealed class NavigationEmitTests
     private const string Queries = """
         module app;
 
-        query articles_by_author(name: string) {
+        query articles_by_author(name: String) {
           from Article a
           where a.writer.name == name
           select a

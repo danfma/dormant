@@ -169,23 +169,20 @@ internal static class SchemaValidator
             _ => true,
         };
 
-    private static bool IsStringType(string dsl) => dsl is "str" or "string";
+    private static bool IsStringType(string dsl) => dsl is "String" or "Char";
 
     private static bool IsOrderedType(string dsl) =>
         dsl
-            is "int"
-                or "int16"
-                or "int32"
-                or "int64"
-                or "long"
-                or "double"
-                or "float32"
-                or "float64"
-                or "decimal"
-                or "bigint"
-                or "datetime"
-                or "date"
-                or "duration";
+            is "Byte"
+                or "Short"
+                or "Int"
+                or "Long"
+                or "Float"
+                or "Double"
+                or "Decimal"
+                or "DateTime"
+                or "Date"
+                or "Time";
 
     private static string KindName(ConstraintKind kind) =>
         kind switch

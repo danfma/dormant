@@ -7,15 +7,15 @@ modifiers; the model mirrors Gel/EdgeDB.
 
 ```dqls
 entity User {
-  id: uuid { constraint primary; }
-  email: str {
+  id: Uuid { constraint primary; }
+  email: String {
     annotation column("email_addr");          # metadata: DB column name (replaces old db("…"))
     constraint unique as users_email_key;
     constraint max_length(255);
     constraint regex("^[^@]+@[^@]+$");
   }
-  age: int { constraint range(min = 0, max = 130); }   # one multi-arg constraint, named args
-  version: int { constraint concurrency; }
+  age: Int { constraint range(min = 0, max = 130); }   # one multi-arg constraint, named args
+  version: Int { constraint concurrency; }
 }
 ```
 
@@ -32,10 +32,10 @@ entity User {
 
 ```dqls
 entity Booking {
-  id: uuid { constraint primary; }
-  room: str;
-  start_at: datetime;
-  end_at: datetime;
+  id: Uuid { constraint primary; }
+  room: String;
+  start_at: DateTime;
+  end_at: DateTime;
 
   constraint unique on (room, start_at) as bookings_room_slot;
   constraint check (start_at <= end_at);
@@ -48,18 +48,18 @@ entity Booking {
 ## 3. Custom scalar types
 
 ```dqls
-scalar Username extending str {
+scalar Username extending String {
   constraint min_length(3);
   constraint max_length(30);
   constraint regex("^[a-z0-9_]+$");
 }
 
-scalar Status extending str {
+scalar Status extending String {
   constraint one_of("Open", "Closed", "Merged");
 }
 
 entity Account {
-  id: uuid { constraint primary; }
+  id: Uuid { constraint primary; }
   handle: Username;          # inherits Username's constraints
   status: Status;
 }
@@ -71,14 +71,14 @@ A member typed with a scalar inherits the scalar's constraints; member-level con
 
 ```dqls
 abstract entity Timestamped {
-  created_at: datetime;
-  updated_at: datetime;
+  created_at: DateTime;
+  updated_at: DateTime;
   constraint check (created_at <= updated_at);
 }
 
 entity Article extending Timestamped {
-  id: uuid { constraint primary; }
-  title: str { constraint max_length(200); }
+  id: Uuid { constraint primary; }
+  title: String { constraint max_length(200); }
 }
 ```
 
@@ -103,9 +103,9 @@ The old trailing modifiers are removed. Rewrite:
 
 | Old (removed) | New |
 |---------------|-----|
-| `id: uuid primary;` | `id: uuid { constraint primary; }` |
-| `version: int concurrency;` | `version: int { constraint concurrency; }` |
-| `email: str db("email_addr");` | `email: str { annotation column("email_addr"); }` |
+| `id: Uuid primary;` | `id: Uuid { constraint primary; }` |
+| `version: Int concurrency;` | `version: Int { constraint concurrency; }` |
+| `email: String db("email_addr");` | `email: String { annotation column("email_addr"); }` |
 
 The compiler flags leftover legacy modifiers with a source-located diagnostic pointing to the new
 form. All bundled sample/test schemas have been migrated; do the same in your `.dqls` before

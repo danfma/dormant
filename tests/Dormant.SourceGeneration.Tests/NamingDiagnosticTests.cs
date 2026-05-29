@@ -19,9 +19,9 @@ public sealed class NamingDiagnosticTests
             module shop;
 
             entity Thing {
-              id: uuid { constraint primary; }
-              userId: int;
-              user_id: int;
+              id: Uuid { constraint primary; }
+              userId: Int;
+              user_id: Int;
             }
             """;
 
@@ -40,9 +40,9 @@ public sealed class NamingDiagnosticTests
             module shop;
 
             entity Thing {
-              id: uuid { constraint primary; }
-              userId: int;
-              tenantId: int;
+              id: Uuid { constraint primary; }
+              userId: Int;
+              tenantId: Int;
             }
             """;
 

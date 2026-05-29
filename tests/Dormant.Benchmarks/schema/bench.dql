@@ -1,14 +1,14 @@
 module bench;
 
 # Filtered multi-row read: all products in a category.
-query products_by_category(category: string) {
+query products_by_category(category: String) {
   from Product p
   where p.category == category
   select p
 }
 
 # Insert one product (RETURNING the full inserted entity).
-mutation create_product(id: uuid, name: string, category: string, price: decimal, quantity: int) {
+mutation create_product(id: Uuid, name: String, category: String, price: Decimal, quantity: Int) {
   insert Product p {
     p.id = id
     p.name = name
@@ -19,7 +19,7 @@ mutation create_product(id: uuid, name: string, category: string, price: decimal
 }
 
 # Update a single product's quantity by key (returns affected-row count).
-mutation update_product_quantity(id: uuid, quantity: int) {
+mutation update_product_quantity(id: Uuid, quantity: Int) {
   update Product p
   where p.id == id
   set {
@@ -28,7 +28,7 @@ mutation update_product_quantity(id: uuid, quantity: int) {
 }
 
 # Delete a single product by key (returns affected-row count).
-mutation delete_product(id: uuid) {
+mutation delete_product(id: Uuid) {
   delete Product p
   where p.id == id
 }

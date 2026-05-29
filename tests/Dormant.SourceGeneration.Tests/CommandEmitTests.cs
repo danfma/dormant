@@ -14,16 +14,16 @@ public sealed class CommandEmitTests
         module catalog;
 
         entity Widget {
-          id: uuid { constraint primary; }
-          name: str;
-          quantity: int;
+          id: Uuid { constraint primary; }
+          name: String;
+          quantity: Int;
         }
         """;
 
     private const string Commands = """
         module catalog;
 
-        mutation create_widget(id: uuid, name: string, quantity: int) {
+        mutation create_widget(id: Uuid, name: String, quantity: Int) {
           insert Widget w {
             w.id = id
             w.name = name
@@ -99,7 +99,7 @@ public sealed class CommandEmitTests
     public async Task Insert_returning_entity_emits_entity_result()
     {
         var generated = RunWith(
-            "module catalog;\nmutation create_widget(id: uuid, name: string, quantity: int) { insert Widget w { w.id = id w.name = name w.quantity = quantity } returning w }"
+            "module catalog;\nmutation create_widget(id: Uuid, name: String, quantity: Int) { insert Widget w { w.id = id w.name = name w.quantity = quantity } returning w }"
         );
 
         await Assert
@@ -113,7 +113,7 @@ public sealed class CommandEmitTests
     public async Task Insert_returning_scalar_emits_scalar_result()
     {
         var generated = RunWith(
-            "module catalog;\nmutation create_widget(id: uuid, name: string, quantity: int) { insert Widget w { w.id = id w.name = name w.quantity = quantity } returning w.id }"
+            "module catalog;\nmutation create_widget(id: Uuid, name: String, quantity: Int) { insert Widget w { w.id = id w.name = name w.quantity = quantity } returning w.id }"
         );
 
         await Assert
@@ -130,7 +130,7 @@ public sealed class CommandEmitTests
     public async Task Insert_returning_projection_emits_distinct_record()
     {
         var generated = RunWith(
-            "module catalog;\nmutation create_widget(id: uuid, name: string, quantity: int) { insert Widget w { w.id = id w.name = name w.quantity = quantity } returning { w.id, w.name } }"
+            "module catalog;\nmutation create_widget(id: Uuid, name: String, quantity: Int) { insert Widget w { w.id = id w.name = name w.quantity = quantity } returning { w.id, w.name } }"
         );
 
         await Assert
@@ -149,7 +149,7 @@ public sealed class CommandEmitTests
     public async Task Update_returning_entity_emits_update_returning()
     {
         var generated = RunWith(
-            "module catalog;\nmutation bump_widget(id: uuid, quantity: int) { update Widget w where w.id == id set { w.quantity = quantity } returning w }"
+            "module catalog;\nmutation bump_widget(id: Uuid, quantity: Int) { update Widget w where w.id == id set { w.quantity = quantity } returning w }"
         );
 
         await Assert
@@ -167,7 +167,7 @@ public sealed class CommandEmitTests
     public async Task Delete_returning_scalar_emits_delete_returning()
     {
         var generated = RunWith(
-            "module catalog;\nmutation drop_widget(id: uuid) { delete Widget w where w.id == id returning w.id }"
+            "module catalog;\nmutation drop_widget(id: Uuid) { delete Widget w where w.id == id returning w.id }"
         );
 
         await Assert
@@ -189,11 +189,11 @@ public sealed class CommandEmitTests
         const string refSchema = """
             module app;
 
-            entity User { id: uuid { constraint primary; } name: str; }
-            entity Post { id: uuid { constraint primary; } title: str; author: User; }
+            entity User { id: Uuid { constraint primary; } name: String; }
+            entity Post { id: Uuid { constraint primary; } title: String; author: User; }
             """;
         const string commands =
-            "module app;\nmutation create_post(id: uuid, title: string, author: uuid) { insert Post p { p.id = id p.title = title p.author = author } }";
+            "module app;\nmutation create_post(id: Uuid, title: String, author: Uuid) { insert Post p { p.id = id p.title = title p.author = author } }";
 
         var driver = GeneratorTestHarness.CreateDriver(
             new TestAdditionalText("schema/app.dqls", refSchema),
@@ -226,11 +226,11 @@ public sealed class CommandEmitTests
         const string refSchema = """
             module app;
 
-            entity User { id: uuid { constraint primary; } name: str; }
-            entity Post { id: uuid { constraint primary; } title: str; author: User; }
+            entity User { id: Uuid { constraint primary; } name: String; }
+            entity Post { id: Uuid { constraint primary; } title: String; author: User; }
             """;
         const string commands =
-            "module app;\nmutation create_user_with_post(uid: uuid, name: string, pid: uuid, title: string) { with u = (insert User x { x.id = uid x.name = name }) insert Post p { p.id = pid p.title = title p.author = u } returning p.id }";
+            "module app;\nmutation create_user_with_post(uid: Uuid, name: String, pid: Uuid, title: String) { with u = (insert User x { x.id = uid x.name = name }) insert Post p { p.id = pid p.title = title p.author = u } returning p.id }";
 
         var driver = GeneratorTestHarness.CreateDriver(
             new TestAdditionalText("schema/app.dqls", refSchema),

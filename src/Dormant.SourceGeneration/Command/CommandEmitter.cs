@@ -706,7 +706,7 @@ internal static class CommandEmitter
         {
             return (
                 Col(property.Name, property.NameOverride, convention),
-                BuildValue(assignment.Value, property.DslType == "json", ref p, binds)
+                BuildValue(assignment.Value, property.DslType == "Json", ref p, binds)
             );
         }
 

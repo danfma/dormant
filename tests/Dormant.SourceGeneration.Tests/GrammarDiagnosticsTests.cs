@@ -14,9 +14,9 @@ public sealed class GrammarDiagnosticsTests
         module catalog;
 
         entity Widget {
-          id: uuid { constraint primary; }
-          name: str;
-          quantity: int;
+          id: Uuid { constraint primary; }
+          name: String;
+          quantity: Int;
         }
         """;
 
@@ -38,7 +38,7 @@ public sealed class GrammarDiagnosticsTests
     public async Task Removed_command_keyword_reports_ORM020()
     {
         var ids = DiagnosticIds(
-            "module catalog;\ncommand CreateWidget(id: uuid) = insert Widget { id := id };"
+            "module catalog;\ncommand CreateWidget(id: Uuid) = insert Widget { id := id };"
         );
         await Assert.That(ids).Contains("ORM020");
     }
@@ -47,7 +47,7 @@ public sealed class GrammarDiagnosticsTests
     public async Task Removed_equals_query_form_reports_ORM020()
     {
         var ids = DiagnosticIds(
-            "module catalog;\nquery widgets(min: int) = select Widget filter .quantity >= min;"
+            "module catalog;\nquery widgets(min: Int) = select Widget filter .quantity >= min;"
         );
         await Assert.That(ids).Contains("ORM020");
     }
@@ -56,7 +56,7 @@ public sealed class GrammarDiagnosticsTests
     public async Task Leading_dot_member_reports_ORM020()
     {
         var ids = DiagnosticIds(
-            "module catalog;\nquery widgets(min: int) { from Widget w where .quantity >= min select w }"
+            "module catalog;\nquery widgets(min: Int) { from Widget w where .quantity >= min select w }"
         );
         await Assert.That(ids).Contains("ORM020");
     }
@@ -65,7 +65,7 @@ public sealed class GrammarDiagnosticsTests
     public async Task Keyword_connective_and_reports_ORM020()
     {
         var ids = DiagnosticIds(
-            "module catalog;\nquery widgets(min: int, n: string) { from Widget w where w.quantity >= min and w.name == n select w }"
+            "module catalog;\nquery widgets(min: Int, n: String) { from Widget w where w.quantity >= min and w.name == n select w }"
         );
         await Assert.That(ids).Contains("ORM020");
     }
@@ -74,7 +74,7 @@ public sealed class GrammarDiagnosticsTests
     public async Task Missing_alias_reports_ORM021()
     {
         var ids = DiagnosticIds(
-            "module catalog;\nquery widgets(min: int) { from Widget where Widget.quantity >= min select Widget }"
+            "module catalog;\nquery widgets(min: Int) { from Widget where Widget.quantity >= min select Widget }"
         );
         await Assert.That(ids).Contains("ORM021");
     }
@@ -83,7 +83,7 @@ public sealed class GrammarDiagnosticsTests
     public async Task Unqualified_member_reports_ORM024()
     {
         var ids = DiagnosticIds(
-            "module catalog;\nquery widgets(min: int) { from Widget w where quantity >= min select w }"
+            "module catalog;\nquery widgets(min: Int) { from Widget w where quantity >= min select w }"
         );
         await Assert.That(ids).Contains("ORM024");
     }
@@ -92,7 +92,7 @@ public sealed class GrammarDiagnosticsTests
     public async Task Undeclared_alias_reports_ORM022()
     {
         var ids = DiagnosticIds(
-            "module catalog;\nquery widgets(min: int) { from Widget w where x.quantity >= min select w }"
+            "module catalog;\nquery widgets(min: Int) { from Widget w where x.quantity >= min select w }"
         );
         await Assert.That(ids).Contains("ORM022");
     }
@@ -101,7 +101,7 @@ public sealed class GrammarDiagnosticsTests
     public async Task Duplicate_composition_member_reports_ORM028()
     {
         var ids = DiagnosticIds(
-            "module catalog;\nquery dup(p: int) { from Widget w where w.quantity == p select { label = w.name, label = w.quantity } }"
+            "module catalog;\nquery dup(p: Int) { from Widget w where w.quantity == p select { label = w.name, label = w.quantity } }"
         );
         await Assert.That(ids).Contains("ORM028");
     }

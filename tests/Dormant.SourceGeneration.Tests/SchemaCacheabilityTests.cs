@@ -14,7 +14,7 @@ public sealed class SchemaCacheabilityTests
     public async Task Schema_pipeline_steps_are_cached_on_unchanged_rerun()
     {
         const string schema =
-            "module app;\nentity User { id: uuid { constraint primary; } email: str; }";
+            "module app;\nentity User { id: Uuid { constraint primary; } email: String; }";
         var compilation = CSharpCompilation.Create("Tests");
         var driver = GeneratorTestHarness.CreateDriver(
             new TestAdditionalText("schema/app.dqls", schema)

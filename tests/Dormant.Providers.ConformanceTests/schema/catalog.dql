@@ -1,7 +1,7 @@
 module catalog;
 
 # Insert … RETURNING the full inserted entity.
-mutation create_widget(id: uuid, name: string, quantity: int) {
+mutation create_widget(id: Uuid, name: String, quantity: Int) {
   insert Widget w {
     w.id = id
     w.name = name
@@ -10,7 +10,7 @@ mutation create_widget(id: uuid, name: string, quantity: int) {
 }
 
 # JSON value round-trip (stored as jsonb on PostgreSQL, TEXT on SQLite).
-mutation create_document(id: uuid, data: json) {
+mutation create_document(id: Uuid, data: Json) {
   insert Document d {
     d.id = id
     d.data = data
@@ -19,7 +19,7 @@ mutation create_document(id: uuid, data: json) {
 
 # with-block (FR-021/FR-022): bind an inserted Author, then insert an Article whose `writer` FK flows from
 # the bound author id. Each binding is its own statement in the transaction. Returns the article id.
-mutation create_author_with_article(aid: uuid, aname: string, artid: uuid, title: string) {
+mutation create_author_with_article(aid: Uuid, aname: String, artid: Uuid, title: String) {
   with a = (insert Author x {
     x.id = aid
     x.name = aname
@@ -33,7 +33,7 @@ mutation create_author_with_article(aid: uuid, aname: string, artid: uuid, title
 }
 
 # Static full-entity query.
-query widgets_by_name(name: string) {
+query widgets_by_name(name: String) {
   from Widget w
   where w.name == name
   select w
@@ -41,7 +41,7 @@ query widgets_by_name(name: string) {
 
 # Optional parameters (dynamic fragment selection): each filter is included only when supplied; the
 # result type is identical for every combination.
-query search_widgets(minQuantity: optional int, name: optional string) {
+query search_widgets(minQuantity: optional Int, name: optional String) {
   from Widget w
   where w.quantity >= minQuantity && w.name == name
   order by w.name asc
@@ -50,7 +50,7 @@ query search_widgets(minQuantity: optional int, name: optional string) {
 
 # Relationship navigation in a predicate (009 P-B): filter Articles by their writer's name. The
 # `a.writer.name` path generates a LEFT JOIN from Article to Author on the writer_id FK.
-query articles_by_author_name(authorName: string) {
+query articles_by_author_name(authorName: String) {
   from Article a
   where a.writer.name == authorName
   select a
@@ -58,7 +58,7 @@ query articles_by_author_name(authorName: string) {
 
 # Root-object shape (009 US1): fetch an Article with its (to-one) writer, in one query. The nested
 # `writer: { … }` generates a JOIN; the result is a nested immutable record (shape = type).
-query article_card(id: uuid) {
+query article_card(id: Uuid) {
   from Article a
   where a.id == id
   select a {
@@ -67,7 +67,7 @@ query article_card(id: uuid) {
   }
 }
 
-mutation create_tag(id: uuid, label: string, article: uuid) {
+mutation create_tag(id: Uuid, label: String, article: Uuid) {
   insert Tag t {
     t.id = id
     t.label = label
@@ -78,7 +78,7 @@ mutation create_tag(id: uuid, label: string, article: uuid) {
 # To-many shape (009 US1): fetch an Article with its tags in one query. The nested `tags: { … }`
 # (a Set<Tag> collection, backlinked via Tag.article) compiles to a JSON-array correlated subquery;
 # the result's Tags is a fully materialized IReadOnlyList.
-query article_with_tags(id: uuid) {
+query article_with_tags(id: Uuid) {
   from Article a
   where a.id == id
   select a {
@@ -88,14 +88,14 @@ query article_with_tags(id: uuid) {
 }
 
 # Free composition (009 US2): assemble a new result object from a field plus a navigated value.
-query article_feed_item(id: uuid) {
+query article_feed_item(id: Uuid) {
   from Article a
   where a.id == id
   select { headline = a.title, authorName = a.writer.name }
 }
 
 # into (009 US3): materialize the composition into a user-owned record (positional, by declaration order).
-query article_dto(id: uuid) {
+query article_dto(id: Uuid) {
   from Article a
   where a.id == id
   select { headline = a.title, authorName = a.writer.name } into Dormant.Providers.ConformanceTests.ArticleFeedDto

@@ -1,6 +1,6 @@
 module smoke;
 
-mutation create_item(id: uuid, name: string, quantity: int, tags: json, version: int) {
+mutation create_item(id: Uuid, name: String, quantity: Int, tags: Json, version: Int) {
   insert Item i {
     i.id = id
     i.name = name
@@ -10,14 +10,14 @@ mutation create_item(id: uuid, name: string, quantity: int, tags: json, version:
   }
 }
 
-query items_by_name(name: string) {
+query items_by_name(name: String) {
   from Item i
   where i.name == name
   order by i.name asc
   select i
 }
 
-query item_names(min: optional int) {
+query item_names(min: optional Int) {
   from Item i
   where i.quantity >= min
   select {

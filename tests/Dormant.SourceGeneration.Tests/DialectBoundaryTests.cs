@@ -15,15 +15,15 @@ public sealed class DialectBoundaryTests
         module catalog;
 
         entity Doc {
-          id: uuid { constraint primary; }
-          data: json;
+          id: Uuid { constraint primary; }
+          data: Json;
         }
         """;
 
     private const string Commands = """
         module catalog;
 
-        mutation create_doc(id: uuid, data: json) {
+        mutation create_doc(id: Uuid, data: Json) {
           insert Doc d {
             d.id = id
             d.data = data

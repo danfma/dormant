@@ -19,6 +19,20 @@ mapping to plan.md: Setup+Foundational ≈ P-A; US1–US3 ≈ P-B; US4 ≈ P-C; 
 - `- [ ] T### [P?] [USx?] Description with exact file path`
 - `[P]` = parallelizable (different files, no incomplete deps); story label only on US phases.
 
+## Implementation status (Slice 6 — PascalCase type vocabulary, 2026-05-29)
+
+**Landed & verified** (build 0/0, generator tests 54/54, Core 1/1, CSharpier clean):
+- Value types renamed to **PascalCase** (cross-language friendly), aliases removed (MAJOR clean
+  break): `String Char Byte Short Int Long Float Double Decimal Bool Uuid DateTime Date Time Json`.
+  Old lowercase (`str`/`int`/`uuid`/`datetime`/…) now surfaces as ORM003.
+- Updated all three type maps: `TypeMap` (DQL→CLR), PostgreSQL + SQLite `SqlMap` (DQL→SQL type).
+  Fixed hardcoded lowercase checks: JSON cast (`CommandEmitter` `== "Json"`), validator
+  `IsStringType`/`IsOrderedType` (PascalCase), FK fallback type (`"Uuid"`).
+- Migrated every in-repo `.dql`/`.dqls` + inline test schemas + 012 docs + `CLAUDE.md`.
+- Arrays will use `Array<T>` (e.g. `Array<Byte>`) and spatial types (`Geometry`/`Point`/…) are
+  planned follow-ups — not needed yet (no schema uses byte arrays). `ScalarTypeModel` added as
+  groundwork for US4 (not yet wired).
+
 ## Implementation status (Slice 5 — constraint validator, 2026-05-29)
 
 **Landed & verified** (build 0/0, generator tests 54/54, CSharpier clean):

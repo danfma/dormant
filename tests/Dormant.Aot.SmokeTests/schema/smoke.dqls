@@ -1,9 +1,9 @@
 module smoke;
 
 entity Item {
-  id: uuid { constraint primary; }
-  name: str;
-  quantity: int;
-  tags: json;
-  version: int { constraint concurrency; }
+  id: Uuid { constraint primary; }
+  name: String;
+  quantity: Int;
+  tags: Json;
+  version: Int { constraint concurrency; }
 }

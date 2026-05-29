@@ -15,16 +15,16 @@ public sealed class ProjectionEmitTests
         module catalog;
 
         entity Widget {
-          id: uuid { constraint primary; }
-          name: str;
-          quantity: int;
+          id: Uuid { constraint primary; }
+          name: String;
+          quantity: Int;
         }
         """;
 
     private const string Queries = """
         module catalog;
 
-        query widget_names(min: int) {
+        query widget_names(min: Int) {
           from Widget w
           where w.quantity >= min
           order by w.name asc
@@ -34,7 +34,7 @@ public sealed class ProjectionEmitTests
           }
         }
 
-        query all_widgets(min: int) {
+        query all_widgets(min: Int) {
           from Widget w
           where w.quantity >= min
           order by w.quantity desc

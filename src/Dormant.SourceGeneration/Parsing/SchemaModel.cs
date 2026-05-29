@@ -104,6 +104,22 @@ internal sealed record AnnotationModel(
     LocationInfo Location
 );
 
+/// <summary>
+/// A custom scalar type (Feature 012 US4): <c>scalar Name extending Base { constraint…; }</c>.
+/// A member typed with the scalar becomes a value property of <paramref name="BaseDslType"/> that
+/// inherits the scalar's <paramref name="Constraints"/>. Resolved at parse time (no distinct CLR type).
+/// </summary>
+/// <param name="Name">The scalar type name (e.g. <c>Username</c>).</param>
+/// <param name="BaseDslType">The base DormantQL value type it extends (e.g. <c>str</c>).</param>
+/// <param name="Constraints">Constraints carried by the scalar, applied to every member of this type.</param>
+/// <param name="Location">Source location (for diagnostics).</param>
+internal sealed record ScalarTypeModel(
+    string Name,
+    string BaseDslType,
+    EquatableArray<ConstraintModel> Constraints,
+    LocationInfo Location
+);
+
 /// <summary>A declared entity.</summary>
 /// <param name="Name">The entity (type) name.</param>
 /// <param name="Properties">Scalar/value properties, in source order.</param>

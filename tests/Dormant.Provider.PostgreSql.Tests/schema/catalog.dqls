@@ -1,34 +1,34 @@
 module catalog;
 
 entity Widget {
-  id: uuid { constraint primary; }
-  name: str;
-  quantity: int;
+  id: Uuid { constraint primary; }
+  name: String;
+  quantity: Int;
 }
 
 entity Account {
-  id: uuid { constraint primary; }
-  balance: int;
-  version: int { constraint concurrency; }
+  id: Uuid { constraint primary; }
+  balance: Int;
+  version: Int { constraint concurrency; }
 }
 
 entity StockItem {
-  id: uuid { constraint primary; }
-  itemName: str;
+  id: Uuid { constraint primary; }
+  itemName: String;
 }
 
 entity Document {
-  id: uuid { constraint primary; }
-  data: json;
+  id: Uuid { constraint primary; }
+  data: Json;
 }
 
 entity Author {
-  id: uuid { constraint primary; }
-  name: str;
+  id: Uuid { constraint primary; }
+  name: String;
 }
 
 entity Article {
-  id: uuid { constraint primary; }
-  title: str;
+  id: Uuid { constraint primary; }
+  title: String;
   writer: Author;
 }

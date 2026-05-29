@@ -47,7 +47,7 @@ internal static class EntityBindingEmitter
         {
             var fkDslType = refPkDslTypes.TryGetValue(reference.TargetEntity, out var t)
                 ? t
-                : "uuid";
+                : "Uuid";
             ddlColumns.Add(
                 new ColumnDef(
                     NamingConventions.Resolve(reference.Name, null, convention) + "_id",

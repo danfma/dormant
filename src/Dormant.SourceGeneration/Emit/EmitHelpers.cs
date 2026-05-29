@@ -9,29 +9,27 @@ namespace Dormant.SourceGeneration.Emit;
 /// <summary>Maps DormantQL v1 value types to their build-time-known CLR types (spec FR-036).</summary>
 internal static class TypeMap
 {
+    // Feature 012: PascalCase value-type vocabulary (cross-language friendly; not literal .NET type
+    // names — Int/Long/Float are PascalCased C# keywords, Uuid is DB-neutral). The old lowercase
+    // aliases (str/int/uuid/…) were removed (MAJOR clean break); a lowercase type now surfaces as
+    // ORM003. Array<T> (e.g. Array<Byte>) and spatial types (Geometry/Point/…) are planned follow-ups.
     private static readonly Dictionary<string, string> Map = new(System.StringComparer.Ordinal)
     {
-        // 003 lowercase type keywords (data-model.md vocabulary).
-        ["string"] = "string",
-        ["long"] = "long",
-        ["double"] = "double",
-        ["date"] = "global::System.DateOnly",
-        // Carried 002 type keywords (the .dqls schema grammar is unchanged, so these still parse).
-        ["str"] = "string",
-        ["bool"] = "bool",
-        ["int16"] = "short",
-        ["int32"] = "int",
-        ["int64"] = "long",
-        ["int"] = "int",
-        ["float32"] = "float",
-        ["float64"] = "double",
-        ["decimal"] = "decimal",
-        ["bigint"] = "global::System.Numerics.BigInteger",
-        ["uuid"] = "global::System.Guid",
-        ["datetime"] = "global::System.DateTime",
-        ["duration"] = "global::System.TimeSpan",
-        ["bytes"] = "byte[]",
-        ["json"] = "string",
+        ["String"] = "string",
+        ["Char"] = "char",
+        ["Byte"] = "byte",
+        ["Short"] = "short",
+        ["Int"] = "int",
+        ["Long"] = "long",
+        ["Float"] = "float",
+        ["Double"] = "double",
+        ["Decimal"] = "decimal",
+        ["Bool"] = "bool",
+        ["Uuid"] = "global::System.Guid",
+        ["DateTime"] = "global::System.DateTime",
+        ["Date"] = "global::System.DateOnly",
+        ["Time"] = "global::System.TimeOnly",
+        ["Json"] = "string",
     };
 
     /// <summary>Attempts to map a DormantQL value type to a CLR type.</summary>

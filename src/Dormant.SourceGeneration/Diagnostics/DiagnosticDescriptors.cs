@@ -37,7 +37,7 @@ internal static class DiagnosticDescriptors
         category: Category,
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true,
-        description: "Use a v1 DormantQL value type such as str, bool, int32, int64, float64, decimal, uuid, datetime, bytes, or json."
+        description: "Use a DormantQL value type such as String, Char, Byte, Short, Int, Long, Float, Double, Decimal, Bool, Uuid, DateTime, Date, Time, or Json (PascalCase; the old lowercase names were removed)."
     );
 
     /// <summary>A query selects an entity that is not defined in any schema of the same module.</summary>

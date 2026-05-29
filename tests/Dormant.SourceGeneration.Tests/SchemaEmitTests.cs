@@ -14,17 +14,17 @@ public sealed class SchemaEmitTests
         module app;
 
         entity User {
-          id: uuid { constraint primary; }
-          email: str;
-          bio: str?;
+          id: Uuid { constraint primary; }
+          email: String;
+          bio: String?;
           manager: User?;
           posts: Set<Post>;
-          version: int { constraint concurrency; }
+          version: Int { constraint concurrency; }
         }
 
         entity Post {
-          id: uuid { constraint primary; }
-          title: str;
+          id: Uuid { constraint primary; }
+          title: String;
           author: User;
         }
         """;

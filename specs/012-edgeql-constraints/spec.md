@@ -11,7 +11,7 @@
 ## Context & Motivation
 
 Today DormantQL expresses data rules as **trailing type modifiers** on a member
-(e.g. `id: uuid primary;`, `version: int concurrency;`). This is ad-hoc: each new rule needs a
+(e.g. `id: Uuid primary;`, `version: Int concurrency;`). This is ad-hoc: each new rule needs a
 new keyword, modifiers do not compose, they cannot span multiple fields, they cannot carry
 parameters or arbitrary expressions, and there is no uniform way to name the resulting database
 constraint.
@@ -39,6 +39,10 @@ mirror the original EdgeQL model as closely as is reasonable.
 - Q: `check` pode navegar relacionamentos? → **Não.** Operador de navegação foi descartado em favor de aliases; `check` referencia só colunas da própria entidade e renderiza como expressão **literal** no DDL (sem placeholder/alias).
 - Q: Constraints em refs/coleções? → **Fora de escopo (v1).** Constraints só em value members (+ entity-level sobre value members). Ref/coleção fica p/ depois.
 
+### Session 2026-05-29 (3rd round — type vocabulary)
+
+- Q: Nomenclatura dos tipos de valor? → **PascalCase, estilo .NET/cross-language** (`String`, `Char`, `Byte`, `Short`, `Int`, `Long`, `Float`, `Double`, `Decimal`, `Bool`, `Uuid`, `DateTime`, `Date`, `Time`, `Json`; arrays via `Array<T>`; spatial `Geometry`/`Point`/… depois). Os aliases lowercase antigos (`str`/`int`/`uuid`/`datetime`/…) são **removidos (clean break)** — um tipo lowercase agora surge como ORM003. `Uuid` é deliberadamente DB-neutral (não `Guid`); `Int`/`Long`/`Float`/`Bool` são os keywords C# em PascalCase (não nomes .NET literais), escolhidos para futura geração cross-language. Nomes de built-in são reservados (entidade não pode se chamar `Date`, como num banco).
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Declare validation constraints on a field (Priority: P1)
@@ -57,7 +61,7 @@ schema/DDL, and violating rows are rejected by the database.
 
 **Acceptance Scenarios**:
 
-1. **Given** a member `email: str { constraint unique; constraint max_length(255); }`, **When** the
+1. **Given** a member `email: String { constraint unique; constraint max_length(255); }`, **When** the
    schema is built, **Then** the generated schema enforces both a uniqueness rule and a maximum
    length on that column.
 2. **Given** a member with `constraint min(0)` on a numeric field, **When** a row with a negative
@@ -127,7 +131,7 @@ attaches constraints to it. Members typed with that scalar inherit its constrain
 **Why this priority**: Scalar types remove duplication and give domain concepts a name, but the core
 value (US1–US3) is deliverable without them.
 
-**Independent Test**: Define `scalar Username extending str { constraint max_length(30); }`, type a
+**Independent Test**: Define `scalar Username extending String { constraint max_length(30); }`, type a
 member as `Username`, and confirm the member enforces the scalar's constraints without restating
 them.
 
@@ -264,28 +268,28 @@ keeps explicit identity/concurrency but now expresses them through the same `con
 Illustrative DormantQL surface (mirrors EdgeQL; exact grammar finalized in planning):
 
 ```dqls
-scalar Status extending str {
+scalar Status extending String {
   constraint one_of("Open", "Closed", "Merged");
 }
 
 abstract entity Timestamped {
-  created_at: datetime;
-  updated_at: datetime;
+  created_at: DateTime;
+  updated_at: DateTime;
 }
 
 entity User extending Timestamped {
-  id: uuid { constraint primary; }
-  email: str {
+  id: Uuid { constraint primary; }
+  email: String {
     annotation column("email_addr");        # metadata: DB column name (replaces old db("…"))
     constraint unique as users_email_key;
     constraint max_length(255);
     constraint regex("^[^@]+@[^@]+$");
   }
-  age: int { constraint range(min = 0, max = 130); }   # multi-arg constraint, named args
-  first_name: str;
-  last_name: str;
+  age: Int { constraint range(min = 0, max = 130); }   # multi-arg constraint, named args
+  first_name: String;
+  last_name: String;
   status: Status;
-  version: int { constraint concurrency; }
+  version: Int { constraint concurrency; }
 
   constraint unique on (first_name, last_name) as users_full_name_key;
   constraint check (created_at <= updated_at);

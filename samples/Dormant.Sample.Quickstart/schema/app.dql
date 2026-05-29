@@ -1,7 +1,7 @@
 module app;
 
 # Authored write mutation → INSERT … RETURNING the immutable User.
-mutation create_user(id: uuid, email: string, created_at: datetime, version: int) {
+mutation create_user(id: Uuid, email: String, created_at: DateTime, version: Int) {
   insert User u {
     u.id = id
     u.email = email
@@ -13,7 +13,7 @@ mutation create_user(id: uuid, email: string, created_at: datetime, version: int
 # 003 with-block (FR-021/FR-022): bind an inserted User, then insert a Post whose `author` FK flows from the
 # bound user id; each binding runs as its own statement in the session transaction. Terminal returns the post id.
 mutation create_user_with_post(
-  uid: uuid, email: string, created_at: datetime, version: int, pid: uuid, title: string) {
+  uid: Uuid, email: String, created_at: DateTime, version: Int, pid: Uuid, title: String) {
   with u = (insert User x {
     x.id = uid
     x.email = email
@@ -29,14 +29,14 @@ mutation create_user_with_post(
 }
 
 # Full-entity query → IAsyncEnumerable<User> with build-time SQL.
-query users_by_email(email: string) {
+query users_by_email(email: String) {
   from User u
   where u.email == email
   select u
 }
 
 # Flat projection → a distinct AppQueries-scoped record exposing exactly id + email.
-query user_contacts(since: datetime) {
+query user_contacts(since: DateTime) {
   from User u
   where u.created_at >= since
   order by u.email asc

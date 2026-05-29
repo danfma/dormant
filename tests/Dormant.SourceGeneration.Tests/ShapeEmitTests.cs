@@ -15,13 +15,13 @@ public sealed class ShapeEmitTests
         module app;
 
         entity Author {
-          id: uuid { constraint primary; }
-          name: string;
+          id: Uuid { constraint primary; }
+          name: String;
         }
 
         entity Article {
-          id: uuid { constraint primary; }
-          title: string;
+          id: Uuid { constraint primary; }
+          title: String;
           writer: Author;
         }
         """;
@@ -29,7 +29,7 @@ public sealed class ShapeEmitTests
     private const string Queries = """
         module app;
 
-        query article_card(id: uuid) {
+        query article_card(id: Uuid) {
           from Article a
           where a.id == id
           select a {
@@ -43,14 +43,14 @@ public sealed class ShapeEmitTests
         module app;
 
         entity Article {
-          id: uuid { constraint primary; }
-          title: string;
+          id: Uuid { constraint primary; }
+          title: String;
           tags: Set<Tag>;
         }
 
         entity Tag {
-          id: uuid { constraint primary; }
-          label: string;
+          id: Uuid { constraint primary; }
+          label: String;
           article: Article;
         }
         """;
@@ -58,7 +58,7 @@ public sealed class ShapeEmitTests
     private const string ToManyQueries = """
         module app;
 
-        query article_tags(id: uuid) {
+        query article_tags(id: Uuid) {
           from Article a
           where a.id == id
           select a {

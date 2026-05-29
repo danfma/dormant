@@ -1,9 +1,9 @@
 module bench;
 
 entity Product {
-  id: uuid { constraint primary; }
-  name: string;
-  category: string;
-  price: decimal;
-  quantity: int;
+  id: Uuid { constraint primary; }
+  name: String;
+  category: String;
+  price: Decimal;
+  quantity: Int;
 }
