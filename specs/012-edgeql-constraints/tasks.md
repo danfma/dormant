@@ -19,6 +19,20 @@ mapping to plan.md: Setup+Foundational ≈ P-A; US1–US3 ≈ P-B; US4 ≈ P-C; 
 - `- [ ] T### [P?] [USx?] Description with exact file path`
 - `[P]` = parallelizable (different files, no incomplete deps); story label only on US phases.
 
+## Implementation status (Slice 11 — constraint conformance (real DB), 2026-05-29)
+
+**Landed & verified** (full conformance suite 26/26 green on PostgreSQL (Testcontainers/Docker) +
+SQLite in-memory):
+- T021 — `ConstraintConformanceTests`: a constrained `Account` (`unique` + `max_length(10)` on email)
+  + `create_account` mutation. Asserts the **real database enforces** the generated constraints:
+  valid row accepted; over-length value rejected (CHECK); duplicate rejected (UNIQUE) — both providers.
+  **Closes SC-002** (the DB rejects violating rows, end to end).
+- The existing 009 conformance tests still pass against the migrated (PascalCase + constraint-block)
+  schemas — the MAJOR migration did not regress behavior.
+
+**Remaining (ops/release)**: Zed grammar SHA bump after push (T048), MAJOR version bump + release
+notes (T050 — no semantic-release/versioning configured yet), AOT smoke (T051), `T015a` (cosmetic).
+
 ## Implementation status (Slice 10 — concurrency default, ORM032, migration guide, 2026-05-29)
 
 **Landed & verified** (build 0/0, generator tests 61/61, CSharpier clean):
@@ -223,7 +237,7 @@ constraints beyond primary/concurrency parse into the model but are not yet emit
 - [X] T018 [US1] Implement SQLite rendering of Unique/Check/PrimaryKey + `regex` fallback (GLOB/LIKE or omit+warn, research R-01) in `src/Dormant.SourceGeneration/Ir/Dialects/SqliteRenderer.cs`
 - [X] T019 [US1] Wire `concurrency` token DDL (default) + confirm existing mutation WHERE-match path still works in `src/Dormant.SourceGeneration/Schema/EntityBindingEmitter.cs`
 - [ ] T020 [P] [US1] Verify snapshot of generated DDL (PG + SQLite) for a member-constraint schema in `tests/Dormant.SourceGeneration.Tests/`
-- [ ] T021 [US1] Conformance: add a schema + tests in `tests/Dormant.Providers.ConformanceTests/` asserting each member constraint kind rejects violating rows on PostgreSQL and SQLite (regex SQLite per fallback)
+- [X] T021 [US1] Conformance: add a schema + tests in `tests/Dormant.Providers.ConformanceTests/` asserting each member constraint kind rejects violating rows on PostgreSQL and SQLite (regex SQLite per fallback)
 - [X] T022 [P] [US1] Diagnostic unit tests for ORM029/ORM030/ORM031 in `tests/Dormant.SourceGeneration.Tests/`
 
 **Checkpoint**: MVP — authors get the full member-level standard constraint library, enforced by the database.

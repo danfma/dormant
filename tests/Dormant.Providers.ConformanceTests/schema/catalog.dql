@@ -9,6 +9,14 @@ mutation create_widget(id: Uuid, name: String, quantity: Int) {
   }
 }
 
+# Feature 012: insert into the constrained Account (unique + max_length on email).
+mutation create_account(id: Uuid, email: String) {
+  insert Account a {
+    a.id = id
+    a.email = email
+  }
+}
+
 # JSON value round-trip (stored as jsonb on PostgreSQL, TEXT on SQLite).
 mutation create_document(id: Uuid, data: Json) {
   insert Document d {

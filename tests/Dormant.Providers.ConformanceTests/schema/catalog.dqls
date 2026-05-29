@@ -28,3 +28,12 @@ entity Document {
   id: Uuid { constraint primary; }
   data: Json;
 }
+
+# Feature 012: a constrained entity proving the database enforces the generated constraints.
+entity Account {
+  id: Uuid { constraint primary; }
+  email: String {
+    constraint unique as accounts_email_key;
+    constraint max_length(10);
+  }
+}
