@@ -204,7 +204,6 @@ internal static class EntityBindingEmitter
                             "check"
                         );
                         break;
-                    // Primary/Concurrency handled on the column.
                 }
             }
         }
