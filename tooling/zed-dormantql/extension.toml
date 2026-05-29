@@ -15,5 +15,6 @@ repository = "https://github.com/danfma/dormant"
 [grammars.dormantql]
 repository = "https://github.com/danfma/dormant"
 path = "tooling/grammar/dormantql-tree-sitter"
-# Replace with the pushed commit SHA (see tooling/zed-dormantql/README.md):
-commit = "REPLACE_WITH_PUSHED_COMMIT_SHA"
+# Pinned to a pushed commit that contains tooling/grammar/dormantql-tree-sitter/src/parser.c.
+# Bump this whenever the grammar changes (regenerate parser.c, push, update SHA).
+commit = "027e06a0604816e6537adfa91c420e84ac338459"
