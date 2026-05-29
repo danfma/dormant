@@ -19,6 +19,19 @@ mapping to plan.md: Setup+Foundational ≈ P-A; US1–US3 ≈ P-B; US4 ≈ P-C; 
 - `- [ ] T### [P?] [USx?] Description with exact file path`
 - `[P]` = parallelizable (different files, no incomplete deps); story label only on US phases.
 
+## Implementation status (Slice 5 — constraint validator, 2026-05-29)
+
+**Landed & verified** (build 0/0, generator tests 54/54, CSharpier clean):
+- T010 — `SchemaValidator` extended: ORM030 (constraint not applicable to member type — string vs
+  ordered categorization), ORM031 (entity-level `on (…)` target + `check` identifier referencing an
+  unknown member, member-level too), ORM036 (unknown annotation name + misshaped `column`). ORM029
+  (unknown constraint) and ORM035 (removed modifier) come from the parser.
+- T022 — `ConstraintDiagnosticsTests` asserts ORM029/030/031/035/036 fire on the right schemas.
+
+**Still deferred**: `T015a` (remove `NameOverride`), SQLite regex build-warning (R-01), `concurrency`
+DEFAULT (T019), conformance (Docker, T021/T026/T032), scalars (US4), inheritance (US5), grammar 011
+(P-E), migration guide + MAJOR bump (P-F). ORM032 (`as`-name collision) + ORM033/034 still stubs.
+
 ## Implementation status (Slice 4 — check-expression lowering, 2026-05-29)
 
 **Landed & verified** (build 0/0, generator tests 49/49, CSharpier clean):
@@ -112,7 +125,7 @@ constraints beyond primary/concurrency parse into the model but are not yet emit
 - [X] T007 Add entity-level constraint parsing (`constraint … [on (…)] [(check expr)] [as name];`) in `src/Dormant.SourceGeneration/Parsing/SchemaParser.cs`
 - [ ] T008 Add `scalar Name extending Base { constraint…; }` parsing in `src/Dormant.SourceGeneration/Parsing/SchemaParser.cs`
 - [ ] T009 Add `abstract` entity flag + `extending Base(, …)` clause parsing in `src/Dormant.SourceGeneration/Parsing/SchemaParser.cs`
-- [ ] T010 Extend `src/Dormant.SourceGeneration/Parsing/SchemaValidator.cs` with: unknown constraint (ORM029), type-incompatible constraint (ORM030), missing target member (ORM031), unknown/non-scalar base (ORM033), unknown/misshaped annotation + constraint/annotation on a reference/collection member (ORM036); leave `as`-collision (ORM032) and inheritance-conflict (ORM034) stubs for US3/US5
+- [X] T010 Extend `src/Dormant.SourceGeneration/Parsing/SchemaValidator.cs` with: unknown constraint (ORM029), type-incompatible constraint (ORM030), missing target member (ORM031), unknown/non-scalar base (ORM033), unknown/misshaped annotation + constraint/annotation on a reference/collection member (ORM036); leave `as`-collision (ORM032) and inheritance-conflict (ORM034) stubs for US3/US5
 - [X] T011 [P] Add `ConstraintDef` IR node + extend `CreateTableStatement` with table-level constraints in `src/Dormant.SourceGeneration/Ir/SqlIr.cs` per data-model.md
 - [X] T012 [P] Add `RenderConstraints()` + overridable `RenderUnique`/`RenderCheck`/`RenderPrimaryKey`/`RenderConstraintName`/`RenderRegexConstraint` hooks (default impls) in `src/Dormant.SourceGeneration/Ir/Dialects/SqlDialectRendererBase.cs` and call them from `RenderCreateTable()`
 - [X] T013 Migrate ALL in-repo schemas to the new syntax (`samples/Dormant.Sample.Quickstart/schema/*.dqls`, `tests/**/schema/*.dqls`): `id: uuid primary;` → `id: uuid { constraint primary; }`, `version: int concurrency;` → `version: int { constraint concurrency; }`
@@ -136,7 +149,7 @@ constraints beyond primary/concurrency parse into the model but are not yet emit
 - [ ] T019 [US1] Wire `concurrency` token DDL (default) + confirm existing mutation WHERE-match path still works in `src/Dormant.SourceGeneration/Schema/EntityBindingEmitter.cs`
 - [ ] T020 [P] [US1] Verify snapshot of generated DDL (PG + SQLite) for a member-constraint schema in `tests/Dormant.SourceGeneration.Tests/`
 - [ ] T021 [US1] Conformance: add a schema + tests in `tests/Dormant.Providers.ConformanceTests/` asserting each member constraint kind rejects violating rows on PostgreSQL and SQLite (regex SQLite per fallback)
-- [ ] T022 [P] [US1] Diagnostic unit tests for ORM029/ORM030/ORM031 in `tests/Dormant.SourceGeneration.Tests/`
+- [X] T022 [P] [US1] Diagnostic unit tests for ORM029/ORM030/ORM031 in `tests/Dormant.SourceGeneration.Tests/`
 
 **Checkpoint**: MVP — authors get the full member-level standard constraint library, enforced by the database.
 
