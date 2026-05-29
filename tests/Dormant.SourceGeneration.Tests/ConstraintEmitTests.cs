@@ -184,6 +184,16 @@ public sealed class ConstraintEmitTests
     }
 
     [Test]
+    public async Task Concurrency_token_gets_default_zero()
+    {
+        var generated = GenerateFrom(
+            "schema/conc.dqls",
+            "module shop;\nentity Doc { id: Uuid { constraint primary; } version: Int { constraint concurrency; } }"
+        );
+        await Assert.That(generated).Contains("\"version\" integer NOT NULL DEFAULT 0");
+    }
+
+    [Test]
     public async Task Member_and_entity_check_expressions_lower_to_sql()
     {
         var generated = GenerateFrom("schema/shop2.dqls", Schema2);

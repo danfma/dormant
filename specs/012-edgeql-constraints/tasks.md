@@ -19,6 +19,20 @@ mapping to plan.md: Setup+Foundational ≈ P-A; US1–US3 ≈ P-B; US4 ≈ P-C; 
 - `- [ ] T### [P?] [USx?] Description with exact file path`
 - `[P]` = parallelizable (different files, no incomplete deps); story label only on US phases.
 
+## Implementation status (Slice 10 — concurrency default, ORM032, migration guide, 2026-05-29)
+
+**Landed & verified** (build 0/0, generator tests 61/61, CSharpier clean):
+- T019 — `ColumnDef.Default`; the `concurrency` token column emits `DEFAULT 0`. Verified
+  (`"version" integer NOT NULL DEFAULT 0`).
+- T030 — ORM032: explicit `as {name}` constraint names must be unique within a module
+  (`SchemaValidator.ValidateConstraintNames`). Verified by `ConstraintDiagnosticsTests`.
+- T049 — migration guide written: `tooling/docs/migration-012-constraints.md` (types, modifiers→
+  constraints, annotations, scalars, inheritance, provider notes).
+
+**Remaining (environment/ops, not blocking the core)**: conformance tests (Docker — T021/T026/T038/
+T043/T052), `T015a` (remove `NameOverride` internal field), Zed grammar SHA bump after push (T048),
+MAJOR version bump + release notes (T050), AOT smoke (T051).
+
 ## Implementation status (Slice 9 — grammar 011 update, 2026-05-29)
 
 **Landed & verified** (`validate-grammar.sh` green: parser generates, parses fixtures + real samples
@@ -207,7 +221,7 @@ constraints beyond primary/concurrency parse into the model but are not yet emit
 - [X] T016 [US1] Implement `check`/range/length/one_of expression lowering reusing the query-expression IR (research R-03); render in **literal/DDL mode** (bare column names, inline literals, NO placeholders/aliases, no navigation) for member-level `check`
 - [X] T017 [US1] Implement PostgreSQL rendering of Unique/Check/PrimaryKey + `regex` via `~` in `src/Dormant.SourceGeneration/Ir/Dialects/PostgreSqlRenderer.cs`
 - [X] T018 [US1] Implement SQLite rendering of Unique/Check/PrimaryKey + `regex` fallback (GLOB/LIKE or omit+warn, research R-01) in `src/Dormant.SourceGeneration/Ir/Dialects/SqliteRenderer.cs`
-- [ ] T019 [US1] Wire `concurrency` token DDL (default) + confirm existing mutation WHERE-match path still works in `src/Dormant.SourceGeneration/Schema/EntityBindingEmitter.cs`
+- [X] T019 [US1] Wire `concurrency` token DDL (default) + confirm existing mutation WHERE-match path still works in `src/Dormant.SourceGeneration/Schema/EntityBindingEmitter.cs`
 - [ ] T020 [P] [US1] Verify snapshot of generated DDL (PG + SQLite) for a member-constraint schema in `tests/Dormant.SourceGeneration.Tests/`
 - [ ] T021 [US1] Conformance: add a schema + tests in `tests/Dormant.Providers.ConformanceTests/` asserting each member constraint kind rejects violating rows on PostgreSQL and SQLite (regex SQLite per fallback)
 - [X] T022 [P] [US1] Diagnostic unit tests for ORM029/ORM030/ORM031 in `tests/Dormant.SourceGeneration.Tests/`
@@ -240,7 +254,7 @@ constraints beyond primary/concurrency parse into the model but are not yet emit
 
 - [X] T028 [US3] Implement constraint-name resolution (explicit `as` else deterministic `<table>_<cols>_<kind>`, research R-02) in `src/Dormant.SourceGeneration/Schema/EntityBindingEmitter.cs`
 - [X] T029 [US3] Render the resolved name via `RenderConstraintName` in both dialect renderers (inline `CONSTRAINT <name>`)
-- [ ] T030 [US3] Implement ORM032 duplicate-`as`-name detection (per module) in `src/Dormant.SourceGeneration/Parsing/SchemaValidator.cs`
+- [X] T030 [US3] Implement ORM032 duplicate-`as`-name detection (per module) in `src/Dormant.SourceGeneration/Parsing/SchemaValidator.cs`
 - [ ] T031 [P] [US3] Verify snapshot asserting explicit + default constraint names are stable across builds in `tests/Dormant.SourceGeneration.Tests/`
 - [ ] T032 [P] [US3] Conformance: query DB catalog to assert the constraint name on PG (and SQLite where applicable) in `tests/Dormant.Providers.ConformanceTests/`
 - [ ] T033 [P] [US3] Diagnostic test for ORM032 collision
@@ -288,7 +302,7 @@ constraints beyond primary/concurrency parse into the model but are not yet emit
 - [X] T046 [P] Update `highlights.scm` (constraint names, keywords) in `tooling/grammar/dormantql-tree-sitter/src/highlights.scm` and sync the Zed copy `tooling/zed-dormantql/languages/dormantql/highlights.scm`
 - [X] T047 [P] Update the TextMate keyword list (add `constraint`, `annotation`, `scalar`, `extending`, `abstract`, `on`, `as` + constraint/annotation names) in `tooling/grammar/dormantql-textmate/dormantql.tmLanguage.json` and the vendored copy `tooling/vscode-dormantql/syntaxes/dormantql.tmLanguage.json`
 - [ ] T048 Add constraint/scalar/inheritance fixtures + update real-sample parsing in `tooling/grammar/fixtures/` and run `tooling/grammar/validate-grammar.sh` (must stay green); bump the Zed grammar `commit` SHA in `tooling/zed-dormantql/extension.toml` after push
-- [ ] T049 Write the migration guide (old modifiers → constraints) under `tooling/docs/` (or `docs/`) and link from `specs/012-edgeql-constraints/quickstart.md`
+- [X] T049 Write the migration guide (old modifiers → constraints) under `tooling/docs/` (or `docs/`) and link from `specs/012-edgeql-constraints/quickstart.md`
 - [ ] T050 Update the DSL compatibility baseline + bump the package MAJOR version; record the breaking change + migration in release notes
 - [ ] T051 [P] AOT smoke: confirm `tests/Dormant.Aot.SmokeTests` schema (migrated) still publishes AOT-clean with constraints
 - [ ] T052 Full conformance + Verify sweep on `Dormant.slnx` (PG via Testcontainers + SQLite); `dotnet format` + CSharpier clean

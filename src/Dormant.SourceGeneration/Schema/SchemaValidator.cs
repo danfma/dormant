@@ -38,7 +38,46 @@ internal static class SchemaValidator
             ValidateConstraints(entity, diagnostics);
         }
 
+        ValidateConstraintNames(entities, diagnostics);
         return diagnostics;
+    }
+
+    // Feature 012 (ORM032): explicit `as {name}` constraint names must be unique within the module.
+    private static void ValidateConstraintNames(
+        IReadOnlyList<EntityModel> entities,
+        List<DiagnosticInfo> diagnostics
+    )
+    {
+        var seen = new HashSet<string>(System.StringComparer.Ordinal);
+        foreach (var entity in entities)
+        {
+            foreach (var p in entity.Properties)
+            {
+                foreach (var c in p.Constraints)
+                {
+                    CheckName(c);
+                }
+            }
+
+            foreach (var c in entity.Constraints)
+            {
+                CheckName(c);
+            }
+        }
+
+        void CheckName(ConstraintModel c)
+        {
+            if (c.SqlName is { Length: > 0 } && !seen.Add(c.SqlName))
+            {
+                diagnostics.Add(
+                    new DiagnosticInfo(
+                        DiagnosticDescriptors.DuplicateConstraintName,
+                        c.Location,
+                        new EquatableArray<string>([c.SqlName])
+                    )
+                );
+            }
+        }
     }
 
     // Feature 012: constraint/annotation semantic checks (ORM030/ORM031/ORM036).

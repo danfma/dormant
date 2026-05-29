@@ -16,8 +16,14 @@ internal abstract record SqlStatement;
 internal sealed record TableRef(string? Schema, string Name);
 
 /// <summary>A column definition for DDL: resolved name, DormantQL value type (the renderer maps it to a
-/// dialect SQL type), nullability, key.</summary>
-internal sealed record ColumnDef(string Name, string DslType, bool NotNull, bool PrimaryKey);
+/// dialect SQL type), nullability, key, and an optional literal DEFAULT (e.g. the concurrency token, 012).</summary>
+internal sealed record ColumnDef(
+    string Name,
+    string DslType,
+    bool NotNull,
+    bool PrimaryKey,
+    string? Default = null
+);
 
 /// <summary>
 /// A value supplied to an INSERT/UPDATE: a bound positional parameter (optionally a JSON value, which some

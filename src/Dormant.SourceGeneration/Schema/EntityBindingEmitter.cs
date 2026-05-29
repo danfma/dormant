@@ -41,7 +41,16 @@ internal static class EntityBindingEmitter
         // per dialect), NOT NULL iff the ref is required. Reads materialize value columns only; the FK
         // column is written by commands, read via the relationship.
         var ddlColumns = columns
-            .Select(p => new ColumnDef(Col(p, convention), p.DslType, !p.IsNullable, p.IsPrimary))
+            .Select(p => new ColumnDef(
+                Col(p, convention),
+                p.DslType,
+                !p.IsNullable,
+                p.IsPrimary,
+                // Feature 012: the optimistic-concurrency token defaults to 0 (incremented on update).
+                p.IsConcurrency
+                    ? "0"
+                    : null
+            ))
             .ToList();
         foreach (var reference in entity.References.Where(r => r.Kind == ReferenceKind.Ref))
         {

@@ -102,6 +102,11 @@ internal abstract class SqlDialectRendererBase : ISqlDialectRenderer
                 col += " PRIMARY KEY";
             }
 
+            if (!string.IsNullOrEmpty(c.Default))
+            {
+                col += " DEFAULT " + c.Default;
+            }
+
             parts.Add(col);
         }
 

@@ -86,6 +86,15 @@ public sealed class ConstraintDiagnosticsTests
     }
 
     [Test]
+    public async Task Duplicate_as_name_reports_ORM032()
+    {
+        var ids = DiagnosticIds(
+            "module d;\nentity E { id: Uuid { constraint primary; } a: String { constraint unique as dup; } b: String { constraint unique as dup; } }"
+        );
+        await Assert.That(ids).Contains("ORM032");
+    }
+
+    [Test]
     public async Task Unknown_annotation_reports_ORM036()
     {
         var ids = DiagnosticIds(
